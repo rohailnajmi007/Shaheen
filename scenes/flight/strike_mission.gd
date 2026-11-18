@@ -207,7 +207,7 @@ func _claimed(t: GroundTarget) -> bool:
 			continue
 		if not is_nan(b.guide_x) and is_equal_approx(b.guide_x, t.x_m):
 			return true
-		if is_nan(b.guide_x) and absf(Bomb.predict_impact_x(b.pos_m, b.vel_m, b.drag) - t.x_m) <= r:
+		if is_nan(b.guide_x) and absf(b.predicted_x - t.x_m) <= r:
 			return true
 	return false
 
@@ -321,7 +321,7 @@ func falling_impacts() -> PackedFloat32Array:
 				if not is_nan(b.guide_x):
 					out.append(b.guide_x)
 			else:
-				out.append(Bomb.predict_impact_x(b.pos_m, b.vel_m, b.drag))
+				out.append(b.predicted_x)
 	return out
 
 

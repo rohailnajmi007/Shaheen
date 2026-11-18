@@ -10,7 +10,9 @@ extends Node2D
 
 signal impacted(x_m: float)
 
-const PREDICT_STEP_S := 1.0 / 30.0
+## Prediction step: 0.1 s with the midpoint method is as accurate as 1/30 s
+## plain steps and ~3x cheaper (it runs often; web GDScript is slow).
+const PREDICT_STEP_S := 0.1
 const PREDICT_MAX_S := 30.0
 
 var pos_m := Vector2.ZERO
@@ -23,16 +25,22 @@ var draw_scale := 0.25
 ## Guided: ground x (m) to steer onto; NAN = unguided.
 var guide_x := NAN
 var guide_accel := 15.0
+## Where this bomb will hit (m): worked out once at release (unguided: it
+## never changes) or each tick while steering (guided). Read by the bomb
+## sight / release cue instead of predicting again every frame.
+var predicted_x := 0.0
 
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	predicted_x = predict_impact_x(pos_m, vel_m, drag)
 	_sync()
 
 
 func _physics_process(delta: float) -> void:
 	if not is_nan(guide_x):
 		var hit := predict_impact(pos_m, vel_m, drag)
+		predicted_x = hit.x
 		var need := (guide_x - hit.x) / maxf(hit.y, 0.3)   # extra forward speed needed
 		vel_m.x += clampf(need, -guide_accel * delta, guide_accel * delta)
 	vel_m = step(vel_m, drag, delta)
@@ -70,11 +78,15 @@ static func predict_impact(pos: Vector2, vel: Vector2, k: float) -> Vector2:
 	var p := pos
 	var v := vel
 	var t := 0.0
+	var dt := PREDICT_STEP_S
+	var g := Vector2(0.0, -WorldScale.GRAVITY)
 	while p.y > 0.0 and t < PREDICT_MAX_S:
 		var prev := p
-		v = step(v, k, PREDICT_STEP_S)
-		p += v * PREDICT_STEP_S
-		t += PREDICT_STEP_S
+		# Midpoint method (inlined: function calls are slow in GDScript).
+		var vm := v + (g - v * v.length() * k) * (dt * 0.5)
+		p += vm * dt
+		v += (g - vm * vm.length() * k) * dt
+		t += dt
 		if p.y <= 0.0:
 			var f := prev.y / maxf(prev.y - p.y, 0.0001)
 			return Vector2(lerpf(prev.x, p.x, f), t - PREDICT_STEP_S * (1.0 - f))
