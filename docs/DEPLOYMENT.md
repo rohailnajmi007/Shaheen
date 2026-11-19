@@ -1,69 +1,65 @@
 # Deployment: Vercel
 
-**Live:** https://shaheen-green.vercel.app (Vercel project `shaheen`, first deployed 2026-11-17). `build/web/.vercel/` holds the project link. Update it by double-clicking `deploy.bat`.
+**Live:** https://shaheen-green.vercel.app (Vercel project `shaheen`, first deployed 2026-11-17).
+Deploying publishes publicly: **only when the owner asks.** Update it by double-clicking `deploy.bat`.
 
 For now the game is deployed **only to Vercel**, as a static website. Don't set up other hosts.
 
-A Godot **Web export** is just a folder of static files (`index.html`, `.js`, `.wasm`, `.pck`). Vercel serves that folder; there's no server code and no build step on Vercel's side. Godot does the "build" on the owner's machine.
+The game is built on the owner's machine with Vite (`npm run build`), which writes a
+folder of static files to `dist/` (`index.html`, one JS file, one CSS file, sprites,
+font). Vercel serves that folder: no server code, no build step on Vercel's side.
 
-## 1. One-time setup in Godot
+(Until 2026-11 this was a Godot web export in `build/web/`. That folder and its
+instructions are obsolete.)
 
-1. Editor → Manage Export Templates → **Download and Install** (must match the Godot version, 4.7.2). They land in `%APPDATA%/Godot/export_templates/4.7.2.stable/`.
-2. The **Web export preset is already in the repo** (`export_presets.cfg`, preset name `"Web"`), so Project → Export shows it ready. For reference, its settings are:
-   - **Thread Support: OFF.** The game then runs without special cross-origin isolation headers (SharedArrayBuffer), which keeps hosting simple and works better on phones.
-   - Export path: `build/web/index.html` (the HTML file **must** be called `index.html`).
-   - Renderer must be **Compatibility** (Project Settings). Forward+ / Mobile won't run on the web.
-   - VRAM compression: keep "For Desktop" on.
-4. Add `build/` to `.gitignore` (exports aren't committed. We deploy the folder directly with the Vercel CLI).
+## 1. One-time setup
+
+1. Node.js 22+ (includes npm). Then in the project folder: `npm install`.
+2. Vercel CLI: `npm i -g vercel`, then `vercel login`.
+3. Link the folder to the existing project (once per PC):
+   `vercel link --project shaheen` in the project root. This writes `.vercel/project.json`
+   (git-ignored). It may also write `.env.local` (an access token): also git-ignored,
+   and it must never be uploaded.
 
 ## 2. Test locally first
 
-- Click the **Remote Debug / Run in Browser** button (top right of the Godot editor). Godot serves the game locally and opens it in the browser.
-- Double-clicking `index.html` will **not** work (browsers block it from `file://`).
+- `npm run dev` and open http://localhost:5173 (changes reload live).
+- For the real build: `npm run build` then `npm run preview`.
+- Double-clicking `dist/index.html` will not work (browsers block modules from `file://`).
 
-## 3. One-time Vercel setup
+## 3. Deploy
 
-1. Create a free Vercel account (Hobby plan) at vercel.com.
-2. Install Node.js, then the CLI: `npm i -g vercel`
-3. Log in: `vercel login`
+**Double-click `deploy.bat`** in the project folder (Windows). It:
+1. runs `npm install` if `node_modules/` is missing,
+2. runs `npm run build` and stops with a message if it fails,
+3. copies the saved link `.vercel/` into `dist/` (every build empties `dist/`),
+4. deletes `dist\.env.local` if present,
+5. runs `vercel deploy dist --prod --yes`.
 
-## 4. Deploy
-
-From the project root, after exporting to `build/web`:
-
+By hand, the same thing:
 ```
-vercel deploy build/web --prod
+npm run build
+xcopy /e /i /y .vercel dist\.vercel
+vercel deploy dist --prod
 ```
 
-The first run asks some setup questions. Link it to a new project (e.g. `shaheen-prototype`), framework preset **Other**, **no** build command, output directory `.` (the folder itself). This creates `build/web/.vercel/` with the project link. If the export folder is ever wiped, run the command again and link it to the same existing project.
+If the link is ever lost, `vercel link --project shaheen` again (pick the existing
+project, never create a new one, or the URL changes).
 
-After that, every update is:
-1. Export from Godot (Project → Export → Web → Export Project → `build/web/index.html`).
-2. `vercel deploy build/web --prod`
+Don't connect the GitHub repo to Vercel's automatic Git deployments: every push would
+then publish, and we only deploy when the owner asks.
 
-**Shortcut: double-click `deploy.bat`** in the project folder (Windows). It runs the export and then the deploy command below, and stops with a message if the export fails (usually: templates not installed). The commands it runs:
-```
-godot --headless --export-release "Web" build/web/index.html
-vercel deploy build/web --prod
-```
-(`"Web"` must match the export preset name. The `godot` command must be on PATH.)
+## 4. Sharing with friends
 
-## 5. Sharing with friends
-
-- Use the **production URL** (e.g. `https://shaheen-prototype.vercel.app`). Anyone with the link can play. No install, no account.
+- Use the **production URL** (https://shaheen-green.vercel.app). Anyone with the link can play. No install, no account.
 - **Preview** deployments (without `--prod`) are protected by Vercel login by default, so friends can't open them. Always send the production URL.
 - The production URL is public to anyone who has it. Password protection is a paid Vercel feature, so for a private prototype just don't post the link publicly.
 
-## 6. Optional `vercel.json`
+## 5. Notes and gotchas
 
-Not required with Thread Support off. If loading feels slow, caching can be tuned later by placing a `vercel.json` in `build/web/` (and re-creating it after exports, or generating it from the deploy script). Leave this until there's a reason.
-
-## 7. Notes and gotchas
-
-- If the editor's template download stalls, only two files are needed for this preset: `web_nothreads_debug.zip` and `web_nothreads_release.zip` in `%APPDATA%/Godot/export_templates/4.7.2.stable/` (both from the official `Godot_v4.7.2-stable_export_templates.tpz`).
-- `vercel link` writes a `.env.local` (an access token) into the folder it's run in. `deploy.bat` deletes it from `build/web` before uploading so it never ends up on the public site.
-
-- First load downloads the engine (roughly 10–40 MB). Keep assets small.
-- Browsers block audio until the player clicks or presses a key. The start screen handles this naturally.
-- Web saves (later) go to browser storage via `user://`.
-- Test on Chrome desktop first. Phone browsers (especially iOS Safari) can be less reliable for WebGL, and mobile isn't a target yet anyway.
+- The build is small (about 37 KB gzipped JS + 5 KB CSS + sprites), so it loads fast. Keep assets small.
+- Browsers block audio until the player clicks or presses a key. The start screen handles this (`sound.unlock()`).
+- Saves live in the browser's `localStorage` (per browser, per device).
+- `vite.config` doesn't exist: defaults are fine (site served from `/`). If the game
+  is ever served from a sub-path, set Vite's `base` and keep using `import.meta.env.BASE_URL` for asset paths.
+- Test on Chrome desktop first, then a phone browser.

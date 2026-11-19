@@ -5,7 +5,7 @@
 (needs Pillow: pip install pillow)
 
 For each aircraft in CONFIGS it removes the white background and writes
-aligned layers to assets/sprites/<name>_<layer>.png:
+aligned layers to public/sprites/<name>_<layer>.png:
   body - the aircraft (minus gear/prop if those are split out)
   gear - landing gear cut from the art (slides up to retract), optional
   prop - propeller blades (shown while the engine runs), optional
@@ -15,7 +15,7 @@ Front-view configs (k8_front, jf17_front, f16_front) make parked-aircraft scener
              the same art without the tailplane (under_src)
 Textures are stored at TEXTURE_SCALE x the on-screen size and drawn scaled
 down with mipmaps, so they look like the art rather than blocky.
-It prints texture-space positions to copy into data/aircraft/<name>.tres.
+It prints texture-space positions to copy into src/data/aircraft.js (pivot, gearTravel, lights, ...).
 """
 import sys
 from collections import deque
@@ -212,7 +212,7 @@ def build(name, cfg):
         out["elevator"] = elev
         out["body"] = under
     for layer, img in out.items():
-        img.save("assets/sprites/%s_%s.png" % (name, layer))
+        img.save("public/sprites/%s_%s.png" % (name, layer))
 
     def t(x, y):
         return round((x - box[0]) * k, 1), round((y - box[1]) * k, 1)

@@ -1,5 +1,7 @@
 # Combat notes
 
+> **JavaScript port (2026-11-19):** written for the Godot version, so file names below (`.gd`, `.tres`, `res://`) are the old ones. The behaviour and numbers still apply. Now: weapons, targets and impact prediction in `src/sim/flight.js`, drawing in `src/render/renderer.js`, bomb sight in `src/ui/hud.js`. Full map: `TECH.md` "Godot to JS map".
+
 Air to ground, pulled forward from Phase 6 at the owner's request (2026-11-18).
 Keep up to date when combat decisions change.
 

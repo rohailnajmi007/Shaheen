@@ -1,7 +1,0 @@
-[gd_scene format=3 uid="uid://dsx25byako2uk"]
-
-[ext_resource type="PackedScene" path="res://scenes/flight/flight.tscn" id="1_flight"]
-
-[node name="Main" type="Node" unique_id=1504155359]
-
-[node name="Flight" parent="." unique_id=83218274 instance=ExtResource("1_flight")]

@@ -24,7 +24,7 @@ Career and pay, unlocks, mission planner, weapons, weather, night, emergencies, 
 
 ## Technical setup
 
-- Godot 4 (latest stable), GDScript, **Compatibility** renderer.
+- Originally Godot 4 (GDScript, Compatibility renderer); since 2026-11 JavaScript + Vite + Canvas 2D (see `docs/notes/TECH.md`).
 - Viewport 640×360, stretch mode `viewport`, aspect `keep`, scale mode `integer`, default texture filter `Nearest`.
 - Window size for desktop testing: 1280×720 (2× scale).
 - Input actions defined in Project Settings → Input Map (owner's key layout):

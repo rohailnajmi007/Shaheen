@@ -1,5 +1,7 @@
 # Aircraft notes
 
+> **JavaScript port (2026-11-19):** written for the Godot version, so file names below (`.gd`, `.tres`, `res://`) are the old ones. The behaviour and numbers still apply. Now: aircraft data in `src/data/aircraft.js` (snake_case fields are camelCase), sprites in `public/sprites/` (unchanged), tools write there, drawing in `src/render/renderer.js`. Per-aircraft cockpit styles (analog panel) are not ported yet. Full map: `TECH.md` "Godot to JS map".
+
 The flyable aircraft, their data and art, the sprite tool, ranks and lights. Moved from CLAUDE.md "Working notes" (2026-11-18); keep up to date.
 
 ## Notes

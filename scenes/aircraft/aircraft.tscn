@@ -1,9 +1,0 @@
-[gd_scene load_steps=3 format=3]
-
-[ext_resource type="Script" path="res://scenes/aircraft/aircraft.gd" id="1_aircraft"]
-[ext_resource type="Resource" path="res://data/aircraft/super_mushshak.tres" id="2_data"]
-
-[node name="Aircraft" type="Node2D"]
-script = ExtResource("1_aircraft")
-texture_filter = 4
-data = ExtResource("2_data")

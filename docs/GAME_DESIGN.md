@@ -115,4 +115,4 @@ Distances between bases are compressed so flights take a few minutes, not real-w
 | Restart mission | R |
 | Debug readout (tuning numbers) | F1 |
 
-All controls go through Godot InputMap actions (no hard-coded keys in scripts), so gamepad and touch can be mapped later. Rebinding in an options menu comes later.
+All controls go through named actions in `src/input.js` (no hard-coded keys elsewhere; was the Godot InputMap), so gamepad and touch can be mapped later. Rebinding in an options menu comes later.

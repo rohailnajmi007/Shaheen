@@ -1,5 +1,7 @@
 # Flight model notes
 
+> **JavaScript port (2026-11-19):** written for the Godot version, so file names below (`.gd`, `.tres`, `res://`) are the old ones. The behaviour and numbers still apply. Now: flight model in `src/sim/aircraft.js`, landing judge, grades and crashes in `src/sim/flight.js`, numbers in `src/data/aircraft.js`. Full map: `TECH.md` "Godot to JS map".
+
 Flight physics, handling, takeoff/landing rules, grading, crashes and G effects. Measured numbers are from test scripts; re-measure after changing a value. Moved from CLAUDE.md "Working notes" (2026-11-18); keep up to date.
 
 ## Notes

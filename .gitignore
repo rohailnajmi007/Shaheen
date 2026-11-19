@@ -1,12 +1,4 @@
-# Godot
-.godot/
-/android/
-
-# Exports (deployed directly, never committed)
-build/
+node_modules
+dist
 .vercel/
-
-# OS
-Thumbs.db
-desktop.ini
-.DS_Store
+.env.local

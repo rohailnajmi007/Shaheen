@@ -1,6 +1,6 @@
 # Project Shaheen (working title)
 
-2D side-view pixel-art flight game around the Pakistan Air Force: fly real PAF
+2D side-view flight game around the Pakistan Air Force: fly real PAF
 aircraft between named PAF bases (start up, take off, fly, land). Inspired by
 TU-95 (lo-fi "fly A to B", but much less clunky) and Air Offense Command (side
 view, plane flies right over a scrolling landscape; its ground attack comes later).
@@ -8,6 +8,10 @@ view, plane flies right over a scrolling landscape; its ground attack comes late
 Read before working: `docs/GAME_DESIGN.md` (long-term vision, NOT a to-do list),
 `docs/ROADMAP.md` (phased chunks), `docs/PROTOTYPE_SPEC.md` (current milestone),
 `docs/DEPLOYMENT.md`.
+
+**The game is now JavaScript** (ported from Godot in 2026-11, PR #1; the Godot
+version is tag `godot-final`). Older notes still name Godot files: the behaviour
+still applies; `docs/notes/TECH.md` "Godot to JS map" says where it lives now.
 
 ## Current focus: prototype only
 Career, money, unlocks, mission planner, weapons, weather, mobile, back end are
@@ -17,10 +21,12 @@ out of scope until the owner says otherwise.
 - One roadmap chunk (or owner request) at a time. Nothing from later phases
   "while you're at it": leave a TODO in the roadmap.
 - End of each chunk: summarise, say how to test (keys, what should happen), stop.
-- Keep the game runnable in Godot at every step.
+- Keep the game runnable (`npm run dev`, `npm run build` clean) at every step.
 - Feel over realism: arcade flight model, believable but fun and readable.
-- Data-driven: aircraft and bases are `.tres` resources, not hard-coded.
-- Every tunable number is exposed (`@export` or resource field).
+- Data-driven: aircraft in `src/data/aircraft.js`, bases/routes/themes/times of
+  day in `src/data/world.js`, not hard-coded in sim or render code.
+- Every tunable number is exposed: a data field, or a named constant at the top
+  of its module.
 - Git: small commits per step; **always ask before pushing**. Remote `origin` =
   github.com/rohailnajmi007/Shaheen, branch `main`.
 - **Deploy (Vercel) only when the owner asks**: it publishes publicly.
@@ -28,37 +34,42 @@ out of scope until the owner says otherwise.
   `docs/notes/*.md` file when a decision there changes.
 
 ## Tech
-- Godot 4.7.2, GDScript only, Compatibility renderer, web first (Vercel,
-  https://shaheen-green.vercel.app), Windows second. No back end.
-- Executables: `godot` (editor, `godot -e`) and `godot_console` (CLI) under
-  `C:\Users\rohai\AppData\Local\Microsoft\WinGet\Links\`.
-- Headless check: `godot_console --headless --path . --import`, then
-  `--headless --path . --quit-after 120`. Test scripts (`extends SceneTree`) go in
-  the scratchpad, run with `-s`; screenshots need a window (not headless).
-  Details: `docs/notes/TECH.md`.
+- JavaScript (ES modules), Vite 7, Canvas 2D for the world, HTML/CSS for HUD and
+  menus, Web Audio for sound. Web first (Vercel, https://shaheen-green.vercel.app).
+  No back end; saves in `localStorage`.
+- `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (-> `dist/`).
+- Checks: `npm run build` must be clean. Headless sim tests: Node scripts in the
+  scratchpad importing `src/sim/flight.js` (no DOM there). Visual checks need the
+  browser. Details: `docs/notes/TECH.md`.
 
 ## Rules that bite often
-- **Never `queue_redraw()` static scenery every frame** (web lag). See TECH.md.
-- The editor strips `.tres` values equal to script defaults when re-saving: keep
-  aircraft `.tres` explicit; restore from git if stripped.
-- Units: physics SI, drawing 4 px/m (`scripts/world_scale.gd`); altitude A m is
-  drawn at y = -A*4. Aircraft origin = main wheel contact point.
-- Layout: scene scripts next to their `.tscn`; shared scripts in `scripts/`;
-  Resource classes in `scripts/data/`; data in `data/`. `docs/` is `.gdignore`d.
-- Controls (source of truth: Input Map): Up/Down throttle (hold), Left nose up,
-  Right nose down, E engine, F flaps, G gear, B brake, T fuel truck, Space drop
-  bomb (air-to-ground mission), Esc pause,
-  R restart, F1 debug.
+- **Never rebuild static scenery every frame** (web lag). Scenery is drawn once
+  into offscreen canvas tiles; frames only `drawImage` them and draw moving parts.
+- `src/sim/` and `src/data/` must not touch the DOM (they run in Node for tests).
+- Aircraft look must not change by accident: sprites in `public/sprites/` come
+  from `tools/make_aircraft_sprites.py` / `tools/make_badge.py` (owner's art in
+  `docs/reference/`); sprite positions (`pivot`, `gearTravel`, `lights`, ...) in
+  `src/data/aircraft.js` are texture px.
+- Units: physics SI; screen scale `v.S` px/m = viewport height / 720 * 7.2 * zoom.
+  Aircraft origin = main wheel contact point (`pivot`).
+- Layout: `src/sim` (physics, rules), `src/render` (canvas), `src/ui` (HTML HUD,
+  menus), `src/data` (numbers), `public/` (static files), `tools/` (Python art
+  tools), `docs/` (not part of the build).
+- Controls (source of truth: `src/input.js`): Up/Down throttle (hold), Left nose
+  up, Right nose down (WASD too), E engine, F flaps, G gear, B brake, T fuel
+  truck, Space drop bomb (air-to-ground mission), Z zoom, H help, M mute,
+  Esc/P pause, R restart, F3 FPS. (Old F1 debug label: not ported yet.)
 - Instructor lines: aggressive, short shouted English, occasional censored curse
   (d*mn, h*ll, sh*tting, f*ck), nothing corny, under ~110 characters.
 - Ranks: Mushshak AVN CDT, F-16A/D SQN LDR, Mirage V FLT LT.
 
 ## Visual style
-640x360 base viewport, stretch `canvas_items`, integer scaling, nearest filter
-(aircraft sprites use linear + mipmaps). Side view, plane flies left to right,
-camera follows with look-ahead, parallax layers. Stylised bases, never real
-layouts or satellite imagery. Placeholders at final size. Chakra Petch SemiBold
-font, smoothed (sizes 8 or 16; owner wanted clearer text than the old pixel font).
+Side view, plane flies left to right, camera follows with look-ahead and zooms out
+with speed and on bomb runs, parallax layers, four times of day. Renders at full
+window resolution (the port dropped the old 640x360 pixel scaling; owner accepted).
+Aircraft are the owner's sprite art, unchanged from the Godot version. Stylised
+bases, never real layouts or satellite imagery. Placeholders at final size.
+Chakra Petch SemiBold font.
 
 ## Content and sensitivity
 Real PAF base and aircraft names; scenery stylised and invented, no sensitive
@@ -73,7 +84,7 @@ permission (owner decides later).
 - `docs/notes/WORLD.md`: shared world and bases, Masroor/Mushaf scenery,
   refuelling stop, parked aircraft, landmarks, night mode, camera framing
 - `docs/notes/UI.md`: start screen steps, HUD layout and parts, radar,
-  instructor portrait, result screen, GameState
+  instructor portrait, result screen, saves
 - `docs/notes/COMBAT.md`: air-to-ground mission, bombs, targets, bomb sight
-- `docs/notes/TECH.md`: project structure, rendering, smooth motion,
-  performance rules and measurements, testing recipes, web deploy
+- `docs/notes/TECH.md`: stack, project structure, Godot to JS map, rendering,
+  performance rules, testing recipes, git, sprite tools

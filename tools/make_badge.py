@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from make_aircraft_sprites import remove_background  # noqa: E402
 
 SRC = "docs/reference/paf_pilot_wings_source.png"
-OUT = "assets/sprites/paf_pilot_wings.png"
+OUT = "public/sprites/paf_pilot_wings.png"
 DISPLAY_WIDTH = 64   # px on the 640x360 layout
 TEXTURE_SCALE = 4
 
