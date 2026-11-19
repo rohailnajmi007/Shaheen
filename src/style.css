@@ -242,7 +242,7 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 /* Debrief: military report sheet with a rubber-stamp headline (owner, 2026-11-19). */
 .debrief {
   --ink: #d8cfa6; --ink-dim: #8f8a6c; --tone: #6fdc8c;
-  width: min(580px, 94vw); gap: 14px; border-radius: 4px; padding: 0 0 20px;
+  width: min(580px, 94vw); gap: 14px; border-radius: 4px; padding: 0 0 20px; max-height: 96vh; overflow-y: auto;
   font-family: 'Chakra Petch', system-ui, sans-serif; color: var(--ink);
   background:
     repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px),
@@ -269,6 +269,10 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .drow.ok b { color: #6fdc8c; } .drow.warn b { color: #ffc24a; } .drow.bad b { color: #ff5a4a; }
 .debrief .reasons { padding: 0 22px; text-align: left; font-family: Consolas, 'Courier New', monospace; font-size: 13px; }
 .debrief .reasons li::before { content: 'REMARKS: '; color: var(--ink-dim); }
+.debrief.brief .drow b { text-align: right; }
+.bnotes { margin: 0; padding: 0 22px; list-style: none; display: grid; gap: 4px; font-family: Consolas, 'Courier New', monospace; font-size: 12.5px; color: var(--ink); text-align: left; }
+.bnotes li::before { content: '> '; color: var(--tone); }
+.debrief.brief .rscore b { font-size: 18px; }
 .dfoot { padding: 4px 22px 0; border-top: 1px solid #33331f; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .debrief .rscore { color: var(--ink-dim); }
 .debrief .rscore b { color: var(--ink); }

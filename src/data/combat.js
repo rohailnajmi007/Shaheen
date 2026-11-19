@@ -13,7 +13,7 @@ export const GROUND_UNITS = {
   launcher: { label: 'MISSILE LAUNCHER', role: 'objective', w: 16, h: 7, hp: 70, armour: 0.8 },
   tank: { label: 'TANK', role: 'objective', w: 11, h: 5, hp: 140, armour: 0.2 },
   apc: { label: 'APC', role: 'objective', w: 10, h: 4.5, hp: 80, armour: 0.55 },
-  aaa: { label: 'AAA', role: 'aaa', w: 8, h: 3.5, hp: 35, armour: 0.8 },
+  aaa: { label: 'AAA', role: 'aaa', w: 11, h: 5, hp: 35, armour: 0.8 },
   samRadar: { label: 'SAM (RADAR)', role: 'sam', w: 14, h: 7, hp: 50, armour: 0.8 },
   samIr: { label: 'SAM (IR)', role: 'sam', w: 10, h: 5, hp: 40, armour: 0.7 },
 };
@@ -23,7 +23,7 @@ export const STRIKE = {
   objectives: [4, 5],                 // mission targets: random count in this range
   objectiveKinds: ['satcom', 'radar', 'fuel', 'bunker', 'launcher', 'tank', 'apc'],
   gapM: [450, 850],                   // between mission targets
-  aaa: [2, 3],                        // AAA guns, each near a mission target
+  aaa: [1, 1],                        // AAA guns, each near a mission target (owner: one)
   aaaOffsetM: [-260, 220],            // ... this far from it
   sams: [1, 2],                       // SAM sites (one radar, one IR when two)
   samBeforeM: 1200,                   // first SAM this far before the first target
@@ -52,18 +52,26 @@ export const AIR_DEFENCE = {
   samRadar: {
     seeker: 'radar', rangeM: 6500, minAltM: 45, maxAltM: 5500, lockS: 3, reloadS: 9, missiles: 2,
     missile: { boostS: 3, boostAcc: 240, maxSpeed: 780, dragK: 0.00022, navN: 4, maxG: 28, lifeS: 16,
-      gimbalDeg: 65, fuseM: 15, dmgMax: 75, dmgMin: 30, decoyChance: 0.55 },
+      gimbalDeg: 65, fuseM: 15, dmgMax: 75, dmgMin: 30, decoyChance: 0.75 },
   },
   // Infrared SAM: no lock warning (passive seeker), only the launch is seen. Decoyed by flares.
   samIr: {
     seeker: 'ir', rangeM: 4200, minAltM: 8, maxAltM: 3000, lockS: 1.8, reloadS: 7, missiles: 2,
     missile: { boostS: 2.2, boostAcc: 290, maxSpeed: 680, dragK: 0.0003, navN: 4, maxG: 22, lifeS: 11,
-      gimbalDeg: 55, fuseM: 10, dmgMax: 70, dmgMin: 25, decoyChance: 0.7 },
+      gimbalDeg: 55, fuseM: 10, dmgMax: 70, dmgMin: 25, decoyChance: 0.85 },
   },
 };
 
 // Flares and chaff (aircraft carry counts in src/data/aircraft.js: flares, chaff).
+// A decoy alone rarely works (owner): the chance a salvo pulls a missile off is
+// decoyChance x geometry, geometry = base + beam x (how square the jet flies across
+// the missile's line of sight: 0 flying straight at/away from it, 1 at right angles)
+// + g x (how hard it pulls, full at gFull). And a seduced missile whose seeker still
+// sees the jet within reacquireDeg of the decoy (jet flying on in line with it)
+// re-acquires the jet at reacquirePerS. So: decoys AND break across the missile.
 export const COUNTERMEASURES = {
+  geomBase: 0.12, beamWeight: 0.6, gWeight: 0.35, gFull: 5,
+  reacquireDeg: 2.5, reacquirePerS: 2.5, reacquireAfterS: 0.6, // ... checked once the decoy is this old
   perPress: 2,      // cartridges per press (a salvo)
   rangeM: 3500,     // a missile further than this from the jet ignores them (too early)
   minRangeM: 120,   // ... closer than this it is too late

@@ -5,7 +5,7 @@ import { Flight } from './sim/flight.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { Hud } from './ui/hud.js';
-import { Menu, Pause, Result, loadSettings, saveSettings, getBest, setBest } from './ui/screens.js';
+import { Menu, Pause, Result, Briefing, loadSettings, saveSettings, getBest, setBest } from './ui/screens.js';
 import { AIRCRAFT, aircraftById } from './data/aircraft.js';
 import { BASES } from './data/world.js';
 
@@ -46,6 +46,10 @@ const result = new Result(document.getElementById('result'), {
   onRetry: () => startFlight(flightOpts),
   onMenu: () => toMenu(),
 });
+const briefing = new Briefing(document.getElementById('briefing'), {
+  onStart: () => { briefing.hide(); last = performance.now(); },
+  onMenu: () => { briefing.hide(); toMenu(); },
+});
 
 function setupDemo(o) {
   // Backdrop: the selected aircraft's home base.
@@ -71,6 +75,7 @@ function startFlight(o) {
   sound.startFlight(flight.data);
   hud.start(flight, o);
   menu.hide(); result.hide(); pause.hide();
+  briefing.show(flight, o);
   mode = 'flight';
   endTimer = -1;
   acc = 0;
@@ -78,7 +83,7 @@ function startFlight(o) {
 
 function toMenu() {
   sound.stopFlight();
-  pause.hide(); result.hide(); hud.hide();
+  pause.hide(); result.hide(); hud.hide(); briefing.hide();
   flight = null;
   mode = 'menu';
   setupDemo(settings);
@@ -119,6 +124,10 @@ function soundFx(f) {
 function handleActions() {
   for (const a of input.actions()) {
     if (mode === 'menu') continue;
+    if (briefing.open) {
+      if (a === 'pause') { briefing.hide(); toMenu(); }
+      continue;
+    }
     if (result.open) {
       if (a === 'restart') startFlight(flightOpts);
       if (a === 'pause') toMenu();
@@ -136,6 +145,7 @@ function handleActions() {
 
 addEventListener('keydown', (e) => {
   sound.unlock();
+  if (briefing.open && e.code === 'Enter' && !briefing.fresh) { e.preventDefault(); briefing.hide(); last = performance.now(); return; }
   if (result.open && e.code === 'Enter') { e.preventDefault(); startFlight(flightOpts); }
   if (e.code === 'F3') { e.preventDefault(); fpsEl.classList.toggle('show'); }
 });
@@ -157,6 +167,7 @@ function frame(now) {
     return;
   }
   if (pause.open) return;
+  if (briefing.open) { renderer.renderFlight(flight, 0, dt); return; } // waits for the pilot
   acc += dt;
   const st = input.state();
   while (acc >= STEP) {

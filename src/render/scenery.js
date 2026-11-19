@@ -697,7 +697,10 @@ function apc(time, R, dead) {
 // renderer (they track the jet), pivoting at 80% of the height in the middle.
 function aaaSite(time, R, dead) {
   const L = time.light;
-  return sprite(8, 3.5, R, (x, W, H, R) => {
+  // Drawn in 8 x 3.5 m units, scaled up to the unit's size (owner: easier to see).
+  return sprite(11, 5, R, (x, W0, H0, R) => {
+    x.scale(11 / 8, 5 / 3.5);
+    const H = H0 / (5 / 3.5);
     x.fillStyle = shade(dead ? BURNT : '#a89a72', L);
     for (const [cx, w] of [[1.4, 2.6], [6.6, 2.6]]) { x.beginPath(); x.ellipse(cx * R, H, w / 2 * R, 1.4 * R, 0, Math.PI, 0); x.fill(); }
     x.fillStyle = shade(dead ? '#1f1d1b' : DARKOLIVE, L);

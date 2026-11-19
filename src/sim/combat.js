@@ -286,8 +286,8 @@ export class Combat {
     t.reload = P.reloadS;
     t.lockT = 0;
     this.f.emit('samLaunch', { x: t.x, y: t.h, seeker: P.seeker });
-    if (P.seeker === 'ir') this.f.say('MISSILE LAUNCH! Heat seeker! FLARES, X! NOW!', true);
-    else this.f.say('SAM LAUNCH! Radar missile! CHAFF, C! Break!', true);
+    if (P.seeker === 'ir') this.f.say('MISSILE LAUNCH! Heat seeker! FLARES, X, and BREAK hard across it!', true);
+    else this.f.say('SAM LAUNCH! Radar! CHAFF, C, and turn across it! Don\'t run straight!', true);
   }
 
   stepThreats(dt) {
@@ -300,8 +300,16 @@ export class Combat {
       // Target: the jet, a decoy, or nothing (seeker lost: flies on ballistic).
       let tx, ty, tvx, tvy;
       if (m.target === 'ac' && this.airborne()) { tx = c.x; ty = c.y; tvx = a.vel.x; tvy = a.vel.y; }
-      else if (m.target && m.target !== 'ac' && m.target.t < m.target.life) { tx = m.target.x; ty = m.target.y; tvx = m.target.vx; tvy = m.target.vy; }
-      else m.target = null;
+      else if (m.target && m.target !== 'ac' && m.target.t < m.target.life) {
+        tx = m.target.x; ty = m.target.y; tvx = m.target.vx; tvy = m.target.vy;
+        // Jet still in line with the decoy as the seeker sees it: it may pick the jet back up.
+        if (this.airborne() && m.target.t > COUNTERMEASURES.reacquireAfterS) {
+          const sep = Math.abs(wrap(Math.atan2(c.y - m.y, c.x - m.x) - Math.atan2(ty - m.y, tx - m.x)));
+          if (sep < COUNTERMEASURES.reacquireDeg * D2R && Math.random() < COUNTERMEASURES.reacquirePerS * dt) {
+            m.target = 'ac'; tx = c.x; ty = c.y; tvx = a.vel.x; tvy = a.vel.y;
+          }
+        }
+      } else m.target = null;
       let s = Math.hypot(m.vx, m.vy) || 1;
       if (m.target && m.t > 0.3) {
         const rx = tx - m.x, ry = ty - m.y;
@@ -389,13 +397,26 @@ export class Combat {
       if (m.seeker !== seeker || m.target !== 'ac') continue;
       const dist = Math.hypot(m.x - c.x, m.y - c.y);
       if (dist > C.rangeM || dist < C.minRangeM) continue;
-      if (Math.random() < m.M.decoyChance) m.target = made[Math.floor(Math.random() * made.length)];
+      if (Math.random() < m.M.decoyChance * this.decoyGeometry(m)) m.target = made[Math.floor(Math.random() * made.length)];
     }
     if (kind === 'chaff') {
       for (const t of this.f.targets) {
         if (t.kind === 'samRadar' && t.lockT > 0 && Math.random() < C.chaffBreaksLock) t.lockT = 0;
       }
     }
+  }
+
+  // How well the jet's flight helps a decoy against missile m (0..1): flying across
+  // the missile's line of sight and pulling G separate the jet from its decoys.
+  decoyGeometry(m) {
+    const C = COUNTERMEASURES;
+    const a = this.f.ac;
+    const c = this.hitCentre();
+    const lx = c.x - m.x, ly = c.y - m.y;
+    const l = Math.hypot(lx, ly) || 1, s = a.speed || 1;
+    const beam = Math.abs((lx * a.vel.y - ly * a.vel.x) / (l * s));
+    const g = clamp(Math.abs(a.gLoad - 1) / C.gFull, 0, 1);
+    return clamp(C.geomBase + C.beamWeight * beam + C.gWeight * g, 0, 1);
   }
 
   stepDecoys(dt) {

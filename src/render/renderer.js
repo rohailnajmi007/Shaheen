@@ -525,12 +525,12 @@ export class Renderer {
     ctx.translate(px, py);
     ctx.rotate(-ang);
     ctx.fillStyle = t.alive ? '#2f3326' : '#1c1a18';
-    ctx.fillRect(-0.6 * S, -0.55 * S, 4.6 * S, 0.32 * S);
-    ctx.fillRect(-0.6 * S, 0.2 * S, 4.6 * S, 0.32 * S);
+    ctx.fillRect(-0.8 * S, -0.75 * S, 6.4 * S, 0.45 * S);
+    ctx.fillRect(-0.8 * S, 0.3 * S, 6.4 * S, 0.45 * S);
     if (t.firing && Math.random() < 0.7) {
       ctx.globalCompositeOperation = 'lighter';
-      const r = (1.2 + Math.random()) * S;
-      ctx.drawImage(SOFT.warm, 4 * S - r, -r, r * 2, r * 2);
+      const r = (2 + Math.random() * 1.5) * S;
+      ctx.drawImage(SOFT.warm, 5.8 * S - r, -r, r * 2, r * 2);
       ctx.globalCompositeOperation = 'source-over';
     }
     ctx.restore();
