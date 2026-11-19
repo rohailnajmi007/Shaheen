@@ -6,6 +6,9 @@ import { drawBombSight, ReleaseCue } from './weapon_aids.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+// Flying name tag: largest name size (px) and the width the name may fill (px).
+const NAMETAG_FONT_PX = 20;
+const NAMETAG_TEXT_W = 148;
 
 const HELMET = `<svg viewBox="0 0 64 64" aria-hidden="true">
   <defs><linearGradient id="hv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5d7da8"/><stop offset="1" stop-color="#0d1626"/></linearGradient></defs>
@@ -49,7 +52,7 @@ export class Hud {
       </div>
       <canvas class="cue-cv"></canvas>
       <div class="card refuel"><label>REFUELLING</label><div class="rbar"><i></i></div></div>
-      <div class="nameplate"><img class="wings" alt="" /><div><div class="rank"></div><div class="pname"></div></div></div>
+      <div class="nameplate"><div class="rank"></div><img class="wings" alt="" /><div class="tagname"></div></div>
       <div class="keys"></div>
       <div class="touch">
         <div class="tleft">
@@ -109,9 +112,13 @@ export class Hud {
   start(flight, opts) {
     this.flight = flight;
     const d = flight.data;
-    $('.wings', this.root).src = `${import.meta.env.BASE_URL}sprites/paf_pilot_wings.png`;
-    $('.rank', this.root).textContent = d.rank;
-    $('.pname', this.root).textContent = (opts.name || 'Shaheen').toUpperCase();
+    // Embroidered name tag: rank top right, wings (crescent colour = rank), name.
+    $('.wings', this.root).src = `${import.meta.env.BASE_URL}sprites/paf_pilot_wings_${d.rankBadge}.png`;
+    $('.rank', this.root).textContent = d.rankFull.toUpperCase();
+    const tag = $('.tagname', this.root);
+    tag.textContent = (opts.name || 'Shaheen').toUpperCase();
+    // Long names get smaller thread so they stay on the patch.
+    tag.style.fontSize = `${Math.min(NAMETAG_FONT_PX, NAMETAG_TEXT_W / (tag.textContent.length * 0.97))}px`;
     this.cockpit.setAircraft(d);
     this.cue.hide();
     this.cache.clear();

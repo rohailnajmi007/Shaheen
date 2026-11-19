@@ -69,6 +69,7 @@ One chunk at a time, in this order (owner chose sound first).
   - Owner requests (2026-11-19, third round): attack-run camera fixed (COMBAT.md); home bases per aircraft (WORLD.md); JF-17 Thunder added, weapons TBD (AIRCRAFT.md).
   - Owner fixes (2026-11-19, fourth round): JF-17 no longer greyed out in the menu; crash fire/smoke fixed (dev-server double module load); structural crash breakup; JF-17 colour glass cockpit.
   - Owner requests (2026-11-19, fifth round): JF-17 armed with the Ra'ad cruise missile (COMBAT.md); tail-top double-flash strobe on all aircraft (AIRCRAFT.md); no mountains at Karachi (WORLD.md).
+  - Owner requests (2026-11-19, sixth round): embroidered flying name tag on the HUD (rank, crescent-coloured wings, name; UI.md); ranks now Mirage FLT LT, JF-17 SQN LDR, F-16s WG CDR (AIRCRAFT.md).
   - TODO (owner): confirm JF-17 rank (FLT LT for now).
   - TODO (not ported yet, owner to pick what to bring back): instructor portrait in the message box, cadet name plate (wings + rank + name), F1 debug label. Not yet played/checked in detail against the Godot feel: landing grades, bounce, refuelling stop, night lights, parked aircraft.
 

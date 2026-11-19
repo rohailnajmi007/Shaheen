@@ -61,7 +61,8 @@ out of scope until the owner says otherwise.
   Esc/P pause, R restart, F3 FPS. (Old F1 debug label: not ported yet.)
 - Instructor lines: aggressive, short shouted English, occasional censored curse
   (d*mn, h*ll, sh*tting, f*ck), nothing corny, under ~110 characters.
-- Ranks: Mushshak AVN CDT, F-16A/D SQN LDR, Mirage V FLT LT, JF-17 FLT LT.
+- Ranks (owner, 2026-11-19): Mushshak AVN CDT, Mirage V FLT LT, JF-17 SQN LDR,
+  F-16A/D WG CDR. Name-tag crescent: white FLT LT (and cadet), blue SQN LDR, red WG CDR.
 - Home bases (start of every flight): Mushshak Risalpur, Mirage V and F-16s Mushaf
   (Sargodha), JF-17 Masroor (Karachi). `homeBase` in `src/data/aircraft.js`.
 

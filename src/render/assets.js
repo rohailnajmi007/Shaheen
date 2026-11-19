@@ -3,11 +3,11 @@
 import { AIRCRAFT } from '../data/aircraft.js';
 import { BASES } from '../data/world.js';
 
-// Every sprite named in the aircraft and base data, plus the HUD badge.
+// Every sprite named in the aircraft and base data, plus the HUD name-tag wings.
 const SPRITES = [...new Set([
-  ...AIRCRAFT.flatMap((a) => [a.sprite, a.gearSprite, a.elevatorSprite, a.propSprite, a.weaponSprite]),
+  ...AIRCRAFT.flatMap((a) => [a.sprite, a.gearSprite, a.elevatorSprite, a.propSprite, a.weaponSprite,
+    a.rankBadge && `paf_pilot_wings_${a.rankBadge}`]),
   ...Object.values(BASES).map((b) => b.parked),
-  'paf_pilot_wings',
 ].filter(Boolean))];
 
 export const images = {};
