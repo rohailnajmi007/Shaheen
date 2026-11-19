@@ -31,6 +31,17 @@ export const COCKPIT_COLORS = {
 };
 const C = COCKPIT_COLORS;
 
+// Colour glass cockpit (JF-17) layout: PFD, ENGINE page, status column x.
+const CG_PFD = [5, 5, 132, 85];
+const CG_ENG = [141, 5, 84, 85];
+const CG_STAT_X = 230;
+Object.assign(COCKPIT_COLORS, {
+  cgPlate: rgb(0.2, 0.21, 0.23), cgPlateLight: rgb(0.34, 0.35, 0.38), cgPlateDark: rgb(0.07, 0.07, 0.08),
+  cgBezel: rgb(0.13, 0.13, 0.14), cgKey: rgb(0.45, 0.46, 0.48), cgScreen: rgb(0.02, 0.03, 0.06),
+  cgSky: rgb(0.16, 0.45, 0.85), cgGround: rgb(0.55, 0.36, 0.18), cgYellow: rgb(1, 0.86, 0.1),
+  cgCyan: rgb(0.35, 0.88, 1), cgGreen: rgb(0.3, 1, 0.45), cgDim: rgb(0.16, 0.3, 0.2),
+  cgRedDim: rgb(0.45, 0.12, 0.1), cgTrack: rgb(0.16, 0.17, 0.2), cgAbZone: rgb(0.45, 0.2, 0.08),
+});
 const GAUGE_R = 25;
 const GAUGE_CENTRES = [[33, 36], [92, 36], [151, 36]];
 const SPEED_MFD = [6, 6, 80, 82];
@@ -105,6 +116,7 @@ export class Cockpit {
   // --- static layer ---
   drawStatic() {
     const d = this.data;
+    if (this.style === 'colorGlass') { this.colorStatic(); return; }
     if (this.style === 'glass') {
       this.rect(0, 0, W, H, C.glassPlateDark);
       this.rect(1, 1, W - 2, H - 2, C.glassPlateLight);
@@ -140,6 +152,7 @@ export class Cockpit {
 
   // --- moving parts ---
   drawMoving() {
+    if (this.style === 'colorGlass') { this.colorMoving(); return; }
     if (this.style === 'glass') {
       this.speedTape(grow(SPEED_MFD, -4));
       this.altTape(grow(ALT_MFD, -4));
@@ -386,6 +399,116 @@ export class Cockpit {
     this.rect(barX - 1, Math.min(cy, cy - len), 3, Math.abs(len), C.mfdGreen);
     const v = Math.round(vs / 10) * 10;
     this.text(sx + 2, sy + sh - 2, `VS ${v >= 0 ? '+' : ''}${v}`, C.mfdGreen);
+  }
+
+  // --- colour glass cockpit (JF-17): big colour MFDs ---
+  // PFD (artificial horizon + speed/alt boxes) | ENGINE page (RPM arc, throttle, fuel) |
+  // status column (gear, flaps, engine), cyan lettering.
+  colorStatic() {
+    this.rect(0, 0, W, H, C.cgPlateDark);
+    this.rect(1, 1, W - 2, H - 2, C.cgPlateLight);
+    this.rect(2, 2, W - 3, H - 3, C.cgPlate);
+    for (const m of [CG_PFD, CG_ENG]) {
+      const [x, y, w, h] = m;
+      this.rect(x, y, w, h, '#000');
+      this.rect(x + 1, y + 1, w - 2, h - 2, C.cgBezel);
+      // Soft-key nubs down both sides, like the real MFD bezels.
+      for (let i = 0; i < 4; i++) {
+        const by = y + 12 + i * (h - 24) / 3 - 2;
+        this.rect(x, by, 2, 5, C.cgKey);
+        this.rect(x + w - 2, by, 2, 5, C.cgKey);
+      }
+      this.rect(x + 4, y + 4, w - 8, h - 8, C.cgScreen);
+    }
+    const [ex, ey, ew] = CG_ENG;
+    this.text(ex + 7, ey + 12, 'ENG', C.cgCyan);
+    this.text(ex + 7, ey + 74, 'FUEL', C.cgCyan);
+    // RPM arc scale (static part).
+    const cx = ex + 27, cy = ey + 34, rr = 14;
+    this.arcLine(cx, cy, rr, rad(135), rad(135 + 270 * 0.85), C.cgDim, 3);
+    this.arcLine(cx, cy, rr, rad(135 + 270 * 0.85), rad(405), C.cgRedDim, 3);
+    // Throttle track with the afterburner zone.
+    const tx = ex + ew - 16, ty = ey + 10, th = 52;
+    this.rect(tx, ty, 6, th, C.cgTrack);
+    if (this.data.afterburnerN > 0) this.rect(tx, ty, 6, th * (1 - this.data.afterburnerThreshold), C.cgAbZone);
+    this.textC(tx + 3, ty + th + 9, 'THR', C.cgCyan);
+    // Status column labels.
+    const sx = CG_STAT_X;
+    this.text(sx, 14, 'ENG', C.cgCyan);
+    this.text(sx, 32, 'GEAR', C.cgCyan);
+    this.text(sx, 58, 'FLAPS', C.cgCyan);
+  }
+
+  colorMoving() {
+    const a = this.a, d = this.data;
+    const c = this.c;
+    // PFD: horizon rolls with pitch (side view: pitch only), ladder every 10 deg.
+    const [px, py, pw, ph] = CG_PFD;
+    const sx = px + 4, sy = py + 4, sw = pw - 8, sh = ph - 8;
+    const mx = sx + sw / 2, my = sy + sh / 2;
+    const pxPerDeg = 1.6;
+    let pdeg = a.pitch * 180 / Math.PI;
+    if (pdeg > 180) pdeg -= 360;
+    if (pdeg < -180) pdeg += 360;
+    c.save();
+    c.beginPath(); c.rect(sx, sy, sw, sh); c.clip();
+    const hy = my + pdeg * pxPerDeg;
+    this.rect(sx, sy, sw, Math.max(0, Math.min(sh, hy - sy)), C.cgSky);
+    this.rect(sx, Math.max(sy, hy), sw, Math.max(0, sy + sh - Math.max(sy, hy)), C.cgGround);
+    this.rect(sx, hy - 0.5, sw, 1, '#ffffff');
+    for (let k = -30; k <= 30; k += 10) {
+      if (k === 0) continue;
+      const ly = hy - k * pxPerDeg;
+      if (ly < sy + 4 || ly > sy + sh - 4) continue;
+      this.rect(mx - 9, ly, 18, 1, 'rgba(255,255,255,0.85)');
+      this.textR(mx - 11, ly + 3, String(Math.abs(k)), 'rgba(255,255,255,0.85)');
+    }
+    c.restore();
+    // Aircraft symbol (yellow W).
+    this.rect(mx - 16, my - 0.5, 10, 2, C.cgYellow);
+    this.rect(mx + 6, my - 0.5, 10, 2, C.cgYellow);
+    this.rect(mx - 1.5, my - 1, 3, 3, C.cgYellow);
+    // Speed box (left), altitude box (right), VS and G.
+    const box = (x, y, w, s) => { this.rect(x, y, w, 11, 'rgba(0,0,0,0.75)'); this.frame(x, y, w, 11, '#ffffff'); this.textC(x + w / 2, y + 8.5, s, '#ffffff'); };
+    box(sx + 2, my - 5.5, 24, String(Math.round(a.speedKt)));
+    box(sx + sw - 30, my - 5.5, 28, String(Math.round(Math.max(a.altFt, 0) / 10) * 10));
+    this.text(sx + 3, sy + 9, 'KT', '#ffffff');
+    this.textR(sx + sw - 3, sy + 9, 'FT', '#ffffff');
+    const v = Math.round(a.vsFpm / 10) * 10;
+    this.text(sx + 3, sy + sh - 3, `VS ${v >= 0 ? '+' : ''}${v}`, '#ffffff');
+    this.textR(sx + sw - 3, sy + sh - 3, `G ${a.gLoad.toFixed(1)}  M ${(a.speedKt / MACH_KT).toFixed(2)}`, '#ffffff');
+    // Stall warning: speed box red under stall speed in the air.
+    if (!a.onGround && a.speedKt < d.stallKt * 1.08) this.frame(sx + 2, my - 5.5, 24, 11, C.red);
+    // ENGINE page: RPM arc and %, throttle handle, fuel.
+    const [ex, ey, ew] = CG_ENG;
+    const cx = ex + 27, cy = ey + 34, rr = 14;
+    const rpm = clamp(a.rpm, 0, 1);
+    if (rpm > 0.005) this.arcLine(cx, cy, rr, rad(135), rad(135 + 270 * rpm), a.afterburner > 0 ? C.amber : C.cgGreen, 3);
+    this.textC(cx, cy + 3, `${Math.round(rpm * 100)}`, '#ffffff');
+    this.textC(cx, cy + 22, a.afterburner > 0 ? 'A/B' : 'RPM %', a.afterburner > 0 ? C.amber : C.cgCyan);
+    const tx = ex + ew - 16, ty = ey + 10, th = 52;
+    const hy2 = ty + th * (1 - a.throttle);
+    this.rect(tx - 2, hy2 - 1.5, 10, 3, '#ffffff');
+    this.textC(tx + 3, ty + th + 17, String(Math.round(a.throttle * 100)), '#ffffff');
+    const f = clamp(a.fuelFraction, 0, 1);
+    this.rect(ex + 7, ey + 77, 40, 4, C.cgTrack);
+    this.rect(ex + 7, ey + 77, 40 * f, 4, a.lowFuel ? C.amber : C.cgGreen);
+    this.text(ex + 28, ey + 74, `${Math.round(a.fuel)}`, '#ffffff');
+    // Status column: engine lamp, three gear lights, flap box.
+    const sxs = CG_STAT_X;
+    this.rect(sxs + 22, 9, 7, 6, '#000');
+    this.lampFill(sxs + 22, 9, this.engineCol());
+    const gc = this.gearCol();
+    for (let i = 0; i < 3; i++) {
+      const gx = sxs + i * 9, gy = 38 - (i === 1 ? 3 : 0);
+      this.rect(gx, gy, 7, 6, '#000');
+      this.rect(gx + 1, gy + 1, 5, 4, gc);
+    }
+    const moving = Math.abs(a.flapPos - a.flapSetting) > 0.01;
+    this.rect(sxs, 61, 28, 11, C.cgScreen);
+    this.frame(sxs, 61, 28, 11, C.cgKey);
+    this.textC(sxs + 14, 69.5, FLAP_NAMES[a.flapSetting], moving ? C.amber : C.cgGreen);
+    this.warnings(6, H - 20);
   }
 
   glassStatus(x, y) {

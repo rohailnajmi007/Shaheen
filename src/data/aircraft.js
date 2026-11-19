@@ -49,7 +49,8 @@ const COMMON = {
   ceilingFadeM: 2000,
   elevatorMaxDeg: 20,
   elevatorSpeed: 6,
-  // Cockpit panel: 'analog' (grey, round dials), 'darkAnalog' (Mirage), 'glass' (F-16 MFDs).
+  // Cockpit panel: 'analog' (grey, round dials), 'darkAnalog' (Mirage), 'glass' (F-16 green MFDs),
+  // 'colorGlass' (JF-17: colour PFD with horizon, engine page).
   cockpitStyle: 'analog',
   gaugeVsiMaxFpm: 6000,
   gEffects: true,
@@ -133,7 +134,7 @@ export const AIRCRAFT = [
     // stall/rotate speeds than the Mirage, less thrust than the F-16.
     massKg: 10800, maxThrustN: 66000, afterburnerN: 43000,
     fuelKg: 1100, burnFullKgS: 2.8, dragCoef: 1.3,
-    stallKt: 132, rotateKt: 152, maxSpeedKt: 600, cockpitStyle: 'glass',
+    stallKt: 132, rotateKt: 152, maxSpeedKt: 600, cockpitStyle: 'colorGlass',
     // Owner's art (tools/make_aircraft_sprites.py "jf17"): gear layer, all-moving tailplane.
     sprite: 'jf17_body', gearSprite: 'jf17_gear', gearTravel: 29,
     elevatorSprite: 'jf17_elevator', elevatorHinge: [55, 124],

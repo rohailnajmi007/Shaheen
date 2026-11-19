@@ -85,9 +85,9 @@ export class Menu {
     const name = $('.pname', root);
     name.value = settings.name;
     name.addEventListener('input', () => { this.s.name = name.value; saveSettings(this.s); });
-    for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => { if (b.disabled) return; this.pick('aircraft', b.dataset.id); });
+    for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => this.pick('aircraft', b.dataset.id));
     for (const [cls, key] of [['mode', 'mode'], ['time', 'time']]) {
-      for (const b of root.querySelectorAll(`.seg.${cls} button`)) b.addEventListener('click', () => this.pick(key, b.dataset.v));
+      for (const b of root.querySelectorAll(`.seg.${cls} button`)) b.addEventListener('click', () => { if (!b.disabled) this.pick(key, b.dataset.v); });
     }
     // Route buttons depend on the aircraft's home base: rebuilt in refresh().
     $('.seg.dest', root).addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) this.pick('dest', b.dataset.v); });
@@ -127,8 +127,8 @@ export class Menu {
   cycle(dir) {
     const id = this.current().id;
     let opts;
-    if (id === 'aircraft') opts = AIRCRAFT.filter((a) => this.s.mode !== 'strike' || a.strikeCapable).map((a) => a.id);
-    else if (id === 'mode') opts = MODES.map((m) => m.id);
+    if (id === 'aircraft') opts = AIRCRAFT.map((a) => a.id);
+    else if (id === 'mode') opts = MODES.filter((m) => m.id !== 'strike' || this.ac().strikeCapable).map((m) => m.id);
     else if (id === 'dest') opts = this.routes().map((r) => r.id);
     else if (id === 'time') opts = Object.keys(TIMES);
     else return;
@@ -136,6 +136,8 @@ export class Menu {
     const i = opts.indexOf(this.s[key]);
     this.pick(key, opts[(i + dir + opts.length) % opts.length]);
   }
+
+  ac() { return AIRCRAFT.find((x) => x.id === this.s.aircraft); }
 
   // Ferry routes from the selected aircraft's home base.
   routes() {
@@ -156,7 +158,8 @@ export class Menu {
   changed(visual) {
     this.sound.click();
     const a = AIRCRAFT.find((x) => x.id === this.s.aircraft);
-    if (this.s.mode === 'strike' && !a.strikeCapable) { this.s.aircraft = 'f16a'; visual = true; }
+    // The aircraft is picked first: one without weapons just can't fly air to ground.
+    if (this.s.mode === 'strike' && !a.strikeCapable) this.s.mode = 'ferry';
     this.fixDest();
     saveSettings(this.s);
     this.refresh();
@@ -186,9 +189,7 @@ export class Menu {
       b.classList.toggle('cur', st === cur);
     }
     for (const b of r.querySelectorAll('.accard')) {
-      const ac = AIRCRAFT.find((x) => x.id === b.dataset.id);
       b.classList.toggle('sel', b.dataset.id === s.aircraft);
-      b.disabled = s.mode === 'strike' && !ac.strikeCapable;
     }
     const name = (s.name || 'Shaheen').trim().toUpperCase();
     $('.achint', r).textContent = `You fly as ${a.rank} ${name} from ${BASES[a.homeBase].name}.`;
@@ -201,6 +202,10 @@ export class Menu {
     for (const [cls, key] of [['mode', 'mode'], ['dest', 'dest'], ['time', 'time']]) {
       for (const b of r.querySelectorAll(`.seg.${cls} button`)) b.classList.toggle('sel', b.dataset.v === s[key]);
     }
+    // Air to ground needs a strike-capable aircraft.
+    const sb = $('.seg.mode button[data-v="strike"]', r);
+    sb.disabled = !a.strikeCapable;
+    sb.querySelector('small').textContent = a.strikeCapable ? MODES[1].note : `Not available: the ${a.name} carries no weapons yet.`;
     const route = routes.find((x) => x.id === s.dest);
     $('.summary', r).textContent = `${a.rank} ${name} · ${a.name} · ${s.mode === 'strike' ? 'Air to ground' : route ? route.label : ''}`;
     const best = getBest(s);

@@ -38,6 +38,7 @@ browser console. F3 toggles the FPS counter.
 
 ```
 index.html            page shell, loads src/main.js
+vite.config.js        pins the root to the real path (Windows c:/C: double module load)
 src/
   main.js             boot, game loop (fixed 120 Hz physics step + interpolation), mode switching
   input.js            keyboard / gamepad / touch -> actions; KEY_HELP list (controls source of truth)

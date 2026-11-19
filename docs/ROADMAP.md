@@ -67,6 +67,7 @@ One chunk at a time, in this order (owner chose sound first).
   - Owner fixes (2026-11-19): per-aircraft instrument panels back (analog Mushshak, dark analog Mirage, glass F-16s; `src/ui/cockpit.js`); bomb sight back for the guided F-16 weapons (radar's place during the attack run) and release cue for the Mirage (`src/ui/weapon_aids.js`); ground marker for guided bombs only; HARM no longer locks on the runway (see COMBAT.md "Missile lock").
   - Owner fixes (2026-11-19, second round): crash breakup redone (many small scorched shards, sliding debris field, burning pieces, camera follows the wreck; FLIGHT_MODEL.md); base scenery restored (Karachi landmarks, Sargodha landmarks, Mushaf trophies/banyans/welcome monuments; WORLD.md); sequential start screen, title just SHAHEEN, plain aircraft role/weapon text (UI.md).
   - Owner requests (2026-11-19, third round): attack-run camera fixed (COMBAT.md); home bases per aircraft (WORLD.md); JF-17 Thunder added, weapons TBD (AIRCRAFT.md).
+  - Owner fixes (2026-11-19, fourth round): JF-17 no longer greyed out in the menu; crash fire/smoke fixed (dev-server double module load); structural crash breakup; JF-17 colour glass cockpit.
   - TODO (owner): JF-17 weapons / strike capability; confirm JF-17 rank (FLT LT for now).
   - TODO (not ported yet, owner to pick what to bring back): instructor portrait in the message box, cadet name plate (wings + rank + name), F1 debug label. Not yet played/checked in detail against the Godot feel: landing grades, bounce, refuelling stop, night lights, parked aircraft.
 
