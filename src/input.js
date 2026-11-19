@@ -10,14 +10,14 @@ const HOLD = {
 };
 const PRESS = {
   engine: ['KeyE'], flaps: ['KeyF'], gear: ['KeyG'], drop: ['Space'], refuel: ['KeyT'],
-  flare: ['KeyX'], chaff: ['KeyC'], target: ['KeyQ'],
+  countermeasure: ['KeyX'], target: ['KeyQ'],
   pause: ['Escape', 'KeyP'], restart: ['KeyR'], zoom: ['KeyZ'], hud: ['KeyH'], mute: ['KeyM'],
 };
 
 export const KEY_HELP = [
   ['↑ / ↓', 'Throttle (hold)'], ['← / →', 'Nose up / down'], ['E', 'Engine on / off'],
   ['F', 'Flaps UP → TO → LDG'], ['G', 'Gear up / down'], ['B', 'Brakes / air brake (hold)'],
-  ['Space', 'Drop weapon'], ['V', 'Gun (hold)'], ['Q', 'Next target'], ['X', 'Flares'], ['C', 'Chaff'],
+  ['Space', 'Drop weapon'], ['V', 'Gun (hold)'], ['Q', 'Next target'], ['X', 'Flares / chaff'],
   ['T', 'Refuel (stopped, engine off)'], ['Z', 'Camera zoom'],
   ['H', 'Hide help'], ['M', 'Mute'], ['Esc', 'Pause'], ['R', 'Restart'],
 ];

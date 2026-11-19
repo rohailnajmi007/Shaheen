@@ -74,13 +74,14 @@ const COMMON = {
   // (decel = dragK * v^2), spreadMrad dispersion, dmg per round (src/data/combat.js hp),
   // port = muzzle on the sprite (texture px), tracerEvery = one tracer in N rounds.
   gun: null,
-  // Countermeasure cartridges (src/data/combat.js COUNTERMEASURES).
-  flares: 0,
-  chaff: 0,
+  // Countermeasure cartridges, flares and chaff together (src/data/combat.js COUNTERMEASURES).
+  countermeasures: 0,
   // Damage: hit points, and the hit circle (m) centred hitCenterUpM above the wheels.
   airframeHp: 100,
   hitRadiusM: 5,
   hitCenterUpM: 2.5,
+  // Stores drawn under the jet: one per hardpoint, so at most hardpoints.length show
+  // even when bombCount is larger (owner: 4 carried, 2 drawn).
   // Strike mission: first ground target this far (m) from the departure threshold.
   strikeAreaStartM: 4500,
   // Missile lock: only airborne with the gear up; the seeker needs lockS seconds on a
@@ -129,11 +130,11 @@ export const AIRCRAFT = [
     stallKt: 140, rotateKt: 160, maxSpeedKt: 600, cockpitStyle: 'darkAnalog',
     sprite: 'mirage5_body', gearSprite: 'mirage5_gear', gearTravel: 48,
     pivot: [170, 159], nozzle: [16, 89], flameLength: 240, flameWidth: 26,
-    strikeCapable: true, bombCount: 4, hardpoints: [[128, 134], [222, 134], [150, 142], [205, 142]],
+    strikeCapable: true, bombCount: 4, hardpoints: [[150, 140], [205, 140]],
     weaponSprite: 'mk82_body', weaponName: 'MK 82', weaponLabel: 'Unguided bomb',
     bombScatterMs: 2.5, blastRadiusM: 26,
     gun: { name: '2 x DEFA 552 30MM', rps: 40, muzzleMs: 815, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 250, port: [300, 118], tracerEvery: 4 },
-    flares: 16, chaff: 16,
+    countermeasures: 16,
     lights: { navNear: [79, 104], navFar: [94, 101], tail: [16, 64], beacon: [6, 3], landing: [328, 131] },
   },
   {
@@ -160,7 +161,7 @@ export const AIRCRAFT = [
     weaponIsMissile: true, bombGuided: true,
     strikeAreaStartM: 10000,
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 220, port: [318, 128], tracerEvery: 4 },
-    flares: 24, chaff: 24,
+    countermeasures: 24,
     missile: { rangeMin: 1500, rangeMax: 8000, lockS: 2, dropS: 0.9, burnS: 60, speed: 240, accel: 50, turnDeg: 18,
       loft: 0, loftMax: 0, cruiseAltM: 60, diveM: 900, flame: 0.4, trail: 0.25 },
     lights: { navNear: [177, 119], navFar: [198, 115], tail: [20, 75], beacon: [41, 3], landing: [328, 143] },
@@ -178,11 +179,11 @@ export const AIRCRAFT = [
     sprite: 'f16a_body', elevatorSprite: 'f16a_elevator', elevatorHinge: [55, 114],
     gearX: [202, 292], gearTopY: [148, 147], gearWheel: [20, 16],
     pivot: [202, 183], nozzle: [7, 102], flameLength: 260, flameWidth: 30,
-    strikeCapable: true, bombCount: 4, hardpoints: [[150, 146], [250, 148], [182, 155], [226, 157]],
+    strikeCapable: true, bombCount: 4, hardpoints: [[182, 152], [226, 154]],
     weaponSprite: 'gbu12_body', weaponName: 'GBU-12 PAVEWAY II', weaponLabel: 'Laser guided bomb',
     bombGuided: true,
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [312, 95], tracerEvery: 5 },
-    flares: 30, chaff: 30,
+    countermeasures: 30,
     lights: { navNear: [262, 128], navFar: [248, 122], tail: [23, 72], beacon: [16, 4], landing: [298, 164] },
   },
   {
@@ -198,13 +199,13 @@ export const AIRCRAFT = [
     sprite: 'f16_body', elevatorSprite: 'f16_elevator', elevatorHinge: [58, 113],
     gearSprite: 'f16_gear', gearTravel: 33,
     pivot: [169, 175], nozzle: [6, 101], flameLength: 260, flameWidth: 30,
-    strikeCapable: true, bombCount: 4, hardpoints: [[165, 122], [232, 126], [192, 131], [206, 137]],
+    strikeCapable: true, bombCount: 4, hardpoints: [[192, 128], [206, 134]],
     weaponSprite: 'agm88_body', weaponName: 'AGM-88 HARM', weaponLabel: 'Air to ground missile',
     weaponIsMissile: true, bombGuided: true,
     // Targets further out than for bombs, so the HARM locks well after take-off.
     strikeAreaStartM: 8000,
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [300, 100], tracerEvery: 5 },
-    flares: 30, chaff: 30,
+    countermeasures: 30,
     lights: { navNear: [239, 116], navFar: [229, 112], tail: [10, 72], beacon: [16, 4], landing: [291, 153] },
   },
 ];

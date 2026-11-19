@@ -112,7 +112,7 @@ function soundFx(f) {
       case 'refuelDone': sound.chime(true); break;
       case 'aaaFire': sound.aaaThud(Math.max(0.15, 1 - e.dist / 2500)); break;
       case 'samLaunch': sound.launch(); break;
-      case 'flare': case 'chaff': sound.pop(); break;
+      case 'countermeasure': sound.pop(); break;
       case 'acHit': sound.clank(); break;
       case 'airBurst': sound.explosion(0.45 * (e.power || 1)); break;
       case 'designate': sound.click(); break;

@@ -57,7 +57,7 @@ out of scope until the owner says otherwise.
   tools), `docs/` (not part of the build).
 - Controls (source of truth: `src/input.js`): Up/Down throttle (hold), Left nose
   up, Right nose down (WASD too), E engine, F flaps, G gear, B brake, T fuel
-  truck, Space drop bomb, V gun (hold), Q next target, X flares, C chaff
+  truck, Space drop bomb, V gun (hold), Q next target, X flares/chaff
   (air-to-ground mission), Z zoom, H help, M mute,
   Esc/P pause, R restart, F3 FPS. (Old F1 debug label: not ported yet.)
 - Instructor lines: aggressive, short shouted English, occasional censored curse

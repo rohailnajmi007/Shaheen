@@ -55,8 +55,7 @@ export class Combat {
     const d = flight.data;
     this.hp = d.airframeHp;
     this.ammo = d.gun ? d.gun.rounds : 0;
-    this.flares = d.flares;
-    this.chaff = d.chaff;
+    this.cm = d.countermeasures; // flare + chaff cartridges
     this.rounds = [];   // the jet's gun rounds
     this.shells = [];   // AAA shells
     this.threats = [];  // enemy missiles in flight
@@ -67,7 +66,7 @@ export class Combat {
     this.killer = null;
     this.shotDownT = 0;
     this.lastHitSay = -9;
-    this.stats = { roundsFired: 0, damage: 0, evaded: 0, flaresUsed: 0, chaffUsed: 0 };
+    this.stats = { roundsFired: 0, damage: 0, evaded: 0, cmUsed: 0 };
   }
 
   // Centre of the jet's hit circle.
@@ -273,21 +272,20 @@ export class Combat {
     const inFlight = this.threats.some((m) => m.src === t && m.alive);
     const on = this.canEngage(t, P, dist) && t.missiles > 0 && t.reload <= 0 && !inFlight;
     t.lockT = on ? (t.lockT ?? 0) + dt : 0;
-    if (on && P.seeker === 'radar') this.radarLock = true;
-    if (on && P.seeker === 'radar') this.f.say('SAM LOCK! Radar! Get LOW or CHAFF, C!', true, `samlock${t.x}`);
+    if (on) this.radarLock = true;
+    if (on) this.f.say('SAM LOCK! Get LOW under its radar, or flares and BREAK!', true, `samlock${t.x}`);
     if (!on || t.lockT < P.lockS) return;
     // Launch: up out of the tube toward the jet.
     const el = clamp(Math.atan2(c.y - t.h, c.x - t.x), 25 * D2R, 155 * D2R);
     this.threats.push({
       x: t.x, y: t.h + 1, vx: Math.cos(el) * 60, vy: Math.sin(el) * 60, t: 0,
-      seeker: P.seeker, M: P.missile, src: t, target: 'ac', alive: true, closest: Infinity,
+      M: P.missile, src: t, target: 'ac', alive: true, closest: Infinity,
     });
     t.missiles -= 1;
     t.reload = P.reloadS;
     t.lockT = 0;
-    this.f.emit('samLaunch', { x: t.x, y: t.h, seeker: P.seeker });
-    if (P.seeker === 'ir') this.f.say('MISSILE LAUNCH! Heat seeker! FLARES, X, and BREAK hard across it!', true);
-    else this.f.say('SAM LAUNCH! Radar! CHAFF, C, and turn across it! Don\'t run straight!', true);
+    this.f.emit('samLaunch', { x: t.x, y: t.h });
+    this.f.say('SAM LAUNCH! FLARES, X, and BREAK hard across it! Don\'t run straight!', true);
   }
 
   stepThreats(dt) {
@@ -370,39 +368,37 @@ export class Combat {
   }
 
   // --- countermeasures ---
-  dispense(kind) {
+  // One salvo of flares and chaff together.
+  dispense() {
     const a = this.f.ac;
-    const have = kind === 'flare' ? this.flares : this.chaff;
-    if (have <= 0 || !this.airborne()) return;
+    if (this.cm <= 0 || !this.airborne()) return;
     const C = COUNTERMEASURES;
-    const n = Math.min(C.perPress, have);
-    if (kind === 'flare') { this.flares -= n; this.stats.flaresUsed += n; } else { this.chaff -= n; this.stats.chaffUsed += n; }
+    const n = Math.min(C.perPress, this.cm);
+    this.cm -= n;
+    this.stats.cmUsed += n;
     const d = this.f.data;
     const tail = a.pointM(d.pivot[0] - 40, d.pivot[1] - 20);
     const made = [];
     for (let i = 0; i < n; i++) {
       const dec = {
-        kind, x: tail.x, y: tail.y, t: 0, life: kind === 'flare' ? C.flareLifeS : C.chaffLifeS,
+        kind: 'flare', x: tail.x, y: tail.y, t: 0, life: C.flareLifeS,
         vx: a.vel.x * 0.85 + rand(-6, 6), vy: a.vel.y * 0.85 - rand(10, 22) - i * 6,
-        drag: kind === 'flare' ? C.flareDrag : C.chaffDrag,
+        drag: C.flareDrag,
       };
       this.decoys.push(dec);
       made.push(dec);
     }
-    this.f.emit(kind, { x: tail.x, y: tail.y });
-    // Seduce missiles of the matching seeker that are in the decoy window.
-    const seeker = kind === 'flare' ? 'ir' : 'radar';
+    this.f.emit('countermeasure', { x: tail.x, y: tail.y });
+    // Seduce missiles in the decoy window.
     const c = this.hitCentre();
     for (const m of this.threats) {
-      if (m.seeker !== seeker || m.target !== 'ac') continue;
+      if (m.target !== 'ac') continue;
       const dist = Math.hypot(m.x - c.x, m.y - c.y);
       if (dist > C.rangeM || dist < C.minRangeM) continue;
       if (Math.random() < m.M.decoyChance * this.decoyGeometry(m)) m.target = made[Math.floor(Math.random() * made.length)];
     }
-    if (kind === 'chaff') {
-      for (const t of this.f.targets) {
-        if (t.kind === 'samRadar' && t.lockT > 0 && Math.random() < C.chaffBreaksLock) t.lockT = 0;
-      }
+    for (const t of this.f.targets) {
+      if (t.role === 'sam' && t.lockT > 0 && Math.random() < C.breaksLock) t.lockT = 0;
     }
   }
 
@@ -425,7 +421,7 @@ export class Combat {
       d.t += dt;
       const k = Math.exp(-d.drag * dt);
       d.vx *= k;
-      d.vy = d.vy * k - (d.kind === 'chaff' ? 1.5 : G) * dt;
+      d.vy = d.vy * k - G * dt;
       d.x += d.vx * dt; d.y += d.vy * dt;
       if (d.t > d.life || d.y <= 0) this.decoys.splice(i, 1);
     }

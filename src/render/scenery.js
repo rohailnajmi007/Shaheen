@@ -583,8 +583,7 @@ export function buildTarget(kind, time, R, dead) {
   if (kind === 'tank') return tank(time, R, dead);
   if (kind === 'apc') return apc(time, R, dead);
   if (kind === 'aaa') return aaaSite(time, R, dead);
-  if (kind === 'samRadar') return samRadar(time, R, dead);
-  if (kind === 'samIr') return samIr(time, R, dead);
+  if (kind === 'sam') return samRadar(time, R, dead);
   if (kind === 'launcher') {
     return sprite(16, 7, R, (x, W, H, R) => {
       x.fillStyle = burnt('#5e6a3c'); x.fillRect(0.5 * R, 3.5 * R, 12 * R, 2.3 * R); x.fillRect(10 * R, 2 * R, 4 * R, 3.8 * R);
@@ -710,7 +709,7 @@ function aaaSite(time, R, dead) {
   });
 }
 
-// Radar-guided SAM: six-wheel truck, search radar at the back, two missiles on rails
+// SAM battery: six-wheel truck, search radar at the back, two missiles on rails
 // (missiles drawn by the renderer: they leave when fired).
 function samRadar(time, R, dead) {
   const L = time.light;
@@ -726,18 +725,6 @@ function samRadar(time, R, dead) {
       x.fillStyle = shade('#d8dcd2', L); x.beginPath(); x.ellipse(1.85 * R, H - 5.6 * R, 1.6 * R, 0.9 * R, -0.25, 0, Math.PI * 2); x.fill();
       x.fillStyle = shade('#9da397', L); x.fillRect(1.6 * R, H - 6.8 * R, 0.5 * R, 0.6 * R);
     }
-  });
-}
-
-// Infrared SAM: light tracked vehicle with a twin launcher (missiles drawn by the renderer).
-function samIr(time, R, dead) {
-  const L = time.light;
-  return sprite(10, 5, R, (x, W, H, R) => {
-    x.fillStyle = shade(TYRE, L); x.beginPath(); x.roundRect(0.6 * R, H - 1.5 * R, 8.8 * R, 1.4 * R, 0.7 * R); x.fill();
-    for (let i = 0; i < 5; i++) wheel(x, (1.5 + i * 1.75) * R, H - 0.8 * R, 0.5 * R, L);
-    x.fillStyle = shade(dead ? BURNT : SAND, L);
-    x.beginPath(); x.moveTo(0.4 * R, H - 1.5 * R); x.lineTo(1.3 * R, H - 2.9 * R); x.lineTo(9.4 * R, H - 2.9 * R); x.lineTo(9.6 * R, H - 1.5 * R); x.fill();
-    x.fillStyle = shade(dead ? '#1f1d1b' : '#6b6247', L); x.fillRect(4.6 * R, H - 3.6 * R, 1.2 * R, 0.8 * R);
   });
 }
 

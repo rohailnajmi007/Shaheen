@@ -288,7 +288,7 @@ export class Briefing {
         row('KNOWN THREATS', count(defs)),
         row('LOADOUT', `${d.bombCount} x ${d.weaponName}`),
         d.gun && row('GUN', `${d.gun.name} · ${d.gun.rounds} RDS`),
-        row('COUNTERMEASURES', `${d.flares} FLARES · ${d.chaff} CHAFF`),
+        row('COUNTERMEASURES', `${d.countermeasures} FLARES / CHAFF`),
         row('RECOVERY', 'BASE ASSIGNED AFTER THE ATTACK · LAND'),
         row('TIME', time),
       ];
@@ -296,8 +296,8 @@ export class Briefing {
         d.bombCount < objs.length ? `${d.bombCount} weapons for ${objs.length} targets: finish the rest with the gun (V).` : `One weapon per target. The gun (V) is your back-up for misses.`,
         'Q picks the target for your weapon. Air defences are targets too.',
         'Triple-A: never fly straight and level near it. Jink.',
-        'Radar SAM cannot see you below 150 ft. IR SAM gives no warning.',
-        'Flares/chaff alone will not save you: drop them AND break hard across the missile.',
+        'SAMs cannot see you below 150 ft. Each battery has 2 missiles.',
+        'Flares alone will not save you: drop them (X) AND break hard across the missile.',
       ];
     } else {
       const far = f.dest !== f.bases[1] && f.bases.length > 2;
@@ -372,7 +372,7 @@ export class Result {
       strike && row('WEAPONS DEPLOYED', `${r.weapons.used} / ${r.weapons.total} ${r.weapons.name}`),
       strike && row('AIR DEFENCES DESTROYED', `${r.defences.hit} / ${r.defences.total}`, r.defences.hit ? 'ok' : ''),
       strike && r.gun && row('GUN ROUNDS FIRED', `${r.gun.fired} / ${r.gun.total}`),
-      strike && row('MISSILES EVADED', `${r.countermeasures.evaded} · ${r.countermeasures.flares} FLARES · ${r.countermeasures.chaff} CHAFF`),
+      strike && row('MISSILES EVADED', `${r.countermeasures.evaded} · ${r.countermeasures.used} FLARES / CHAFF`),
       strike && row('BATTLE DAMAGE', `${r.damage}%`, r.damage >= 100 ? 'bad' : r.damage >= 50 ? 'warn' : r.damage > 0 ? '' : 'ok'),
       !strike && row('ROUTE', `${r.from} > ${r.dest}`.toUpperCase()),
       row(strike ? 'RECOVERY' : 'LANDING', strike && !crash ? `${r.dest.toUpperCase()} · ${landing}` : landing, crash ? 'bad' : ''),

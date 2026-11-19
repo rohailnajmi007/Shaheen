@@ -105,7 +105,7 @@ export class Flight {
         units.push(makeUnit('aaa', o.x + off * rand(0.7, 1)));
       }
       const first = objs[0].x, last = objs[objs.length - 1].x;
-      const samKinds = randInt(STRIKE.sams) > 1 ? ['samRadar', 'samIr'] : [Math.random() < 0.5 ? 'samRadar' : 'samIr'];
+      const samKinds = Array.from({ length: randInt(STRIKE.sams) }, () => 'sam');
       samKinds.forEach((k, i) => {
         const sx = i === 0 ? first - rand(STRIKE.samBeforeM * 0.5, STRIKE.samBeforeM) : lerpX(first, last, rand(0.4, 0.8));
         units.push(makeUnit(k, sx));
@@ -181,8 +181,7 @@ export class Flight {
       case 'gear': a.toggleGear(); break;
       case 'drop': this.dropStore(); break;
       case 'refuel': this.requestRefuel(); break;
-      case 'flare': if (this.mode === 'strike') this.cb.dispense('flare'); break;
-      case 'chaff': if (this.mode === 'strike') this.cb.dispense('chaff'); break;
+      case 'countermeasure': if (this.mode === 'strike') this.cb.dispense(); break;
       case 'target': this.designateNext(); break;
     }
   }
@@ -668,7 +667,7 @@ export class Flight {
       defences: this.mode === 'strike' ? { hit: this.defences.filter((t) => !t.alive).length, total: this.defences.length } : null,
       gun: this.mode === 'strike' && this.data.gun ? { fired: this.cb.stats.roundsFired, total: this.data.gun.rounds } : null,
       damage: this.mode === 'strike' ? Math.round(100 - this.cb.hp) : 0,
-      countermeasures: this.mode === 'strike' ? { flares: this.cb.stats.flaresUsed, chaff: this.cb.stats.chaffUsed, evaded: this.cb.stats.evaded } : null,
+      countermeasures: this.mode === 'strike' ? { used: this.cb.stats.cmUsed, evaded: this.cb.stats.evaded } : null,
       weapons: this.mode === 'strike' ? { used: this.data.bombCount - this.ac.bombsLeft, total: this.data.bombCount, name: this.data.weaponName } : null,
       mode: this.mode,
       from: this.bases[0].short,

@@ -10,7 +10,6 @@ import { KT } from '../sim/aircraft.js';
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const LAYER_ZOOM = { mountains: 0.12, city: 0.25, mid: 0.4, trees: 0.7 };
-const LAYER_DROP = { mountains: 0.07, city: 0.1, mid: 0.14, trees: 0.2 };
 // Air-to-ground attack-run camera (see updateCamera). At zoom 0.4 the ground stays in
 // view up to ~125 m (~400 ft) on a 720p screen; climb higher and it leaves the frame.
 export const ATTACK_CAM = {
@@ -256,8 +255,12 @@ export class Renderer {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, v.W, v.H);
     if (hi > 0.05) {
-      ctx.fillStyle = `rgba(5,12,40,${hi * 0.35})`;
-      ctx.fillRect(0, 0, v.W, v.H * 0.6);
+      // Darker sky high up, fading out toward the horizon (no hard edge).
+      const dk = ctx.createLinearGradient(0, 0, 0, v.H * 0.75);
+      dk.addColorStop(0, `rgba(5,12,40,${hi * 0.35})`);
+      dk.addColorStop(1, 'rgba(5,12,40,0)');
+      ctx.fillStyle = dk;
+      ctx.fillRect(0, 0, v.W, v.H * 0.75);
     }
     if (this.stars) {
       const s = this.stars;
@@ -288,7 +291,10 @@ export class Renderer {
     const [ta, tb, t] = this.themeAt(this.cam.x);
     for (const L of LAYERS) {
       const zf = lerp(1, this.cam.zoom, LAYER_ZOOM[L.slot]);
-      const yBase = v.restY + Math.min((v.groundY - v.restY) * L.lift, v.H * LAYER_DROP[L.slot]);
+      // Each layer sinks with the ground at its own parallax rate (L.lift), with no cap:
+      // climb and the trees, then hills, then mountains drop out of view (owner 2026-11-20).
+      const yBase = v.restY + (v.groundY - v.restY) * L.lift;
+      if (yBase - (L.h + 40) * (v.H / 720) * zf > v.H) continue; // whole layer below the screen
       if (L.slot === 'trees') this.drawLandmarks(ctx, v, yBase);
       const A = this.tiles[ta][L.slot], B = this.tiles[tb][L.slot];
       const aA = ta === tb ? 1 : Math.min(1, 2 * (1 - t));
@@ -539,9 +545,8 @@ export class Renderer {
   // Missiles still on the SAM's rails, pointing up toward the approach (left).
   drawSamMissiles(ctx, v, t) {
     const S = v.S;
-    const radar = t.kind === 'samRadar';
-    const base = { x: t.x + (radar ? 0.5 : -0.5), y: radar ? 3.6 : 3.2 };
-    const len = radar ? 5.5 : 3.6, thick = radar ? 0.5 : 0.42;
+    const base = { x: t.x + 0.5, y: 3.6 };
+    const len = 5.5, thick = 0.5;
     const ang = Math.PI - 0.6;
     for (let i = 0; i < AIR_DEFENCE[t.kind].missiles; i++) {
       const has = i < t.missiles;
@@ -656,7 +661,7 @@ export class Renderer {
       ctx.restore();
       ctx.fillStyle = 'rgba(255,90,80,0.95)'; ctx.font = `700 ${Math.round(12 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
       const dist = Math.hypot(m.x - a.pos.x, m.y - a.pos.y);
-      ctx.fillText(`${m.seeker === 'ir' ? 'IR' : 'RDR'} ${(dist / 1000).toFixed(1)}`, ax - Math.cos(ang) * 26 * u, ay - Math.sin(ang) * 22 * u + 4 * u);
+      ctx.fillText(`SAM ${(dist / 1000).toFixed(1)}`, ax - Math.cos(ang) * 26 * u, ay - Math.sin(ang) * 22 * u + 4 * u);
     }
   }
 
@@ -882,7 +887,7 @@ export class Renderer {
       else if (e.type === 'samLaunch') {
         this.puffs(e.x, e.y + 1, 10, 'smoke', 3);
         this.particles.spawn('glow', e.x, e.y + 1, 0, 0, 10, 0.3, { grow: 1.5, ground: false });
-      } else if (e.type === 'chaff') {
+      } else if (e.type === 'countermeasure') {
         for (let i = 0; i < 14; i++) this.particles.spawn('white', e.x + (Math.random() - 0.5) * 4, e.y + (Math.random() - 0.5) * 4, flight.ac.vel.x * 0.2 + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, 1.2, 3 + Math.random() * 2, { grow: 3, alpha: 0.35, drag: 2.5, ground: false });
       } else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
     }
@@ -1244,7 +1249,6 @@ export class Renderer {
       }
       for (const dc of cb.decoys) {
         if (dc.kind === 'flare' && Math.random() < 0.8) P.spawn('smoke', dc.x, dc.y, 0, 0.5, 2.5, 1.8, { grow: 3, alpha: 0.4, ground: false, drag: 0.6 });
-        if (dc.kind === 'chaff' && Math.random() < 0.3) P.spawn('white', dc.x + (Math.random() - 0.5) * 6, dc.y + (Math.random() - 0.5) * 6, 0, -1, 0.8, 1.5, { grow: 2, alpha: 0.3, ground: false, drag: 2 });
       }
       // Battle damage on the jet: smoke, then fire.
       if (!a.crashed && (cb.hp < DAMAGE.smokeBelow || a.shotDown)) {

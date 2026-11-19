@@ -65,7 +65,7 @@ export class Hud {
             <button data-act="engine">ENG</button><button data-act="flaps">FLAP</button><button data-act="gear">GEAR</button>
             <button data-hold="brake">BRK</button><button data-act="drop">DROP</button><button data-act="refuel">FUEL</button>
             <button data-hold="gun" class="strike-only">GUN</button><button data-act="target" class="strike-only">TGT</button>
-            <button data-act="flare" class="strike-only">FLR</button><button data-act="chaff" class="strike-only">CHF</button>
+            <button data-act="countermeasure" class="strike-only">FLR</button>
             <button data-act="pause">II</button>
           </div>
           <input class="tthr" type="range" min="0" max="100" value="0" orient="vertical" aria-label="Throttle" />
@@ -196,10 +196,10 @@ export class Hud {
       }
       this.set('wstate', this.el.wstate, state);
       this.cls('wstate', this.el.weapon, 'hot', hot);
-      // Gun rounds, flares, chaff, the picked target, airframe health.
+      // Gun rounds, flares/chaff, the picked target, airframe health.
       const cb = f.cb;
       const pick = f.manualTarget();
-      const sub = [d.gun ? `GUN ${cb.ammo}` : null, `FLR ${cb.flares}`, `CHF ${cb.chaff}`, pick ? `TGT ${GROUND_UNITS[pick.kind].label}` : 'TGT AUTO (Q)'].filter(Boolean).join(' · ');
+      const sub = [d.gun ? `GUN ${cb.ammo}` : null, `FLR/CHF ${cb.cm}`, pick ? `TGT ${GROUND_UNITS[pick.kind].label}` : 'TGT AUTO (Q)'].filter(Boolean).join(' · ');
       this.set('wsub', this.el.wsub, sub);
       const hp = Math.round(cb.hp);
       this.set('whp', this.el.whp, `${hp}%`, 'width');
@@ -218,7 +218,7 @@ export class Hud {
     if (a.speedKt > d.maxSpeedKt * 1.02) w.push(['OVERSPEED', 'amber']);
     if (f.mode === 'strike' && !a.crashed) {
       const inc = f.cb.incoming();
-      if (inc.length) w.push([`MISSILE ${inc.some((m) => m.seeker === 'ir') ? '· FLARES X' : '· CHAFF C'}`, 'red']);
+      if (inc.length) w.push(['MISSILE · FLARES X + BREAK', 'red']);
       else if (f.cb.radarLock) w.push(['SAM LOCK', 'amber']);
       if (f.cb.hp < 45 && f.cb.hp > 0) w.push(['ENGINE DAMAGE', 'amber']);
       if (a.shotDown) w.push(['EJECT', 'red']);

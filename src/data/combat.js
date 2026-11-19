@@ -14,8 +14,7 @@ export const GROUND_UNITS = {
   tank: { label: 'TANK', role: 'objective', w: 11, h: 5, hp: 140, armour: 0.2 },
   apc: { label: 'APC', role: 'objective', w: 10, h: 4.5, hp: 80, armour: 0.55 },
   aaa: { label: 'AAA', role: 'aaa', w: 11, h: 5, hp: 35, armour: 0.8 },
-  samRadar: { label: 'SAM (RADAR)', role: 'sam', w: 14, h: 7, hp: 50, armour: 0.8 },
-  samIr: { label: 'SAM (IR)', role: 'sam', w: 10, h: 5, hp: 40, armour: 0.7 },
+  sam: { label: 'SAM', role: 'sam', w: 14, h: 7, hp: 50, armour: 0.8 },
 };
 
 // Mission layout.
@@ -25,7 +24,7 @@ export const STRIKE = {
   gapM: [450, 850],                   // between mission targets
   aaa: [1, 1],                        // AAA guns, each near a mission target (owner: one)
   aaaOffsetM: [-260, 220],            // ... this far from it
-  sams: [1, 2],                       // SAM sites (one radar, one IR when two)
+  sams: [1, 2],                       // SAM batteries (one type, owner 2026-11-20)
   samBeforeM: 1200,                   // first SAM this far before the first target
   recoveryGapM: 4500,                 // landing base this far past the last target
 };
@@ -47,22 +46,17 @@ export const AIR_DEFENCE = {
     shellLifeS: 5,  // self-destruct (small black flak puff)
     tracerEvery: 3, dmg: 2,
   },
-  // Radar-guided SAM: locks on first (SAM LOCK warning), blind below minAltM (ground
-  // clutter). Decoyed by chaff.
-  samRadar: {
-    seeker: 'radar', rangeM: 6500, minAltM: 45, maxAltM: 5500, lockS: 3, reloadS: 9, missiles: 2,
-    missile: { boostS: 3, boostAcc: 240, maxSpeed: 780, dragK: 0.00022, navN: 4, maxG: 28, lifeS: 16,
-      gimbalDeg: 65, fuseM: 15, dmgMax: 75, dmgMin: 30, decoyChance: 0.75 },
-  },
-  // Infrared SAM: no lock warning (passive seeker), only the launch is seen. Decoyed by flares.
-  samIr: {
-    seeker: 'ir', rangeM: 4200, minAltM: 8, maxAltM: 3000, lockS: 1.8, reloadS: 7, missiles: 2,
-    missile: { boostS: 2.2, boostAcc: 290, maxSpeed: 680, dragK: 0.0003, navN: 4, maxG: 22, lifeS: 11,
-      gimbalDeg: 55, fuseM: 10, dmgMax: 70, dmgMin: 25, decoyChance: 0.85 },
+  // SAM battery (one type, owner 2026-11-20): locks on first (SAM LOCK warning), blind
+  // below minAltM (ground clutter). Fires `missiles` (2) in all, never reloads.
+  sam: {
+    rangeM: 6000, minAltM: 45, maxAltM: 5500, lockS: 2.5, reloadS: 8, missiles: 2,
+    missile: { boostS: 3, boostAcc: 240, maxSpeed: 760, dragK: 0.00022, navN: 4, maxG: 26, lifeS: 15,
+      gimbalDeg: 60, fuseM: 14, dmgMax: 75, dmgMin: 30, decoyChance: 0.9 },
   },
 };
 
-// Flares and chaff (aircraft carry counts in src/data/aircraft.js: flares, chaff).
+// Countermeasures: flares and chaff go out together on one key (owner 2026-11-20);
+// aircraft carry `countermeasures` salvoes' worth of cartridges (src/data/aircraft.js).
 // A decoy alone rarely works (owner): the chance a salvo pulls a missile off is
 // decoyChance x geometry, geometry = base + beam x (how square the jet flies across
 // the missile's line of sight: 0 flying straight at/away from it, 1 at right angles)
@@ -75,9 +69,8 @@ export const COUNTERMEASURES = {
   perPress: 2,      // cartridges per press (a salvo)
   rangeM: 3500,     // a missile further than this from the jet ignores them (too early)
   minRangeM: 120,   // ... closer than this it is too late
-  flareLifeS: 3.5, flareDrag: 0.9,
-  chaffLifeS: 4.5, chaffDrag: 4,
-  chaffBreaksLock: 0.5, // chance chaff breaks a radar SAM's lock before launch
+  flareLifeS: 3.5, flareDrag: 0.9,  // the decoys a missile can chase
+  breaksLock: 0.5,  // chance a salvo breaks a SAM's lock before launch
 };
 
 // The jet: damage and how hits show.
