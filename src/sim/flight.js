@@ -2,7 +2,7 @@
 import { Aircraft, KT, FT, G } from './aircraft.js';
 import { aircraftById } from '../data/aircraft.js';
 import { BASES, ferryLayout, ROUTES_FROM } from '../data/world.js';
-import { GROUND_UNITS, STRIKE, AIR_DEFENCE } from '../data/combat.js';
+import { GROUND_UNITS, STRIKE, AIR_DEFENCE, EJECT } from '../data/combat.js';
 import { Combat } from './combat.js';
 
 const GRADES = ['PERFECT', 'GOOD', 'FIRM', 'HARD'];
@@ -69,6 +69,7 @@ export class Flight {
     this.revealed = true;
     this.seeker = { target: null, t: 0 }; // missile seeker: candidate target and time on it
     this.designated = null; // target picked by the pilot (Q), or null = automatic
+    this.eject = null;      // ejection seat / parachute once the pilot has ejected
     this.cb = new Combat(this);
     this.buildWorld();
     this.say(`${this.callsign()}! Engine start: E. Then throttle up. Move it!`);
@@ -176,7 +177,7 @@ export class Flight {
     if (this.state === 'done') return;
     const a = this.ac;
     switch (name) {
-      case 'engine': a.toggleEngine(); break;
+      case 'engine': if (a.shotDown) this.ejectPilot(); else a.toggleEngine(); break; // E = eject once shot down
       case 'flaps': a.cycleFlaps(); break;
       case 'gear': a.toggleGear(); break;
       case 'drop': this.dropStore(); break;
@@ -388,6 +389,7 @@ export class Flight {
     for (const e of a.events) this.onAircraftEvent(e);
     a.events.length = 0;
     this.stepWeapons(dt);
+    this.stepEject(dt);
     if (this.mode === 'strike') this.cb.step(dt, input);
     for (const t of this.targets) if (!t.alive) t.deadAt += dt;
     if (this.state === 'done') return;
@@ -590,6 +592,40 @@ export class Flight {
     this.say(t.objective ? `Guns kill! ${what} destroyed! Shabash!` : `${what} down with the gun! Good shooting!`, true);
   }
 
+  // E after being shot down: the seat fires out along the jet's up axis, chute later.
+  ejectPilot() {
+    const a = this.ac;
+    if (this.eject || !a.shotDown || a.crashed) return;
+    const up = { x: -Math.sin(a.pitch), y: Math.cos(a.pitch) };
+    const p = a.pointM(this.data.pivot[0] + 60, this.data.pivot[1] - 60); // cockpit area
+    this.eject = {
+      x: p.x, y: Math.max(p.y, 1), vx: a.vel.x + up.x * EJECT.seatMs, vy: a.vel.y + up.y * EJECT.seatMs,
+      t: 0, chute: false, landed: false, landedT: 0, pitch: a.pitch,
+      canopy: { x: p.x, y: p.y + 1, vx: a.vel.x + up.x * EJECT.seatMs * 1.3, vy: a.vel.y + up.y * EJECT.seatMs * 1.3, rot: 0 },
+    };
+    this.emit('eject', { x: p.x, y: p.y });
+    this.say('Ejected! Good seat! Hang on, chute is coming!', true);
+  }
+
+  stepEject(dt) {
+    const e = this.eject;
+    if (!e || e.landed) { if (e) e.landedT += dt; return; }
+    e.t += dt;
+    const c = e.canopy;
+    if (c.y > 0) { c.vy -= G * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.rot += dt * 9; }
+    if (!e.chute && e.t > EJECT.chuteAfterS) { e.chute = true; this.emit('chute', { x: e.x, y: e.y }); this.say('Good chute! Stay with it, rescue is on the way.', false); }
+    if (e.chute) {
+      e.vx += -e.vx * Math.min(1, EJECT.chuteSlow * dt);
+      e.vy += (-EJECT.chuteSinkMs - e.vy) * Math.min(1, 2.5 * dt);
+    } else {
+      const s = Math.hypot(e.vx, e.vy);
+      e.vx += -EJECT.seatDrag * s * e.vx * dt;
+      e.vy += (-G - EJECT.seatDrag * s * e.vy) * dt;
+    }
+    e.x += e.vx * dt; e.y += e.vy * dt;
+    if (e.y <= 0) { e.y = 0; e.vx = 0; e.vy = 0; e.landed = true; this.emit('pilotLanded', { x: e.x }); }
+  }
+
   // Airframe destroyed in the air: no control, it falls until it hits the ground.
   shootDown(cause) {
     const a = this.ac;
@@ -598,7 +634,7 @@ export class Flight {
     a.engineOn = false;
     this.emit('airBurst', { x: a.pos.x, y: a.pos.y, power: 1.2 });
     this.emit('shotDown', { x: a.pos.x, y: a.pos.y });
-    this.say(`You're going DOWN! Shot down by ${cause}! EJECT! EJECT!`, true);
+    this.say(`Shot down by ${cause}! She's gone! EJECT, E! EJECT! NOW!`, true);
   }
 
   // Where a bomb released now would land, from the hardpoint the next bomb leaves
@@ -718,9 +754,14 @@ export class Flight {
     r.grade = 'CRASH';
     r.title = 'CRASH';
     r.reasons.push(reason);
+    if (a.shotDown) {
+      r.ejected = !!this.eject;
+      r.reasons.push(this.eject ? 'Pilot ejected.' : 'Pilot did not eject.');
+    }
     if (fpm >= 0) r.fpm = fpm;
     r.score = 0;
-    this.say(`You CRASHED my aircraft! ${reason} Again!`, true);
+    if (this.eject) this.say('She hit the ground. You got out. That\'s what matters, now get it right!', true);
+    else this.say(`You CRASHED my aircraft! ${reason} Again!`, true);
     this.end(r);
   }
 

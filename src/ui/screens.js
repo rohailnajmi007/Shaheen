@@ -57,7 +57,7 @@ export class Menu {
         <section class="page" data-step="aircraft">
           <div class="acgrid">${AIRCRAFT.map((a) => `
             <button class="accard" data-id="${a.id}">
-              <div class="acimg"><img src="${base}sprites/${a.sprite}.png" alt="" /></div>
+              <div class="acimg"><img src="${base}sprites/${a.sprite}.png" alt="" />${[a.elevatorSprite, a.canardSprite].filter(Boolean).map((l) => `<img src="${base}sprites/${l}.png" alt="" />`).join('')}</div>
               <div class="acname">${a.name}</div>
               <div class="acrole">${a.role}</div>
               <div class="acwpn">${a.weaponLabel || 'No weapons'}</div>
@@ -298,6 +298,7 @@ export class Briefing {
         'Triple-A: never fly straight and level near it. Jink.',
         'SAMs cannot see you below 150 ft. Each battery has 2 missiles.',
         'Flares alone will not save you: drop them (X) AND break hard across the missile.',
+        'If she is shot to pieces, E ejects you.',
       ];
     } else {
       const far = f.dest !== f.bases[1] && f.bases.length > 2;
@@ -358,7 +359,7 @@ export class Result {
     const shot = crash && r.reasons.some((x) => x.startsWith('Shot down'));
     if (strike) {
       const { hit, total } = r.targets;
-      if (crash) { head = 'MISSION FAILED'; sub = shot ? 'SHOT DOWN' : 'AIRCRAFT LOST'; tone = 'bad'; }
+      if (crash) { head = 'MISSION FAILED'; sub = shot ? (r.ejected ? 'SHOT DOWN · PILOT EJECTED' : 'SHOT DOWN · PILOT LOST') : 'AIRCRAFT LOST'; tone = 'bad'; }
       else if (hit === total) { head = 'MISSION SUCCESSFUL'; sub = 'ALL TARGETS DESTROYED'; tone = 'ok'; }
       else if (hit > 0) { head = 'PARTIAL SUCCESS'; sub = `${total - hit} TARGET${total - hit > 1 ? 'S' : ''} SURVIVED`; tone = 'warn'; }
       else { head = 'MISSION FAILED'; sub = 'NO TARGETS DESTROYED'; tone = 'bad'; }

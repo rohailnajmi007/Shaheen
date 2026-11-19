@@ -53,3 +53,8 @@ Code: `src/sim/combat.js` (no DOM, Node-testable), numbers in `src/data/combat.j
 - **One countermeasure:** flares and chaff go out together on X (`countermeasures` per aircraft: F-16 30, JF-17 24, Mirage 16; 2 per press). C removed. Works on every missile (decoy chance 0.9 x geometry, same re-acquire rule). Also 50% chance to break a SAM's lock before launch.
 - **One SAM type** (`sam`, the old radar SAM truck): SAM LOCK warning, blind below 45 m, 6 km, 2 missiles per battery in all (never reloads), 1-2 batteries. Measured (40 shots each): no decoys 40/40 hits, decoys flying straight 35/40, break only 40/40, decoys + break 5/40. A battery kept in its envelope for 2 minutes fires exactly 2.
 - Older text above about radar/IR SAMs, flares vs chaff and 4 hardpoints is superseded by this.
+
+### Eject (owner, 2026-11-20)
+- Only once the jet is shot down (airframe 0%): **E** (touch: blinking EJECT button; warning "EJECT · PRESS E"). `Flight.ejectPilot` / `stepEject`, numbers in `EJECT` (`src/data/combat.js`): seat fires 45 m/s along the jet's up axis plus the jet's velocity, canopy tumbles away, chute opens after 1.6 s and sinks at 6 m/s. The camera follows the pilot (`renderer.drawEject`). The jet flies on unmanned and crashes as before.
+- Debrief: "SHOT DOWN · PILOT EJECTED" or "SHOT DOWN · PILOT LOST", remarks "Pilot ejected." / "Pilot did not eject." The debrief waits for the pilot to land, at most 14 s (`EJECT.resultWaitS`; a chute from 600 m takes ~100 s).
+- G effects (blackout/redout) are off once shot down so the screen stays readable to eject.

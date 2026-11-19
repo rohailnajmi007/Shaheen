@@ -81,3 +81,15 @@ export const DAMAGE = {
   engineThrust: 0.7,
   shotDownCrashS: 20, // a shot-down jet that keeps gliding hits the ground after this
 };
+
+// Ejection (owner, 2026-11-20): only once the jet is shot down (beyond saving), E.
+// The seat fires up out of the jet (seat axis = the jet's "up"), then the chute opens.
+export const EJECT = {
+  seatMs: 45,         // seat rocket: speed added along the jet's up axis
+  seatDrag: 0.004,    // seat + pilot drag (decel = k v^2) before the chute
+  chuteAfterS: 1.6,   // chute opens after this
+  chuteSinkMs: 6,     // descent under the canopy
+  chuteSlow: 1.2,     // how fast the chute kills horizontal speed (1/s)
+  minAltM: 0,         // can eject at any height (zero-zero seat)
+  resultWaitS: 14,    // the debrief waits at most this long for the pilot to land
+};

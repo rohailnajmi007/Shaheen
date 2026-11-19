@@ -57,15 +57,16 @@ out of scope until the owner says otherwise.
   tools), `docs/` (not part of the build).
 - Controls (source of truth: `src/input.js`): Up/Down throttle (hold), Left nose
   up, Right nose down (WASD too), E engine, F flaps, G gear, B brake, T fuel
-  truck, Space drop bomb, V gun (hold), Q next target, X flares/chaff
+  truck, Space drop bomb, V gun (hold), Q next target, X flares/chaff, E eject
+  (once shot down)
   (air-to-ground mission), Z zoom, H help, M mute,
   Esc/P pause, R restart, F3 FPS. (Old F1 debug label: not ported yet.)
 - Instructor lines: aggressive, short shouted English, occasional censored curse
   (d*mn, h*ll, sh*tting, f*ck), nothing corny, under ~110 characters.
 - Ranks (owner, 2026-11-19): Mushshak AVN CDT, Mirage V FLT LT, JF-17 SQN LDR,
-  F-16A/D WG CDR. Name-tag crescent: white FLT LT (and cadet), blue SQN LDR, red WG CDR.
-- Home bases (start of every flight): Mushshak Risalpur, Mirage V and F-16s Mushaf
-  (Sargodha), JF-17 Masroor (Karachi). `homeBase` in `src/data/aircraft.js`.
+  F-16A/D WG CDR (J-10C WG CDR: my pick, owner to confirm). Name-tag crescent: white FLT LT (and cadet), blue SQN LDR, red WG CDR.
+- Home bases (start of every flight): Mushshak Risalpur, Mirage V, F-16s and J-10C
+  Mushaf (Sargodha), JF-17 Masroor (Karachi). `homeBase` in `src/data/aircraft.js`.
 
 ## Visual style
 Side view, plane flies left to right, camera follows with look-ahead and zooms out

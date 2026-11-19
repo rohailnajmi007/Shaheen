@@ -8,6 +8,7 @@ import { Hud } from './ui/hud.js';
 import { Menu, Pause, Result, Briefing, loadSettings, saveSettings, getBest, setBest } from './ui/screens.js';
 import { AIRCRAFT, aircraftById } from './data/aircraft.js';
 import { BASES } from './data/world.js';
+import { EJECT } from './data/combat.js';
 
 const STEP = 1 / 120;
 
@@ -113,6 +114,8 @@ function soundFx(f) {
       case 'aaaFire': sound.aaaThud(Math.max(0.15, 1 - e.dist / 2500)); break;
       case 'samLaunch': sound.launch(); break;
       case 'countermeasure': sound.pop(); break;
+      case 'eject': sound.launch(); sound.clunk(); break;
+      case 'chute': sound.burst({ freq: 500, dur: 0.5, vol: 0.3 }); break;
       case 'acHit': sound.clank(); break;
       case 'airBurst': sound.explosion(0.45 * (e.power || 1)); break;
       case 'designate': sound.click(); break;
@@ -189,6 +192,9 @@ function frame(now) {
   hud.update(dt, sound);
   if (endTimer > 0) {
     endTimer -= dt;
+    // Ejected: hold the debrief until the pilot is down (or EJECT.resultWaitS).
+    const e = flight.eject;
+    if (endTimer <= 0 && e && !e.landed && e.t < EJECT.resultWaitS) endTimer = 0.1;
     if (endTimer <= 0) {
       const r = flight.result;
       const nb = setBest(flightOpts, r.score);

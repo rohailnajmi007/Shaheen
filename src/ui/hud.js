@@ -67,6 +67,7 @@ export class Hud {
             <button data-hold="gun" class="strike-only">GUN</button><button data-act="target" class="strike-only">TGT</button>
             <button data-act="countermeasure" class="strike-only">FLR</button>
             <button data-act="pause">II</button>
+            <button data-act="engine" class="ejectbtn">EJECT</button>
           </div>
           <input class="tthr" type="range" min="0" max="100" value="0" orient="vertical" aria-label="Throttle" />
         </div>
@@ -221,7 +222,7 @@ export class Hud {
       if (inc.length) w.push(['MISSILE · FLARES X + BREAK', 'red']);
       else if (f.cb.radarLock) w.push(['SAM LOCK', 'amber']);
       if (f.cb.hp < 45 && f.cb.hp > 0) w.push(['ENGINE DAMAGE', 'amber']);
-      if (a.shotDown) w.push(['EJECT', 'red']);
+      if (a.shotDown && !f.eject) w.push(['EJECT · PRESS E', 'red']);
     }
     const wk = w.map((x) => x.join(':')).join('|');
     if (this.cache.get('warn') !== wk) {
@@ -231,6 +232,7 @@ export class Hud {
 
     // Phase and distance.
     this.set('phase', this.el.phase, f.phase);
+    this.cls('eject', this.el.touch, 'ejecting', !!a.shotDown && !f.eject);
     const toGo = f.dest.x - a.pos.x;
     const tgt = f.mode === 'strike' && !f.revealed ? f.targets.find((t) => t.objective && t.alive && t.x > a.pos.x) : null;
     const togo = tgt ? `TARGET ${((tgt.x - a.pos.x) / 1000).toFixed(1)} KM` : f.revealed ? `${f.dest.short} ${toGo > 0 ? (toGo / 1000).toFixed(1) + ' KM' : 'BEHIND'}` : 'LANDING BASE: AFTER ATTACK';

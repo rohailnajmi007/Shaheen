@@ -192,7 +192,9 @@ export class Renderer {
       for (const s of this.shards) sx += s.x;
       st = { ...st, x: sx / this.shards.length, y: 0, vx: 0, vy: 0 };
     }
-    this.updateCamera(dt, st, flight);
+    // Ejected: the camera follows the pilot.
+    const ej = flight.eject;
+    this.updateCamera(dt, ej ? { ...st, x: ej.x, y: ej.y, vx: ej.vx, vy: ej.vy } : st, flight);
     const v = this.makeView();
     this.handleFx(flight);
     this.emitContinuous(flight, st, dt);
@@ -211,6 +213,7 @@ export class Renderer {
     if (!flight.ac.crashed) this.drawAircraft(ctx, v, flight.data, st);
     if (flight.mode === 'strike' && !flight.ac.crashed) this.drawMuzzle(ctx, v, flight, st);
     this.drawShards(ctx, v);
+    if (ej) this.drawEject(ctx, v, ej);
     this.drawRings(ctx, v);
     this.drawClouds(ctx, v, true);
     if (flight.mode === 'strike') this.drawThreatArrows(ctx, v, flight);
@@ -522,6 +525,48 @@ export class Renderer {
     }
   }
 
+  // Ejection: canopy tumbling away, seat with the pilot (rocket flame early), then the
+  // parachute. Drawn at aircraft scale (2x true size like the jets), with a size floor.
+  drawEject(ctx, v, e) {
+    const k = Math.max(v.S * 2, v.H / 80);  // px per (true) metre, drawn 2x (size floor so it reads at the attack zoom)
+    const c = e.canopy;
+    if (c.y > 0) {
+      ctx.save(); ctx.translate(v.sx(c.x), v.sy(c.y)); ctx.rotate(c.rot);
+      ctx.fillStyle = 'rgba(140,190,230,0.85)'; ctx.strokeStyle = '#3a4048'; ctx.lineWidth = Math.max(1, k * 0.06);
+      ctx.beginPath(); ctx.ellipse(0, 0, k * 0.9, k * 0.35, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    const x = v.sx(e.x), y = v.sy(e.y);
+    if (e.chute) {
+      // Canopy above, lines down to the pilot.
+      const top = y - k * 6, r = k * 3;
+      ctx.strokeStyle = 'rgba(60,60,60,0.8)'; ctx.lineWidth = Math.max(1, k * 0.05);
+      ctx.beginPath();
+      for (const f of [-1, -0.45, 0.45, 1]) { ctx.moveTo(x, y - k * 1.2); ctx.lineTo(x + f * r, top); }
+      ctx.stroke();
+      const g = ctx.createLinearGradient(x - r, 0, x + r, 0);
+      g.addColorStop(0, '#d9822b'); g.addColorStop(0.5, '#f4f1e6'); g.addColorStop(1, '#d9822b');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(x, top, r, r * 0.6, 0, Math.PI, 0);
+      for (let i = 4; i >= 0; i--) ctx.quadraticCurveTo(x - r + (i + 0.5) * (2 * r / 5), top + r * 0.12, x - r + i * (2 * r / 5), top);
+      ctx.fill();
+    }
+    // Pilot (olive flight suit, helmet), on the seat until the chute opens.
+    ctx.save(); ctx.translate(x, y); if (!e.chute) ctx.rotate(-(e.pitch || 0));
+    if (!e.chute) {
+      ctx.fillStyle = '#2b2d30'; ctx.fillRect(-k * 0.5, -k * 1.3, k * 0.25, k * 1.4); ctx.fillRect(-k * 0.5, -k * 0.05, k * 1, k * 0.25);
+      if (e.t < 0.4) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(SOFT.warm, -k * 1.2, k * 0.1, k * 2.4, k * 2.4);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+    ctx.fillStyle = '#4e5a3a'; ctx.fillRect(-k * 0.25, -k * 1.1, k * 0.5, k * 0.9);
+    ctx.fillRect(-k * 0.25, -k * 0.25, k * 0.2, k * 0.6); ctx.fillRect(k * 0.05, -k * 0.25, k * 0.2, k * 0.6);
+    ctx.fillStyle = '#e8e6df'; ctx.beginPath(); ctx.arc(0, -k * 1.35, k * 0.28, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
   // Twin barrels on the AAA mount, pointing where the gunner aims (t.aim).
   drawAaaBarrels(ctx, v, t) {
     const S = v.S;
@@ -766,6 +811,15 @@ export class Renderer {
       ctx.drawImage(tinted(images[d.elevatorSprite], light), -h[0], -h[1]);
       ctx.restore();
     }
+    // Canards (J-10C): leading edge up for nose-up stick, i.e. the opposite way to a tailplane.
+    if (d.canardSprite && images[d.canardSprite]) {
+      const h = d.canardHinge;
+      ctx.save();
+      ctx.translate(h[0], h[1]);
+      ctx.rotate(-d.canardMaxDeg * Math.PI / 180 * s.elevator);
+      ctx.drawImage(tinted(images[d.canardSprite], light), -h[0], -h[1]);
+      ctx.restore();
+    }
     if (d.hasPropeller) {
       const pc = d.propCenter;
       if (s.rpm > 0.6 && images[d.propSprite]) {
@@ -1003,6 +1057,7 @@ export class Renderer {
     if (gear) x.drawImage(tinted(gear, L), 0, 0);
     x.drawImage(tinted(body, L), 0, 0);
     if (d.elevatorSprite && images[d.elevatorSprite]) x.drawImage(tinted(images[d.elevatorSprite], L), 0, 0);
+    if (d.canardSprite && images[d.canardSprite]) x.drawImage(tinted(images[d.canardSprite], L), 0, 0);
     return c;
   }
 

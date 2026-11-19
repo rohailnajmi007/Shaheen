@@ -13,6 +13,7 @@ Front-view configs (k8_front, jf17_front, f16_front) make parked-aircraft scener
   elevator - the tailplane cut out of the art (drawn rotating with the
              stick), optional. The body under it is the owner's picture of
              the same art without the tailplane (under_src)
+  canard   - the same for a foreplane (J-10C canards); config key "canard"
 Textures are stored at TEXTURE_SCALE x the on-screen size and drawn scaled
 down with mipmaps, so they look like the art rather than blocky.
 It prints texture-space positions to copy into src/data/aircraft.js (pivot, gearTravel, lights, ...).
@@ -101,6 +102,27 @@ CONFIGS = {
         # poly_src: the tailplane outline in SOURCE px (converted to texture px).
         "elevator": {"under_src": "docs/reference/jf17_no_tailplane_source.png", "under_offset": (11, 21),
                      "poly_src": [(37, 226), (55, 217), (70, 211), (161, 214), (161, 224), (106, 238), (80, 232), (50, 231)]},
+    },
+    "j10c": {
+        # Owner's J-10C art (22-105, 2026-11-20), gear up (gear drawn in code), PL-15
+        # under the wing as drawn. Owner's pair: WITH the canards (src) and WITHOUT
+        # them (under_src). The pair is NOT the same scale: the no-canard picture
+        # is scaled x0.972 and sits at (-6, 7) on this one (found by matching the
+        # outlines). Phone share buttons and the captions are blanked.
+        "src": "docs/reference/j10c_with_canards_source.png",
+        "erase": [(560, 0, 758, 60), (0, 226, 758, 241)],
+        "display_width": 122,  # world px; J-10C is 16.9 m, a bit longer than the F-16
+        "gear_regions": [],
+        "prop": None,
+        "points": {"nozzle": (72, 163), "main_gear_top": (330, 192), "nose_gear_top": (505, 184),
+                   "wheel_bottom": (0, 246), "canard_hinge": (440, 152),
+                   "light_nav_near": (300, 172), "light_nav_far": (318, 168), "light_tail": (88, 120),
+                   "light_beacon": (92, 16), "light_landing": (505, 190)},
+        # poly_src: the canard (and its shaded underside) in SOURCE px.
+        "canard": {"under_src": "docs/reference/j10c_no_canards_source.png", "under_scale": 0.972,
+                   "under_offset": (-6, 7), "under_erase": [(220, 0, 470, 38), (0, 228, 755, 251)],
+                   "poly_src": [(384, 141), (428, 142), (448, 143), (468, 145), (495, 150), (495, 157),
+                                (483, 160), (472, 166), (440, 171), (404, 171), (401, 160), (393, 151)]},
     },
     # Weapons (owner's art, 2026-11-18), drawn under the jets on a strike
     # mission and when falling/flying. display_width is in world px like the
@@ -213,12 +235,18 @@ def build(name, cfg):
     k = out_w / (box[2] - box[0])
     out_h = round((box[3] - box[1]) * k)
     out = {layer: img.crop(box).resize((out_w, out_h), Image.LANCZOS) for layer, img in layers.items()}
-    if cfg.get("elevator") and cfg["elevator"].get("under_src"):
-        # The owner's art also exists WITHOUT the tailplane: that picture is the
-        # body, and the tailplane layer is what differs between the two.
-        e = cfg["elevator"]
+    moving = "elevator" if cfg.get("elevator") else "canard" if cfg.get("canard") else None
+    if moving and cfg[moving].get("under_src"):
+        # The owner's art also exists WITHOUT the tailplane (or canards): that picture
+        # is the body, and the moving layer is what differs between the two.
+        e = cfg[moving]
         under = Image.new("RGBA", im.size, (255, 255, 255, 255))
-        under.paste(Image.open(e["under_src"]).convert("RGBA"), e["under_offset"])
+        src2 = Image.open(e["under_src"]).convert("RGBA")
+        for b in e.get("under_erase", []):
+            src2.paste((255, 255, 255, 255), b)
+        if e.get("under_scale"):
+            src2 = src2.resize((round(src2.width * e["under_scale"]), round(src2.height * e["under_scale"])), Image.LANCZOS)
+        under.paste(src2, e["under_offset"])
         remove_background(under)
         # The gear is its own layer: cut the same gear areas out of this picture too.
         upx = under.load()
@@ -233,7 +261,7 @@ def build(name, cfg):
         ImageDraw.Draw(mask).polygon(poly, fill=255)
         elev = Image.new("RGBA", (out_w, out_h), (0, 0, 0, 0))
         elev.paste(out["body"], (0, 0), mask)
-        out["elevator"] = elev
+        out[moving] = elev
         out["body"] = under
     for layer, img in out.items():
         img.save("public/sprites/%s_%s.png" % (name, layer))

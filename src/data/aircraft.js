@@ -90,6 +90,8 @@ const COMMON = {
   // Sprite: 1 texture px = 1/16 m (the art is drawn about 2x true size so it reads well).
   texM: 1 / 16,
   gearX: null, gearTopY: null, gearWheel: null,
+  // Moving foreplane layer (J-10C canards): sprite, hinge (texture px), max deflection.
+  canardSprite: null, canardHinge: null, canardMaxDeg: 15,
   sound: 'jet',
 };
 
@@ -207,6 +209,30 @@ export const AIRCRAFT = [
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [300, 100], tracerEvery: 5 },
     countermeasures: 30,
     lights: { navNear: [239, 116], navFar: [229, 112], tail: [10, 72], beacon: [16, 4], landing: [291, 153] },
+  },
+  {
+    ...COMMON,
+    id: 'j10c',
+    name: 'J-10C Vigorous Dragon',
+    role: 'Multirole fighter',
+    // Rank and home base: my picks (owner did not say). Real PAF J-10Cs fly from
+    // Minhas (Kamra), not in the game yet, so Mushaf for now.
+    rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'mushaf',
+    stats: { speed: 1, agility: 0.95, difficulty: 0.7 },
+    // Delta-canard, AL-31-class engine: F-16-like thrust, a little heavier, lower stall.
+    massKg: 12500, maxThrustN: 78000, afterburnerN: 58000,
+    fuelKg: 1250, burnFullKgS: 3, dragCoef: 1.4,
+    stallKt: 120, rotateKt: 142, maxSpeedKt: 600, cockpitStyle: 'colorGlass',
+    // Owner's art (tools/make_aircraft_sprites.py "j10c"): gear up in the art, drawn in
+    // code; the canards are their own layer and move with the stick (canardMaxDeg).
+    sprite: 'j10c_body', canardSprite: 'j10c_canard', canardHinge: [290, 106], canardMaxDeg: 18,
+    gearX: [206, 340], gearTopY: [136, 130], gearWheel: [20, 16],
+    pivot: [206, 178], nozzle: [8, 114], flameLength: 250, flameWidth: 30,
+    // Air to ground: not yet (owner to pick its weapon). The PL-15 under the wing is part of the art.
+    strikeCapable: false,
+    gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 200, port: [330, 122], tracerEvery: 4 },
+    countermeasures: 30,
+    lights: { navNear: [183, 121], navFar: [197, 118], tail: [21, 81], beacon: [24, 2], landing: [340, 135] },
   },
 ];
 

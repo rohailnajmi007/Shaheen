@@ -322,7 +322,8 @@ export class Aircraft {
     const up = { x: -Math.sin(this.pitch), y: Math.cos(this.pitch) };
     const g = (ax * up.x + ay * up.y) / G;
     this.gLoad = lerp(this.gLoad, g, clamp(dt * 8, 0, 1));
-    if (!d.gEffects || this.speedKt < d.gEffectMinKt) {
+    // No blackout/redout once shot down: the screen must stay readable to eject.
+    if (!d.gEffects || this.speedKt < d.gEffectMinKt || this.shotDown) {
       this.blackout = moveToward(this.blackout, 0, dt * 1.2);
       this.redout = moveToward(this.redout, 0, dt * 1.2);
       return;
