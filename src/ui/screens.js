@@ -261,30 +261,51 @@ export class Result {
     this.onMenu = onMenu;
   }
   show(r, opts, newBest, best) {
-    const stars = { PERFECT: 3, GOOD: 2, FIRM: 1 }[r.grade] || 0;
+    const a = AIRCRAFT.find((x) => x.id === opts.aircraft) || AIRCRAFT[0];
+    const pilot = `${a.rank} ${(opts.name || 'Shaheen').toUpperCase()}`;
+    const strike = r.mode === 'strike';
     const crash = r.grade === 'CRASH';
+    const wrongBase = r.grade === 'WRONG BASE';
     const mm = Math.floor(r.timeS / 60), ss = Math.floor(r.timeS % 60);
+    // Headline stamp: what happened to the mission (strike) or the delivery (ferry).
+    let head, sub = '', tone;
+    if (strike) {
+      const { hit, total } = r.targets;
+      if (crash) { head = 'MISSION FAILED'; sub = 'AIRCRAFT LOST'; tone = 'bad'; }
+      else if (hit === total) { head = 'MISSION SUCCESSFUL'; sub = 'ALL TARGETS DESTROYED'; tone = 'ok'; }
+      else if (hit > 0) { head = 'PARTIAL SUCCESS'; sub = `${total - hit} TARGET${total - hit > 1 ? 'S' : ''} SURVIVED`; tone = 'warn'; }
+      else { head = 'MISSION FAILED'; sub = 'NO TARGETS DESTROYED'; tone = 'bad'; }
+    } else if (crash) { head = 'AIRCRAFT LOST'; sub = 'FERRY FLIGHT NOT COMPLETED'; tone = 'bad'; }
+    else if (wrongBase) { head = 'WRONG BASE'; sub = 'AIRCRAFT NOT DELIVERED'; tone = 'warn'; }
+    else { head = 'FERRY FLIGHT COMPLETE'; sub = `AIRCRAFT DELIVERED TO ${r.dest.toUpperCase()}`; tone = 'ok'; }
+    const landing = crash ? 'CRASHED' : wrongBase ? 'WRONG BASE' : `${r.grade}${r.fpm ? ` · ${Math.round(r.fpm)} FPM` : ''}`;
+    const row = (k, v, cls = '') => `<div class="drow ${cls}"><span>${k}</span><i></i><b>${esc(v)}</b></div>`;
+    const rows = [
+      strike && row('TARGETS DESTROYED', `${r.targets.hit} / ${r.targets.total}`, r.targets.hit === r.targets.total ? 'ok' : r.targets.hit ? 'warn' : 'bad'),
+      strike && row('WEAPONS DEPLOYED', `${r.weapons.used} / ${r.weapons.total} ${r.weapons.name}`),
+      !strike && row('ROUTE', `${r.from} > ${r.dest}`.toUpperCase()),
+      row(strike ? 'RECOVERY' : 'LANDING', strike && !crash ? `${r.dest.toUpperCase()} · ${landing}` : landing, crash ? 'bad' : ''),
+      row('FLIGHT TIME', `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`),
+      row('FUEL USED', `${Math.round(r.fuelUsedKg)} KG`),
+    ].filter(Boolean).join('');
     this.root.innerHTML = `
-      <div class="modal result ${crash ? 'crash' : ''}">
-        <div class="rgrade">${esc(r.title)}</div>
-        <div class="stars">${[0, 1, 2].map((i) => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
-        <div class="rgrid">
-          <div><label>TOUCHDOWN</label><b>${r.fpm ? Math.round(r.fpm) : '—'}</b><small>ft/min</small></div>
-          <div><label>FLIGHT TIME</label><b>${mm}:${String(ss).padStart(2, '0')}</b><small>min</small></div>
-          <div><label>FUEL USED</label><b>${Math.round(r.fuelUsedKg)}</b><small>kg</small></div>
-          ${r.targets ? `<div><label>TARGETS</label><b>${r.targets.hit}/${r.targets.total}</b><small>destroyed</small></div>` : ''}
-        </div>
+      <div class="modal debrief ${tone}">
+        <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>${strike ? 'MISSION DEBRIEF' : 'FERRY FLIGHT REPORT'}</span></div>
+        <div class="dmeta">${esc(`${pilot} · ${a.name} · ${strike ? 'AIR TO GROUND' : 'FERRY'}`.toUpperCase())}</div>
+        <div class="stamp"><div class="shead">${head}</div><div class="ssub">${esc(sub)}</div></div>
+        <div class="drows">${rows}</div>
         ${r.reasons.length ? `<ul class="reasons">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-        <div class="rscore">SCORE <b>${r.score}</b> ${newBest ? '<span class="nb">NEW BEST</span>' : best ? `<small>best ${best}</small>` : ''}</div>
-        <div class="mbtns">
-          <button class="retry">Fly again <kbd>Enter</kbd></button>
-          <button class="tomenu ghost">Main menu <kbd>Esc</kbd></button>
+        <div class="dfoot">
+          <div class="rscore">SCORE <b>${r.score}</b> ${newBest ? '<span class="nb">NEW BEST</span>' : best ? `<small>BEST ${best}</small>` : ''}</div>
+          <div class="mbtns">
+            <button class="retry">Fly again <kbd>Enter</kbd></button>
+            <button class="tomenu ghost">Main menu <kbd>Esc</kbd></button>
+          </div>
         </div>
       </div>`;
     $('.retry', this.root).onclick = this.onRetry;
     $('.tomenu', this.root).onclick = this.onMenu;
     this.root.classList.add('show');
-    void opts;
   }
   hide() { this.root.classList.remove('show'); }
   get open() { return this.root.classList.contains('show'); }
