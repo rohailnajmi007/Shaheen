@@ -29,17 +29,39 @@ export const BASES = {
   },
 };
 
-// Threshold positions (m from the Risalpur threshold) in the ferry world.
-export const FERRY_LAYOUT = [
-  ['risalpur', 0],
-  ['masroor', 6500],
-  ['mushaf', 12500],
-];
+// Home base per aircraft (owner, 2026-11-19): the Mushshak flies from Risalpur, the
+// F-16s and Mirage from Mushaf (Sargodha), the JF-17 from Masroor (Karachi). The ferry
+// world is laid out from the home base (x = 0) to the right: the near destination at
+// ROUTE_M[0], the far one at ROUTE_M[1] (refuelling stop at the near base on the way).
+export const ROUTE_M = [6500, 12500];
+export const ROUTES_FROM = {
+  risalpur: ['masroor', 'mushaf'],
+  mushaf: ['risalpur', 'masroor'],
+  masroor: ['mushaf', 'risalpur'],
+};
+// What you see on the way to each base (route notes on the start screen).
+const ROUTE_NOTE = {
+  risalpur: 'Mountains and the PAF Academy',
+  masroor: 'Coast, sea and the Karachi skyline',
+  mushaf: 'Green Punjab plains and Sargodha',
+};
 
-export const ROUTES = [
-  { id: 'masroor', label: 'Risalpur → Masroor', km: 6.5, note: 'Coast, sea and the Karachi skyline' },
-  { id: 'mushaf', label: 'Risalpur → Mushaf', km: 12.5, note: 'Longer. Refuel stop at Masroor if needed' },
-];
+// [base id, threshold x in m] for a ferry flight from this home base.
+export function ferryLayout(home) {
+  const [near, far] = ROUTES_FROM[home] || ROUTES_FROM.risalpur;
+  return [[home, 0], [near, ROUTE_M[0]], [far, ROUTE_M[1]]];
+}
+
+// Start-screen routes from this home base.
+export function routesFrom(home) {
+  const h = BASES[home] || BASES.risalpur;
+  const [near, far] = ROUTES_FROM[h.id];
+  return [
+    { id: near, label: `${cap(h.short)} → ${cap(BASES[near].short)}`, km: ROUTE_M[0] / 1000, note: ROUTE_NOTE[near] },
+    { id: far, label: `${cap(h.short)} → ${cap(BASES[far].short)}`, km: ROUTE_M[1] / 1000, note: `${ROUTE_NOTE[far]}. Refuel stop at ${cap(BASES[near].short)} if needed` },
+  ];
+}
+const cap = (s) => s[0] + s.slice(1).toLowerCase();
 
 // Scenery colours per region. Layers far to near.
 export const THEMES = {

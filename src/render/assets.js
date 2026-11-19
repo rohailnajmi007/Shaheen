@@ -1,12 +1,14 @@
 // Image loading, tinting and small generated sprites.
 
-const SPRITES = [
-  'super_mushshak_body', 'super_mushshak_gear', 'super_mushshak_prop',
-  'mirage5_body', 'mirage5_gear',
-  'f16a_body', 'f16a_elevator', 'f16_body', 'f16_elevator', 'f16_gear',
-  'mk82_body', 'gbu12_body', 'agm88_body',
-  'k8_front_body', 'jf17_front_body', 'f16_front_body', 'paf_pilot_wings',
-];
+import { AIRCRAFT } from '../data/aircraft.js';
+import { BASES } from '../data/world.js';
+
+// Every sprite named in the aircraft and base data, plus the HUD badge.
+const SPRITES = [...new Set([
+  ...AIRCRAFT.flatMap((a) => [a.sprite, a.gearSprite, a.elevatorSprite, a.propSprite, a.weaponSprite]),
+  ...Object.values(BASES).map((b) => b.parked),
+  'paf_pilot_wings',
+].filter(Boolean))];
 
 export const images = {};
 

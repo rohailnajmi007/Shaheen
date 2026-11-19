@@ -83,6 +83,25 @@ CONFIGS = {
                    "light_nav_far": (185, 203), "light_tail": (55, 140), "light_beacon": (38, 38),
                    "light_landing": (575, 252)},
     },
+    "jf17": {
+        # Owner's JF-17 Thunder art (No. 16 Sqn "Black Panthers" style, 23-323,
+        # 2026-11-19), gear down, missiles under the wing as drawn. Owner's pair:
+        # the art WITH the all-moving tailplane (src) and WITHOUT it (under_src);
+        # same scale, the no-tailplane picture sits at (11, 21) on this one
+        # (found by matching the fin and nozzle). Tailplane = what differs.
+        "src": "docs/reference/jf17_with_tailplane_source.png",
+        "display_width": 114,  # world px; JF-17 is 14.9 m, a touch shorter than the F-16
+        # Main gear below the stores (the missile fin next to it stays on the body), nose gear.
+        "gear_regions": [(255, 295, 251, 251), (505, 537, 244, 244)],
+        "gear_cut_y": 247,
+        "prop": None,
+        "points": {"nozzle": (50, 197), "main_wheel": (274, 289), "elevator_hinge": (120, 222),
+                   "light_nav_near": (300, 214), "light_nav_far": (330, 209), "light_tail": (68, 150),
+                   "light_beacon": (100, 44), "light_landing": (522, 250)},
+        # poly_src: the tailplane outline in SOURCE px (converted to texture px).
+        "elevator": {"under_src": "docs/reference/jf17_no_tailplane_source.png", "under_offset": (11, 21),
+                     "poly_src": [(37, 226), (55, 217), (70, 211), (161, 214), (161, 224), (106, 238), (80, 232), (50, 231)]},
+    },
     # Weapons (owner's art, 2026-11-18), drawn under the jets on a strike
     # mission and when falling/flying. display_width is in world px like the
     # aircraft (aircraft art is ~2x true scale; so are these): texture width =
@@ -206,7 +225,8 @@ def build(name, cfg):
                     upx[x, y] = (0, 0, 0, 0)
         under = under.crop(box).resize((out_w, out_h), Image.LANCZOS)
         mask = Image.new("L", (out_w, out_h), 0)
-        ImageDraw.Draw(mask).polygon(e["poly"], fill=255)
+        poly = e["poly"] if "poly" in e else [((x - box[0]) * k, (y - box[1]) * k) for x, y in e["poly_src"]]
+        ImageDraw.Draw(mask).polygon(poly, fill=255)
         elev = Image.new("RGBA", (out_w, out_h), (0, 0, 0, 0))
         elev.paste(out["body"], (0, 0), mask)
         out["elevator"] = elev

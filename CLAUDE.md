@@ -61,7 +61,9 @@ out of scope until the owner says otherwise.
   Esc/P pause, R restart, F3 FPS. (Old F1 debug label: not ported yet.)
 - Instructor lines: aggressive, short shouted English, occasional censored curse
   (d*mn, h*ll, sh*tting, f*ck), nothing corny, under ~110 characters.
-- Ranks: Mushshak AVN CDT, F-16A/D SQN LDR, Mirage V FLT LT.
+- Ranks: Mushshak AVN CDT, F-16A/D SQN LDR, Mirage V FLT LT, JF-17 FLT LT.
+- Home bases (start of every flight): Mushshak Risalpur, Mirage V and F-16s Mushaf
+  (Sargodha), JF-17 Masroor (Karachi). `homeBase` in `src/data/aircraft.js`.
 
 ## Visual style
 Side view, plane flies left to right, camera follows with look-ahead and zooms out

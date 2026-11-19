@@ -1,7 +1,7 @@
 // One flight: world layout, mission rules, landing judge, weapons, instructor.
 import { Aircraft, KT, FT, G } from './aircraft.js';
 import { aircraftById } from '../data/aircraft.js';
-import { BASES, FERRY_LAYOUT } from '../data/world.js';
+import { BASES, ferryLayout, ROUTES_FROM } from '../data/world.js';
 
 const GRADES = ['PERFECT', 'GOOD', 'FIRM', 'HARD'];
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -65,9 +65,12 @@ export class Flight {
   }
 
   buildWorld() {
+    // Every flight starts at the aircraft's home base (x = 0).
+    const home = BASES[this.data.homeBase] ? this.data.homeBase : 'risalpur';
+    this.home = home;
     if (this.mode === 'ferry') {
-      this.bases = FERRY_LAYOUT.map(([id, x]) => ({ ...BASES[id], x, visible: true }));
-      this.dest = this.bases.find((b) => b.id === this.opts.dest) || this.bases[1];
+      this.bases = ferryLayout(home).map(([id, x]) => ({ ...BASES[id], x, visible: true }));
+      this.dest = this.bases.slice(1).find((b) => b.id === this.opts.dest) || this.bases[1];
       this.themeStops = [];
       for (const b of this.bases) this.themeStops.push({ x: b.x - 900, theme: b.theme }, { x: b.x + b.runwayM + 900, theme: b.theme });
     } else {
@@ -80,15 +83,17 @@ export class Flight {
         x += rand(700, 1300);
       }
       const lastT = this.targets[this.targets.length - 1].x;
-      const recId = Math.random() < 0.5 ? 'masroor' : 'mushaf';
+      // Landing base: one of the other two bases, at random.
+      const others = ROUTES_FROM[home];
+      const recId = others[Math.random() < 0.5 ? 0 : 1];
       this.bases = [
-        { ...BASES.risalpur, x: 0, visible: true },
+        { ...BASES[home], x: 0, visible: true },
         { ...BASES[recId], x: lastT + 3000, visible: false },
       ];
       this.dest = this.bases[1];
       this.revealed = false;
       this.themeStops = [
-        { x: -900, theme: 'kpk' }, { x: 2100, theme: 'kpk' },
+        { x: -900, theme: BASES[home].theme }, { x: 2100, theme: BASES[home].theme },
         { x: 3800, theme: 'desert' }, { x: lastT + 600, theme: 'desert' },
         { x: this.dest.x - 900, theme: this.dest.theme }, { x: this.dest.x + this.dest.runwayM + 900, theme: this.dest.theme },
       ];

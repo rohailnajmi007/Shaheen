@@ -1,6 +1,6 @@
 // Start menu, pause menu and result screen (HTML).
 import { AIRCRAFT } from '../data/aircraft.js';
-import { ROUTES, TIMES } from '../data/world.js';
+import { BASES, routesFrom, TIMES } from '../data/world.js';
 import { KEY_HELP } from '../input.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -32,7 +32,7 @@ const STEPS = [
   { id: 'time', title: 'Time of day' },
 ];
 const MODES = [
-  { id: 'ferry', label: 'Ferry flight', note: 'Take off from Risalpur, fly to the base you pick, land and stop on the runway.' },
+  { id: 'ferry', label: 'Ferry flight', note: 'Take off from your home base, fly to the base you pick, land and stop on the runway.' },
   { id: 'strike', label: 'Air to ground', note: 'Jets only. Destroy 2-3 ground targets, then land at the base that appears.' },
 ];
 
@@ -68,7 +68,7 @@ export class Menu {
           <div class="seg big mode">${MODES.map((m) => `<button data-v="${m.id}">${m.label}<small>${m.note}</small></button>`).join('')}</div>
         </section>
         <section class="page" data-step="dest">
-          <div class="seg big dest">${ROUTES.map((r) => `<button data-v="${r.id}">${r.label}<small>${r.km} km · ${r.note}</small></button>`).join('')}</div>
+          <div class="seg big dest"></div>
         </section>
         <section class="page" data-step="time">
           <div class="seg time">${Object.entries(TIMES).map(([k, t]) => `<button data-v="${k}">${t.label}</button>`).join('')}</div>
@@ -86,9 +86,11 @@ export class Menu {
     name.value = settings.name;
     name.addEventListener('input', () => { this.s.name = name.value; saveSettings(this.s); });
     for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => { if (b.disabled) return; this.pick('aircraft', b.dataset.id); });
-    for (const [cls, key] of [['mode', 'mode'], ['dest', 'dest'], ['time', 'time']]) {
+    for (const [cls, key] of [['mode', 'mode'], ['time', 'time']]) {
       for (const b of root.querySelectorAll(`.seg.${cls} button`)) b.addEventListener('click', () => this.pick(key, b.dataset.v));
     }
+    // Route buttons depend on the aircraft's home base: rebuilt in refresh().
+    $('.seg.dest', root).addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) this.pick('dest', b.dataset.v); });
     for (const b of root.querySelectorAll('.stepdot')) b.addEventListener('click', () => { const i = +b.dataset.i; if (i < this.step) this.go(i); });
     $('.next', root).addEventListener('click', () => this.next());
     $('.back', root).addEventListener('click', () => this.back());
@@ -127,12 +129,18 @@ export class Menu {
     let opts;
     if (id === 'aircraft') opts = AIRCRAFT.filter((a) => this.s.mode !== 'strike' || a.strikeCapable).map((a) => a.id);
     else if (id === 'mode') opts = MODES.map((m) => m.id);
-    else if (id === 'dest') opts = ROUTES.map((r) => r.id);
+    else if (id === 'dest') opts = this.routes().map((r) => r.id);
     else if (id === 'time') opts = Object.keys(TIMES);
     else return;
     const key = id === 'aircraft' ? 'aircraft' : id;
     const i = opts.indexOf(this.s[key]);
     this.pick(key, opts[(i + dir + opts.length) % opts.length]);
+  }
+
+  // Ferry routes from the selected aircraft's home base.
+  routes() {
+    const a = AIRCRAFT.find((x) => x.id === this.s.aircraft);
+    return routesFrom(a.homeBase);
   }
 
   pick(key, v) {
@@ -149,12 +157,20 @@ export class Menu {
     this.sound.click();
     const a = AIRCRAFT.find((x) => x.id === this.s.aircraft);
     if (this.s.mode === 'strike' && !a.strikeCapable) { this.s.aircraft = 'f16a'; visual = true; }
+    this.fixDest();
     saveSettings(this.s);
     this.refresh();
     if (visual) this.onChange(this.s);
   }
 
+  // Keep the route valid for the current home base (default: the near one).
+  fixDest() {
+    const routes = this.routes();
+    if (!routes.some((r) => r.id === this.s.dest)) this.s.dest = routes[0].id;
+  }
+
   refresh() {
+    this.fixDest();
     const s = this.s;
     const r = this.root;
     const steps = this.steps();
@@ -175,11 +191,17 @@ export class Menu {
       b.disabled = s.mode === 'strike' && !ac.strikeCapable;
     }
     const name = (s.name || 'Shaheen').trim().toUpperCase();
-    $('.achint', r).textContent = `You fly as ${a.rank} ${name}.`;
+    $('.achint', r).textContent = `You fly as ${a.rank} ${name} from ${BASES[a.homeBase].name}.`;
+    const routes = this.routes();
+    const rk = routes.map((x) => x.id).join();
+    if (this.routeKey !== rk) {
+      this.routeKey = rk;
+      $('.seg.dest', r).innerHTML = routes.map((x) => `<button data-v="${x.id}">${x.label}<small>${x.km} km · ${x.note}</small></button>`).join('');
+    }
     for (const [cls, key] of [['mode', 'mode'], ['dest', 'dest'], ['time', 'time']]) {
       for (const b of r.querySelectorAll(`.seg.${cls} button`)) b.classList.toggle('sel', b.dataset.v === s[key]);
     }
-    const route = ROUTES.find((x) => x.id === s.dest);
+    const route = routes.find((x) => x.id === s.dest);
     $('.summary', r).textContent = `${a.rank} ${name} · ${a.name} · ${s.mode === 'strike' ? 'Air to ground' : route ? route.label : ''}`;
     const best = getBest(s);
     $('.best', r).textContent = best ? `Best score: ${best}` : '';

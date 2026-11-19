@@ -48,13 +48,15 @@ const result = new Result(document.getElementById('result'), {
 });
 
 function setupDemo(o) {
+  // Backdrop: the selected aircraft's home base.
+  const d = aircraftById(o.aircraft);
+  const home = BASES[d.homeBase] || BASES.risalpur;
   renderer.setupWorld({
-    bases: [{ ...BASES.risalpur, x: 0, visible: true }],
-    themeStops: [{ x: -1000, theme: 'kpk' }, { x: 99999, theme: 'kpk' }],
+    bases: [{ ...home, x: 0, visible: true }],
+    themeStops: [{ x: -1000, theme: home.theme }, { x: 99999, theme: home.theme }],
     timeId: o.time,
   });
   renderer.cam.zoom = 0.9;
-  const d = aircraftById(o.aircraft);
   const others = AIRCRAFT.filter((a) => a.id !== d.id && a.id !== 'mushshak');
   demoPlanes = [d, others[0], others[1]];
 }

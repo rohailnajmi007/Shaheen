@@ -10,6 +10,13 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const LAYER_ZOOM = { mountains: 0.12, city: 0.25, mid: 0.4, trees: 0.7 };
 const LAYER_DROP = { mountains: 0.07, city: 0.1, mid: 0.14, trees: 0.2 };
+// Air-to-ground attack-run camera (see updateCamera). At zoom 0.4 the ground stays in
+// view up to ~125 m (~400 ft) on a 720p screen; climb higher and it leaves the frame.
+export const ATTACK_CAM = {
+  zoom: 0.4,        // camera zoom during the attack run (1 = normal)
+  lookFactor: 0.5,  // look-ahead x this, so the ground behind (where bombs land) stays in view
+  leadFactor: 0.5,  // vertical lead x this, so climbs and dives show as movement on screen
+};
 // Crash breakup (see crashFx). Shard sizes in aircraft texture px (1/16 m).
 export const CRASH = {
   bigSeverity: 0.6,     // from this severity: explosion, debris blasted out
@@ -119,7 +126,10 @@ export class Renderer {
     // Attack run: zoom out far enough to keep the plane and the ground (targets, bombs) in view.
     const attack = flight && flight.mode === 'strike' && (!flight.revealed || this.watchT > 0) && st.y > 25 && flight.state === 'flying';
     if (flight && flight.revealed) this.watchT = Math.max(0, (this.watchT ?? 3) - dt); else this.watchT = 3;
-    if (attack) z = clamp(42 / Math.max(st.y, 40), 0.1, 0.6);
+    // Fixed zoom (Godot attack_zoom): the jet climbs and dives visibly on screen and the
+    // ground leaves the frame when it climbs high (owner, 2026-11-19). The old
+    // zoom = 42 / altitude kept the jet at one screen height whatever it did.
+    if (attack) z = ATTACK_CAM.zoom;
     if (flight) {
       if (flight.revealed && flight.state === 'flying') {
         const toGo = flight.dest.x - st.x;
@@ -131,14 +141,14 @@ export class Renderer {
     const k = 1 - Math.exp(-dt * 1.6);
     c.zoom += (z - c.zoom) * k;
     v.S = (v.H / 720) * 7.2 * c.zoom;
-    const lookPx = clamp(st.vx / 240, -0.3, 1) * 0.2 * v.W * (attack ? 0.5 : 1);
+    const lookPx = clamp(st.vx / 240, -0.3, 1) * 0.2 * v.W * (attack ? ATTACK_CAM.lookFactor : 1);
     c.look += (lookPx - c.look) * (1 - Math.exp(-dt * 1.2));
     c.lead += (clamp(st.vy * 0.5, -40, 40) - c.lead) * (1 - Math.exp(-dt * 1.5));
     c.x = st.x + c.look / v.S;
+    // Low: the camera stops so the ground stays at 74% of the screen height and the jet
+    // moves on screen; higher up the camera follows the jet and the ground drops away.
     const minY = (0.24 * v.H) / v.S;
-    const fitY = (0.28 * v.H) / v.S;
-    c.fit = lerp(c.fit ?? 0, attack ? 1 : 0, 1 - Math.exp(-dt * 1.6));
-    c.y = lerp(Math.max(st.y + c.lead, minY), fitY, c.fit);
+    c.y = Math.max(st.y + c.lead * (attack ? ATTACK_CAM.leadFactor : 1), minY);
     c.shake = Math.max(0, c.shake - dt * 1.8);
   }
 
