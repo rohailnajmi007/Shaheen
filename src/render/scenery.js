@@ -728,6 +728,21 @@ function samRadar(time, R, dead) {
   });
 }
 
+// Fuel bowser (refuelling stop), 10 x 3.8 m, cab on the left (it drives in leftwards).
+export function buildFuelTruck(time, R) {
+  const L = time.light;
+  return sprite(10, 3.8, R, (x, W, H, R) => {
+    for (const wx of [1.6, 6.4, 8.2]) wheel(x, wx * R, H - 0.6 * R, 0.6 * R, L);
+    x.fillStyle = shade('#3a3d40', L); x.fillRect(0.4 * R, H - 1.3 * R, 9.4 * R, 0.5 * R);
+    x.fillStyle = shade('#d9d4c4', L); x.beginPath(); x.roundRect(3 * R, H - 3.3 * R, 6.8 * R, 2.1 * R, 0.9 * R); x.fill();
+    x.fillStyle = shade('#c0392b', L); x.fillRect(3 * R, H - 2.4 * R, 6.8 * R, 0.35 * R);
+    x.fillStyle = shade('#5b6b3c', L);
+    x.beginPath(); x.moveTo(0.2 * R, H - 1.2 * R); x.lineTo(0.4 * R, H - 2.8 * R); x.lineTo(1.2 * R, H - 3.6 * R); x.lineTo(2.7 * R, H - 3.6 * R); x.lineTo(2.7 * R, H - 1.2 * R); x.fill();
+    x.fillStyle = shade('#9bb3c4', L); x.fillRect(0.75 * R, H - 3.2 * R, 1.1 * R, 0.9 * R);
+    x.fillStyle = shade('#ffb43a', L); x.fillRect(1.4 * R, H - 3.8 * R, 0.6 * R, 0.25 * R);
+  });
+}
+
 export function themeColorRgb(themeId, key, light) {
   const c = hexToRgb(THEMES[themeId][key]);
   return c.map((v, i) => v * light[i]);

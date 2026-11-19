@@ -34,7 +34,7 @@ const STEPS = [
 ];
 const MODES = [
   { id: 'ferry', label: 'Ferry flight', note: 'Take off from your home base, fly to the base you pick, land and stop on the runway.' },
-  { id: 'strike', label: 'Air to ground', note: 'Jets only. Destroy 4-5 ground targets past AAA guns and SAMs, then land at the base that appears.' },
+  { id: 'strike', label: 'Air to ground', note: 'Jets only. Destroy 4-5 ground targets past SAMs, then land at the base that appears.' },
 ];
 
 export class Menu {
@@ -81,7 +81,7 @@ export class Menu {
           <button class="fly next">Next <kbd>Enter</kbd></button>
           <button class="ghost keysbtn">Controls</button>
         </footer>
-        <div class="keypop">${KEY_HELP.map(([k, t]) => `<div><kbd>${k}</kbd><span>${t}</span></div>`).join('')}<p>Gamepad: left stick pitch, triggers throttle, A drop, B brake, X flaps, Y gear, LB engine.</p></div>
+        <div class="keypop">${KEY_HELP.map(([k, t]) => `<div><kbd>${k}</kbd><span>${t}</span></div>`).join('')}<p>Gamepad: left stick pitch, triggers throttle, A fire, B brake, X flares, Y gear, LB engine.</p></div>
       </div>`;
     const name = $('.pname', root);
     name.value = settings.name;
@@ -294,8 +294,8 @@ export class Briefing {
       ];
       notes = [
         d.bombCount < objs.length ? `${d.bombCount} weapons for ${objs.length} targets: finish the rest with the gun (V).` : `One weapon per target. The gun (V) is your back-up for misses.`,
-        'Q picks the target for your weapon. Air defences are targets too.',
-        'Triple-A: never fly straight and level near it. Jink.',
+        'Your weapon picks the nearest target ahead. Air defences are targets too.',
+        'Each SAM battery has one missile. Make it miss and the sky is yours.',
         'SAMs cannot see you below 150 ft. Each battery has 2 missiles.',
         'Flares alone will not save you: drop them (X) AND break hard across the missile.',
         'If she is shot to pieces, E ejects you.',

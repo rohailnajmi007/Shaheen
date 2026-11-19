@@ -18,6 +18,11 @@ const wrapAngle = (a) => {
 };
 
 export const FLAP_NAMES = ['UP', 'TO', 'LDG'];
+// Flaps are automatic (owner 2026-11-20: no flap key). Retractable gear: gear up =
+// UP; gear lowered in the air = LDG; take-off in TO until the gear comes up.
+// Fixed gear (Mushshak): UP above upFt (or above climbUpFt while climbing), LDG
+// below ldgBelowFt while sinking faster than ldgSinkFpm.
+export const FLAP_AUTO = { upFt: 900, climbUpFt: 500, climbFpm: 200, ldgBelowFt: 700, ldgSinkFpm: -200 };
 
 export class Aircraft {
   constructor(data) {
@@ -92,11 +97,15 @@ export class Aircraft {
     this.engineOn = !this.engineOn && this.fuel > 0;
     this.events.push({ type: this.engineOn ? 'engineStart' : 'engineStop' });
   }
-  cycleFlaps() {
-    if (!this.controls) return;
-    if (this.flapSetting + this.flapDir < 0 || this.flapSetting + this.flapDir >= FLAP_NAMES.length) this.flapDir = -this.flapDir;
-    this.flapSetting += this.flapDir;
-    this.events.push({ type: 'flaps', setting: this.flapSetting });
+  autoFlaps() {
+    const A = FLAP_AUTO;
+    if (this.data.retractableGear) {
+      if (!this.gearDown) this.flapSetting = 0;
+      else if (!this.onGround && this.flapSetting === 0) this.flapSetting = 2;
+    } else if (!this.onGround) {
+      if (this.altFt > A.upFt || (this.altFt > A.climbUpFt && this.vsFpm > A.climbFpm)) this.flapSetting = 0;
+      else if (this.flapSetting === 0 && this.altFt < A.ldgBelowFt && this.vsFpm < A.ldgSinkFpm) this.flapSetting = 2;
+    }
   }
   toggleGear() {
     if (!this.controls || !this.data.retractableGear) return;
@@ -142,6 +151,7 @@ export class Aircraft {
         this.events.push({ type: 'flameout' });
       }
     }
+    this.autoFlaps();
     this.flapPos = moveToward(this.flapPos, this.flapSetting, dt / Math.max(d.flapMoveS, 0.01));
     if (!d.retractableGear) { this.gearDown = true; this.gearPos = 1; }
     else {

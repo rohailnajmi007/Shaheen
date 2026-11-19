@@ -96,7 +96,7 @@ export function drawBombSight(cv, f, time) {
   // Targets (arrows at the edges when off the screen).
   const lo = sr.x + 4, hi = sr.x + sr.w - 4;
   const seekT = missile ? f.seeker.target : null;
-  const pick = f.manualTarget();
+  const pick = null; // Q target switching removed (owner 2026-11-20)
   for (const t of f.targets) {
     const tx = toX(t.x);
     if (!t.alive) {
@@ -168,6 +168,8 @@ export class ReleaseCue {
     this.cv = canvas;
     this.time = 0;
     this.shown = false;
+    this.cssW = 0; // cached: reading clientWidth every frame forces a layout
+    new ResizeObserver(() => { this.cssW = canvas.clientWidth; }).observe(canvas);
   }
 
   // The cue for this frame, or null (hidden).
@@ -185,7 +187,7 @@ export class ReleaseCue {
     if (!cue) return;
     const cv = this.cv;
     const dpr = dprOf();
-    const w = Math.round(cv.clientWidth * dpr), h = Math.round(w * CUE.h / CUE.w);
+    const w = Math.round(this.cssW * dpr), h = Math.round(w * CUE.h / CUE.w);
     if (w > 0 && (cv.width !== w || cv.height !== h)) { cv.width = w; cv.height = h; }
     const k = cv.width / CUE.w;
     const c = cv.getContext('2d');

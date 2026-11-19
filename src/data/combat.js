@@ -22,7 +22,7 @@ export const STRIKE = {
   objectives: [4, 5],                 // mission targets: random count in this range
   objectiveKinds: ['satcom', 'radar', 'fuel', 'bunker', 'launcher', 'tank', 'apc'],
   gapM: [450, 850],                   // between mission targets
-  aaa: [1, 1],                        // AAA guns, each near a mission target (owner: one)
+  aaa: [0, 0],                        // AAA guns near mission targets (owner 2026-11-20: none; code kept)
   aaaOffsetM: [-260, 220],            // ... this far from it
   sams: [1, 2],                       // SAM batteries (one type, owner 2026-11-20)
   samBeforeM: 1200,                   // first SAM this far before the first target
@@ -47,9 +47,9 @@ export const AIR_DEFENCE = {
     tracerEvery: 3, dmg: 2,
   },
   // SAM battery (one type, owner 2026-11-20): locks on first (SAM LOCK warning), blind
-  // below minAltM (ground clutter). Fires `missiles` (2) in all, never reloads.
+  // below minAltM (ground clutter). Fires `missiles` (1, owner 2026-11-20) in all, never reloads.
   sam: {
-    rangeM: 6000, minAltM: 45, maxAltM: 5500, lockS: 2.5, reloadS: 8, missiles: 2,
+    rangeM: 6000, minAltM: 45, maxAltM: 5500, lockS: 2.5, reloadS: 8, missiles: 1,
     missile: { boostS: 3, boostAcc: 240, maxSpeed: 760, dragK: 0.00022, navN: 4, maxG: 26, lifeS: 15,
       gimbalDeg: 60, fuseM: 14, dmgMax: 75, dmgMin: 30, decoyChance: 0.9 },
   },

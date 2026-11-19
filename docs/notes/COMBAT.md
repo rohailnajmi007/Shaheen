@@ -58,3 +58,8 @@ Code: `src/sim/combat.js` (no DOM, Node-testable), numbers in `src/data/combat.j
 - Only once the jet is shot down (airframe 0%): **E** (touch: blinking EJECT button; warning "EJECT · PRESS E"). `Flight.ejectPilot` / `stepEject`, numbers in `EJECT` (`src/data/combat.js`): seat fires 45 m/s along the jet's up axis plus the jet's velocity, canopy tumbles away, chute opens after 1.6 s and sinks at 6 m/s. The camera follows the pilot (`renderer.drawEject`). The jet flies on unmanned and crashes as before.
 - Debrief: "SHOT DOWN · PILOT EJECTED" or "SHOT DOWN · PILOT LOST", remarks "Pilot ejected." / "Pilot did not eject." The debrief waits for the pilot to land, at most 14 s (`EJECT.resultWaitS`; a chute from 600 m takes ~100 s).
 - G effects (blackout/redout) are off once shot down so the screen stays readable to eject.
+
+## Owner changes, 2026-11-20 (second round)
+- No AAA gun in air-to-ground (`STRIKE.aaa` [0, 0]; the AAA code and data stay for later). Each SAM battery fires one missile (`AIR_DEFENCE.sam.missiles` 1).
+- Q target switching removed: weapons always pick automatically (missile: nearest unclaimed target in range; guided bomb: nearest to the impact point; Mirage: next target ahead). Supersedes "Target switching (Q)" above.
+- Weapon card reads `LOCKED x KM · FIRE` / `IN RANGE · FIRE` / `ON TARGET · FIRE`. Cockpit WPN lamp (old flap box): SAFE, ARM, FIRE (blinking green), GUN, EMPTY, EJECT (blinking red). Shot down: big blinking EJECT · PRESS E cue in the middle of the screen (tap = eject).

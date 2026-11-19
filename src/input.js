@@ -9,17 +9,16 @@ const HOLD = {
   gun: ['KeyV'],
 };
 const PRESS = {
-  engine: ['KeyE'], flaps: ['KeyF'], gear: ['KeyG'], drop: ['Space'], refuel: ['KeyT'],
-  countermeasure: ['KeyX'], target: ['KeyQ'],
+  engine: ['KeyE'], gear: ['KeyG'], drop: ['Space'], countermeasure: ['KeyX'],
   pause: ['Escape', 'KeyP'], restart: ['KeyR'], zoom: ['KeyZ'], hud: ['KeyH'], mute: ['KeyM'],
 };
 
+// Only the controls that matter (owner 2026-11-20). Z zoom, H help, M mute, R restart
+// still work. Third field: shown in air-to-ground only.
 export const KEY_HELP = [
-  ['↑ / ↓', 'Throttle (hold)'], ['← / →', 'Nose up / down'], ['E', 'Engine on / off'],
-  ['F', 'Flaps UP → TO → LDG'], ['G', 'Gear up / down'], ['B', 'Brakes / air brake (hold)'],
-  ['Space', 'Drop weapon'], ['V', 'Gun (hold)'], ['Q', 'Next target'], ['X', 'Flares / chaff'],
-  ['T', 'Refuel (stopped, engine off)'], ['Z', 'Camera zoom'],
-  ['H', 'Hide help'], ['M', 'Mute'], ['Esc', 'Pause'], ['R', 'Restart'],
+  ['↑ / ↓', 'Throttle (hold)'], ['← / →', 'Nose up / down'], ['E', 'Engine · eject when hit'],
+  ['G', 'Gear (flaps follow)'], ['B', 'Brakes / air brake (hold)'],
+  ['Space', 'Fire weapon', true], ['V', 'Gun (hold)', true], ['X', 'Flares + chaff', true], ['Esc', 'Pause'],
 ];
 
 export class Input {
@@ -58,7 +57,7 @@ export class Input {
     this.pad = null;
     if (!p) return;
     const b = (i) => !!p.buttons[i]?.pressed;
-    const map = { 0: 'drop', 2: 'flaps', 3: 'gear', 4: 'engine', 9: 'pause', 8: 'restart', 5: 'zoom' };
+    const map = { 0: 'drop', 2: 'countermeasure', 3: 'gear', 4: 'engine', 9: 'pause', 8: 'restart', 5: 'zoom' };
     for (const [i, a] of Object.entries(map)) {
       if (b(+i) && !this.padPrev[i]) this.queue.push(a);
     }

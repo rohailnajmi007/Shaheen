@@ -1,7 +1,7 @@
 // One flight: world layout, mission rules, landing judge, weapons, instructor.
 import { Aircraft, KT, FT, G } from './aircraft.js';
 import { aircraftById } from '../data/aircraft.js';
-import { BASES, ferryLayout, ROUTES_FROM } from '../data/world.js';
+import { BASES, ferryLayout, ROUTES_FROM, REFUEL } from '../data/world.js';
 import { GROUND_UNITS, STRIKE, AIR_DEFENCE, EJECT } from '../data/combat.js';
 import { Combat } from './combat.js';
 
@@ -68,7 +68,6 @@ export class Flight {
     this.extraFuel = 0;
     this.revealed = true;
     this.seeker = { target: null, t: 0 }; // missile seeker: candidate target and time on it
-    this.designated = null; // target picked by the pilot (Q), or null = automatic
     this.eject = null;      // ejection seat / parachute once the pilot has ejected
     this.cb = new Combat(this);
     this.buildWorld();
@@ -178,12 +177,9 @@ export class Flight {
     const a = this.ac;
     switch (name) {
       case 'engine': if (a.shotDown) this.ejectPilot(); else a.toggleEngine(); break; // E = eject once shot down
-      case 'flaps': a.cycleFlaps(); break;
       case 'gear': a.toggleGear(); break;
       case 'drop': this.dropStore(); break;
-      case 'refuel': this.requestRefuel(); break;
       case 'countermeasure': if (this.mode === 'strike') this.cb.dispense(); break;
-      case 'target': this.designateNext(); break;
     }
   }
 
@@ -215,26 +211,8 @@ export class Flight {
 
   // --- targeting (ported from the Godot strike_mission.gd) ---
 
-  // Q: pick the next live ground unit ahead (mission targets and air defences), in
-  // order of distance, wrapping round. Weapons and aids then use it while it lives,
-  // is ahead and nothing in the air is already going for it; otherwise automatic.
-  designateNext() {
-    if (this.mode !== 'strike' || this.state !== 'flying') return;
-    const a = this.ac;
-    const list = this.targets.filter((t) => t.alive && t.x > a.pos.x + 30 && !this.claimed(t));
-    if (!list.length) { this.designated = null; return; }
-    const i = list.indexOf(this.designated);
-    this.designated = list[(i + 1) % list.length];
-    this.seeker = { target: null, t: 0 };
-    this.emit('designate');
-  }
-
-  // The pilot's pick, if still valid.
-  manualTarget() {
-    const t = this.designated;
-    if (t && (!t.alive || t.x < this.ac.pos.x - 30 || this.claimed(t))) this.designated = null;
-    return this.designated;
-  }
+  // Targets are picked automatically (owner 2026-11-20: Q target switching removed;
+  // the LOCK box / impact marker / release cue show which one).
 
   // True if a weapon already in the air will take this target out (guided onto it,
   // or an unguided bomb predicted to land on it), so the aids move on to the next.
@@ -255,8 +233,6 @@ export class Flight {
     const a = this.ac;
     const m = this.data.missile;
     const inRange = (t) => t.x - a.pos.x >= m.rangeMin && t.x - a.pos.x <= m.rangeMax;
-    const pick = this.manualTarget();
-    if (pick) return inRange(pick) ? pick : null;
     let best = null;
     for (const t of this.targets) {
       if (t.alive && inRange(t) && !this.claimed(t) && (!best || t.x < best.x)) best = t;
@@ -289,8 +265,6 @@ export class Flight {
   // Guided bombs: the live, unclaimed target nearest x within the guidance reach.
   guidedTargetNear(x) {
     const reach = this.data.guidanceReachM;
-    const pick = this.manualTarget();
-    if (pick && Math.abs(pick.x - x) <= reach) return pick;
     let best = null;
     for (const t of this.targets) {
       if (t.alive && Math.abs(t.x - x) <= reach && !this.claimed(t) && (!best || Math.abs(t.x - x) < Math.abs(best.x - x))) best = t;
@@ -339,23 +313,13 @@ export class Flight {
     const aim = this.bombImpact();
     if (!aim || a.vel.x < 1) return null;
     let out = null;
-    const pick = this.manualTarget();
     for (const t of this.targets) {
-      if (!t.alive || this.claimed(t) || (pick && t !== pick)) continue;
+      if (!t.alive || this.claimed(t)) continue;
       const window = (this.data.blastRadiusM + t.w / 2) / a.vel.x;
       const s = (t.x - aim.x) / a.vel.x;
       if (s > -window - 1.5 && (!out || s < out.seconds)) out = { seconds: s, window, target: t };
     }
     return out;
-  }
-
-  requestRefuel() {
-    const a = this.ac;
-    if (this.state !== 'stopover' || this.refuel) return;
-    if (a.engineOn || a.rpm > 0.05) { this.say('Engine OFF first! E! You want to blow us up?', true); return; }
-    this.refuel = { t: 0, dur: 5 };
-    this.emit('refuelStart');
-    this.say('Fuel truck coming. Sit still.');
   }
 
   // --- simulation step (fixed dt) ---
@@ -396,7 +360,7 @@ export class Flight {
 
     if (a.onGround && (this.state === 'rollout' || this.state === 'stopover' || this.state === 'preflight')) this.checkGroundRoll();
     if (this.state === 'preflight' && !a.onGround) this.state = 'flying';
-    if (this.state === 'stopover') this.stepRefuel(dt);
+    if (this.refuel) this.stepRefuel(dt);
     this.instructor();
     if (this.mode === 'strike') { this.stepSeeker(dt); this.stepStrike(); }
     // Too far past everything: fuel or not, end the misery.
@@ -470,23 +434,34 @@ export class Flight {
 
   beginStopover() {
     this.state = 'stopover';
-    this.say(`Stopped at ${this.landedOn.short}. Engine off (E), then T for fuel.`, true);
+    this.say(`Stopped at ${this.landedOn.short}. Fuel truck is coming. Sit still!`, true);
+    this.refuel = { t: 0, dur: REFUEL.driveS * 2 + REFUEL.pumpS, x: this.ac.pos.x, pumped: false };
+    this.emit('refuelStart');
   }
 
   stepRefuel(dt) {
     const r = this.refuel;
     if (!r) return;
-    r.t += dt;
     const a = this.ac;
-    const add = (this.data.fuelKg / r.dur) * dt;
-    const before = a.fuel;
-    a.fuel = Math.min(this.data.fuelKg, a.fuel + add);
-    this.extraFuel += a.fuel - before;
-    if (r.t >= r.dur) {
-      this.refuel = null;
-      this.emit('refuelDone');
-      this.say(`Tanks full. Start up and get to ${this.dest.short}!`, true);
+    // Rolling away before the tanks are full sends the truck off.
+    if (!r.pumped && a.speedKt > REFUEL.cancelKt && r.t < REFUEL.driveS + REFUEL.pumpS) {
+      r.pumped = true;
+      r.t = REFUEL.driveS + REFUEL.pumpS;
+      this.say('You left with half a tank! Your funeral.', true);
     }
+    r.t += dt;
+    const pump = r.t - REFUEL.driveS;
+    if (!r.pumped && pump > 0) {
+      const before = a.fuel;
+      a.fuel = Math.min(this.data.fuelKg, a.fuel + (this.data.fuelKg / REFUEL.pumpS) * dt);
+      this.extraFuel += a.fuel - before;
+      if (pump >= REFUEL.pumpS) {
+        r.pumped = true;
+        this.emit('refuelDone');
+        this.say(`Tanks full. Throttle up and get to ${this.dest.short}!`, true);
+      }
+    }
+    if (r.t >= r.dur) this.refuel = null;
   }
 
   stepStrike() {
@@ -494,13 +469,13 @@ export class Flight {
     const d = this.data;
     const live = this.objectives.filter((t) => t.alive);
     const dist = this.distanceToNextTarget();
-    if (!this.revealed && !a.onGround && !a.crashed && dist < 3000) {
+    if (!this.said.has('targets') && !this.revealed && !a.onGround && !a.crashed && dist < 3000) {
       const km = (dist / 1000).toFixed(1);
-      if (d.weaponIsMissile) this.say(`Targets ${km} km! Wait for LOCK on the sight, then SPACE to fire!`, false, 'targets');
-      else if (d.bombGuided) this.say(`Targets ${km} km! Down to 300 ft. Target in the bracket, then SPACE!`, false, 'targets');
+      if (d.weaponIsMissile) this.say(`Targets ${km} km! Wait for LOCK, then FIRE! Space!`, false, 'targets');
+      else if (d.bombGuided) this.say(`Targets ${km} km! Down to 300 ft. Target in the bracket, then FIRE!`, false, 'targets');
       else this.say(`Targets ${km} km! Down to 300 ft. Watch the RELEASE CUE, drop on DROP!`, false, 'targets');
     }
-    if (d.weaponIsMissile && !this.revealed && !a.onGround && a.gearPos > 0 && a.bombsLeft > 0
+    if (d.weaponIsMissile && !this.said.has('armgear') && !this.revealed && !a.onGround && a.gearPos > 0 && a.bombsLeft > 0
       && this.targets.some((t) => t.alive && t.x - a.pos.x <= d.missile.rangeMax && t.x > a.pos.x)) {
       this.say(`Gear UP! The ${d.weaponName} stays SAFE with the wheels hanging out!`, true, 'armgear');
     }
@@ -581,7 +556,6 @@ export class Flight {
     t.alive = false;
     t.hp = 0;
     t.firing = false;
-    if (this.designated === t) this.designated = null;
   }
 
   // A unit destroyed by gunfire (bombs and missiles go through impact()).
@@ -670,15 +644,12 @@ export class Flight {
       this.say('Positive climb. GEAR UP! G!', false, 'gearup');
       if (a.altFt > 900) this.say('Your gear is STILL down! G!', true, 'gearup2');
     }
-    if (!a.onGround && a.altFt > 600 && a.flapSetting > 0 && !a.gearDown && this.state === 'flying' && this.dest.x - a.pos.x > 3500) {
-      this.say('Flaps up. F. Clean it up!', false, 'flapsup');
-    }
     if (d.afterburnerN > 0 && !a.onGround && a.altFt > 1500) this.say('Push past the red mark for afterburner. It drinks fuel.', false, 'ab');
     if (a.lowFuel && a.engineOn) this.say('Fuel is LOW. Land it soon, or glide it.', true, 'lowfuel');
     if (this.revealed && this.state === 'flying') {
       const toGo = this.dest.x - a.pos.x;
       if (toGo > 0 && toGo < 3500) {
-        this.say(`${this.dest.short} ahead. Gear down, flaps LDG, about ${this.approachKt()} kt.`, false, 'approach');
+        this.say(`${this.dest.short} ahead. Gear down, about ${this.approachKt()} kt.`, false, 'approach');
       }
       if (toGo > 0 && toGo < 1800 && a.speedKt > this.approachKt() * 1.35 && a.altFt < 1500) this.say('Too FAST! Throttle back, air brake B!', true, 'fast');
     }

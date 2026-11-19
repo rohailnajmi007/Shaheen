@@ -56,10 +56,9 @@ out of scope until the owner says otherwise.
   menus), `src/data` (numbers), `public/` (static files), `tools/` (Python art
   tools), `docs/` (not part of the build).
 - Controls (source of truth: `src/input.js`): Up/Down throttle (hold), Left nose
-  up, Right nose down (WASD too), E engine, F flaps, G gear, B brake, T fuel
-  truck, Space drop bomb, V gun (hold), Q next target, X flares/chaff, E eject
-  (once shot down)
-  (air-to-ground mission), Z zoom, H help, M mute,
+  up, Right nose down (WASD too), E engine, G gear (flaps follow the gear
+  automatically: no flap key), B brake, Space fire weapon, V gun (hold),
+  X flares/chaff, E eject (once shot down) (air-to-ground mission), Z zoom, H help, M mute,
   Esc/P pause, R restart, F3 FPS. (Old F1 debug label: not ported yet.)
 - Instructor lines: aggressive, short shouted English, occasional censored curse
   (d*mn, h*ll, sh*tting, f*ck), nothing corny, under ~110 characters.

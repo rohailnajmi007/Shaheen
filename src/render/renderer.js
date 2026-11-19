@@ -1,9 +1,9 @@
 // Draws the world, the aircraft and effects on one canvas.
 import { images, tinted, SOFT, makeCanvas, rng } from './assets.js';
-import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget } from './scenery.js';
+import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget, buildFuelTruck } from './scenery.js';
 import { Particles } from './particles.js';
 import { buildLandmarks, LANDMARKS } from './landmarks.js';
-import { THEMES, TIMES } from '../data/world.js';
+import { THEMES, TIMES, REFUEL } from '../data/world.js';
 import { GROUND_UNITS, AIR_DEFENCE, DAMAGE } from '../data/combat.js';
 import { KT } from '../sim/aircraft.js';
 
@@ -96,6 +96,7 @@ export class Renderer {
     const R = Math.round(10 * res);
     this.landmarks = buildLandmarks(world.bases, time, res);
     this.baseGfx = world.bases.map((b) => ({ base: b, ...buildBase(b, time, R) }));
+    this.truckGfx = buildFuelTruck(time, R);
     this.targetGfx = {};
     for (const k of Object.keys(GROUND_UNITS)) {
       this.targetGfx[k] = [buildTarget(k, time, R, false), buildTarget(k, time, R, true)];
@@ -205,6 +206,7 @@ export class Renderer {
     this.drawGround(ctx, v);
     this.drawBases(ctx, v, flight);
     this.drawTargets(ctx, v, flight);
+    this.drawFuelTruck(ctx, v, flight);
     this.drawAids(ctx, v, flight, st);
     if (!flight.ac.crashed) this.drawShadow(ctx, v, st, flight.data);
     this.particles.draw(ctx, v, this.timeData.lights ? 0.6 : 1);
@@ -486,7 +488,6 @@ export class Renderer {
     if (!flight.targets.length) return;
     const S = v.S;
     const u = Math.max(1, v.H / 720);
-    const pick = flight.mode === 'strike' ? flight.manualTarget() : null;
     for (const tg of flight.targets) {
       const spr = this.targetGfx[tg.kind][tg.alive ? 0 : 1];
       const x = v.sx(tg.x - spr.wM / 2);
@@ -497,7 +498,7 @@ export class Renderer {
       if (tg.role === 'aaa') this.drawAaaBarrels(ctx, v, tg);
       if (!tg.alive) continue;
       // Floating marker so units read at the wide zoom: red chevron = mission target,
-      // amber diamond + label = air defence. Box = the target picked with Q.
+      // amber diamond + label = air defence.
       const mx = x + w / 2, my = v.groundY - h - Math.max(18 * u, 6 * S);
       ctx.lineWidth = Math.max(2 * u, 0.3 * S);
       if (tg.objective) {
@@ -509,20 +510,34 @@ export class Renderer {
         ctx.fillStyle = 'rgba(255,190,60,0.95)'; ctx.font = `700 ${Math.round(11 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
         ctx.fillText(tg.role === 'aaa' ? 'AAA' : 'SAM', mx, my - 14 * u);
       }
-      if (tg === pick) {
-        const pad = 6 * u, bx = x - pad, by = v.groundY - h - pad, bw = w + pad * 2, bh = h + pad;
-        const c = 8 * u;
-        ctx.strokeStyle = 'rgba(255,235,90,0.95)'; ctx.lineWidth = 2 * u;
-        ctx.beginPath();
-        ctx.moveTo(bx, by + c); ctx.lineTo(bx, by); ctx.lineTo(bx + c, by);
-        ctx.moveTo(bx + bw - c, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + c);
-        ctx.moveTo(bx, by + bh - c); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + c, by + bh);
-        ctx.moveTo(bx + bw - c, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - c);
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(255,235,90,0.95)'; ctx.font = `700 ${Math.round(11 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
-        ctx.fillText('TGT', bx + bw / 2, by + bh + 13 * u);
-      }
     }
+  }
+
+  // Fuel truck at a refuelling stop: drives in from ahead, parks at the nose with a
+  // hose to the jet while pumping, then drives off the way it came.
+  drawFuelTruck(ctx, v, flight) {
+    const r = flight.refuel;
+    if (!r || !this.truckGfx) return;
+    const T = REFUEL;
+    const ease = (k) => k * k * (3 - 2 * k);
+    const park = r.x + T.parkAheadM, far = park + T.driveInM;
+    const leaving = r.t > T.driveS + T.pumpS;
+    let x = park;
+    if (r.t < T.driveS) x = far + (park - far) * ease(r.t / T.driveS);
+    else if (leaving) x = park + (far - park) * ease(Math.min(1, (r.t - T.driveS - T.pumpS) / T.driveS));
+    const spr = this.truckGfx, S = v.S;
+    const w = spr.wM * S, h = spr.hM * S, sx = v.sx(x);
+    if (sx - w > v.W || sx + w < 0) return;
+    if (!leaving && r.t >= T.driveS) {
+      ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = Math.max(1.5, 0.25 * S);
+      ctx.beginPath(); ctx.moveTo(sx - w / 2 + 0.6 * S, v.groundY - 0.9 * S);
+      ctx.quadraticCurveTo((sx + v.sx(r.x)) / 2, v.groundY + 0.2 * S, v.sx(r.x + 2), v.groundY - 1.4 * S); ctx.stroke();
+    }
+    ctx.save();
+    ctx.translate(sx, v.groundY);
+    if (leaving) ctx.scale(-1, 1); // cab first on the way out
+    ctx.drawImage(spr.canvas, -w / 2, -h, w, h);
+    ctx.restore();
   }
 
   // Ejection: canopy tumbling away, seat with the pilot (rocket flame early), then the
@@ -816,7 +831,7 @@ export class Renderer {
       const h = d.canardHinge;
       ctx.save();
       ctx.translate(h[0], h[1]);
-      ctx.rotate(-d.canardMaxDeg * Math.PI / 180 * s.elevator);
+      ctx.rotate(d.canardMaxDeg * Math.PI / 180 * s.elevator); // owner 2026-11-20: against the pitch key
       ctx.drawImage(tinted(images[d.canardSprite], light), -h[0], -h[1]);
       ctx.restore();
     }

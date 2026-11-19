@@ -9,7 +9,6 @@
 // Performance: everything that never moves (plate, dial faces, scales, labels,
 // screen bezels) is drawn ONCE to an offscreen layer (rebuilt only when the
 // aircraft or the size changes); each frame copies it and draws the moving parts.
-import { FLAP_NAMES } from '../sim/aircraft.js';
 
 const W = 266, H = 114;
 
@@ -30,6 +29,12 @@ export const COCKPIT_COLORS = {
   amberText: rgb(1, 0.7, 0.25),
 };
 const C = COCKPIT_COLORS;
+// Weapon cue lamp (in the old flap box's place): text, colour, blinks.
+const CUE_LOOK = {
+  none: ['NONE', rgb(0.42, 0.42, 0.42), false], safe: ['SAFE', rgb(0.6, 0.6, 0.6), false],
+  arm: ['ARM', C.amber, false], fire: ['FIRE', C.green, true], gun: ['GUN', C.amber, false],
+  empty: ['EMPTY', rgb(0.42, 0.42, 0.42), false], eject: ['EJECT', C.red, true],
+};
 
 // Colour glass cockpit (JF-17) layout: PFD, ENGINE page, status column x.
 const CG_PFD = [5, 5, 132, 85];
@@ -66,11 +71,22 @@ export class Cockpit {
 
   setAircraft(data) { this.data = data; this.key = ''; }
 
+  // CSS width, cached by a ResizeObserver: reading clientWidth every frame forced a
+  // layout after each HUD text change (lag, 2026-11-20).
+  cssW() {
+    if (!this.ro) {
+      this.ro = new ResizeObserver(() => { this.cw = this.canvas.clientWidth; });
+      this.ro.observe(this.canvas);
+      this.cw = this.canvas.clientWidth;
+    }
+    return this.cw;
+  }
+
   // Canvas size follows its CSS size; returns the draw scale.
   fit() {
     const cv = this.canvas;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.round(cv.clientWidth * dpr);
+    const w = Math.round(this.cssW() * dpr);
     const h = Math.round(w * H / W);
     if (w > 0 && (cv.width !== w || cv.height !== h)) { cv.width = w; cv.height = h; }
     return cv.width / W;
@@ -292,22 +308,23 @@ export class Cockpit {
     for (const dy of [0, 12]) this.rect(x, y + dy, 7, 6, '#000');
     this.text(x + 10, y + 6, 'ENG', this.lc());
     this.text(x + 10, y + 18, 'GEAR', this.lc());
-    this.text(x, y + 32, 'FLAPS', this.lc());
-    FLAP_NAMES.forEach((n, i) => {
-      this.rect(x, y + 38 + i * 10, 7, 6, '#000');
-      this.text(x + 10, y + 44 + i * 10, n, this.lc());
-    });
+    this.text(x, y + 32, 'WPN', this.lc());
   }
   lampFill(x, y, col) { this.rect(x + 1, y + 1, 5, 4, col); }
   status(x, y) {
     const a = this.a;
     this.lampFill(x, y, this.engineCol());
     this.lampFill(x, y + 12, this.gearCol());
-    FLAP_NAMES.forEach((_, i) => {
-      const on = a.flapSetting === i;
-      const moving = on && Math.abs(a.flapPos - i) > 0.01;
-      this.lampFill(x, y + 38 + i * 10, on ? (moving ? C.amber : C.green) : C.lampOff);
-    });
+    this.cueBox(x, y + 38, 34, 12, '#000', C.lampOff);
+  }
+
+  // Weapon cue box: FIRE (blinking green) when the weapon will hit, EJECT when shot down.
+  cueBox(x, y, w, h, bg, edge) {
+    const [t, col, blink] = CUE_LOOK[this.cue] || CUE_LOOK.none;
+    const lit = !blink || this.time % 0.5 < 0.3;
+    this.rect(x, y, w, h, bg);
+    this.frame(x, y, w, h, edge);
+    if (lit) this.textC(x + w / 2, y + h / 2 + 3, t, col);
   }
 
   // --- warning light row (all styles) ---
@@ -436,7 +453,7 @@ export class Cockpit {
     const sx = CG_STAT_X;
     this.text(sx, 14, 'ENG', C.cgCyan);
     this.text(sx, 32, 'GEAR', C.cgCyan);
-    this.text(sx, 58, 'FLAPS', C.cgCyan);
+    this.text(sx, 58, 'WPN', C.cgCyan);
   }
 
   colorMoving() {
@@ -504,10 +521,7 @@ export class Cockpit {
       this.rect(gx, gy, 7, 6, '#000');
       this.rect(gx + 1, gy + 1, 5, 4, gc);
     }
-    const moving = Math.abs(a.flapPos - a.flapSetting) > 0.01;
-    this.rect(sxs, 61, 28, 11, C.cgScreen);
-    this.frame(sxs, 61, 28, 11, C.cgKey);
-    this.textC(sxs + 14, 69.5, FLAP_NAMES[a.flapSetting], moving ? C.amber : C.cgGreen);
+    this.cueBox(sxs, 61, 30, 11, C.cgScreen, C.cgKey);
     this.warnings(6, H - 20);
   }
 
@@ -525,10 +539,7 @@ export class Cockpit {
       this.rect(gx, gy, 7, 6, '#000');
       this.rect(gx + 1, gy + 1, 5, 4, gc);
     }
-    this.text(x, y + 50, 'FLAPS', C.glassLabel);
-    const moving = Math.abs(a.flapPos - a.flapSetting) > 0.01;
-    this.rect(x, y + 53, 26, 10, C.mfdBg);
-    this.frame(x, y + 53, 26, 10, C.glassPlateLight);
-    this.textC(x + 13, y + 61, FLAP_NAMES[a.flapSetting], moving ? C.amber : C.mfdGreen);
+    this.text(x, y + 50, 'WPN', C.glassLabel);
+    this.cueBox(x, y + 53, 30, 10, C.mfdBg, C.glassPlateLight);
   }
 }

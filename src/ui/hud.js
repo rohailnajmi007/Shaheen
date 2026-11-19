@@ -1,9 +1,9 @@
 // In-flight display: HTML over the game canvas.
-import { FLAP_NAMES, KT } from '../sim/aircraft.js';
+import { KT } from '../sim/aircraft.js';
 import { KEY_HELP } from '../input.js';
 import { Cockpit } from './cockpit.js';
 import { drawBombSight, ReleaseCue } from './weapon_aids.js';
-import { GROUND_UNITS } from '../data/combat.js';
+import { REFUEL } from '../data/world.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -52,7 +52,8 @@ export class Hud {
         </div>
       </div>
       <canvas class="cue-cv"></canvas>
-      <div class="card refuel"><label>REFUELLING</label><div class="rbar"><i></i></div></div>
+      <button class="ejectcue">EJECT<small>PRESS E</small></button>
+      <div class="card refuel"><label>FUEL TRUCK</label><div class="rbar"><i></i></div></div>
       <div class="nameplate"><div class="rank"></div><img class="wings" alt="" /><div class="tagname"></div></div>
       <div class="keys"></div>
       <div class="touch">
@@ -62,18 +63,16 @@ export class Hud {
         </div>
         <div class="tright">
           <div class="tbtns">
-            <button data-act="engine">ENG</button><button data-act="flaps">FLAP</button><button data-act="gear">GEAR</button>
-            <button data-hold="brake">BRK</button><button data-act="drop">DROP</button><button data-act="refuel">FUEL</button>
-            <button data-hold="gun" class="strike-only">GUN</button><button data-act="target" class="strike-only">TGT</button>
+            <button data-act="engine">ENG</button><button data-act="gear">GEAR</button><button data-hold="brake">BRK</button>
+            <button data-act="drop" class="strike-only">FIRE</button><button data-hold="gun" class="strike-only">GUN</button>
             <button data-act="countermeasure" class="strike-only">FLR</button>
             <button data-act="pause">II</button>
-            <button data-act="engine" class="ejectbtn">EJECT</button>
           </div>
           <input class="tthr" type="range" min="0" max="100" value="0" orient="vertical" aria-label="Throttle" />
         </div>
       </div>`;
     this.el = {};
-    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'instructor', 'wname', 'wstate', 'wsub', 'gl1', 'gl2'])
+    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'ejectcue', 'instructor', 'wname', 'wstate', 'wsub', 'gl1', 'gl2'])
       this.el[k] = $(`.${k}`, root);
     this.cockpit = new Cockpit($('.cockpit-cv', root));
     this.cue = new ReleaseCue($('.cue-cv', root));
@@ -82,13 +81,15 @@ export class Hud {
     this.el.rfill = $('.rbar i', root);
     this.el.whp = $('.whp i', root);
     this.radar = $('.radar-cv', root);
+    // Radar CSS size cached (reading it every frame forced a layout: lag).
+    this.radarCss = { w: 0, h: 0 };
+    new ResizeObserver(() => { this.radarCss = { w: this.radar.clientWidth, h: this.radar.clientHeight }; }).observe(this.radar);
     this.el.radarCard = $('.card.radar', root);
     this.cache = new Map();
     this.msgQueue = [];
     this.msgT = 0;
     this.lastCallout = null;
     this.trail = [];
-    this.el.keys.innerHTML = KEY_HELP.slice(0, 9).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
     this.setupTouch();
   }
 
@@ -110,6 +111,7 @@ export class Hud {
       for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, on(false));
     }
     for (const b of t.querySelectorAll('[data-act]')) b.addEventListener('pointerdown', (e) => { e.preventDefault(); inp.press(b.dataset.act); });
+    this.el.ejectcue.addEventListener('pointerdown', (e) => { e.preventDefault(); inp.press('engine'); });
     const thr = $('.tthr', t);
     thr.addEventListener('input', () => { inp.touch.throttleSet = thr.value / 100; });
     this.el.tthr = thr;
@@ -131,6 +133,8 @@ export class Hud {
     this.el.weapon.classList.toggle('show', flight.mode === 'strike');
     this.el.touch.classList.toggle('strike', flight.mode === 'strike');
     this.el.wname.textContent = d.weaponName || '';
+    const strike = flight.mode === 'strike';
+    this.el.keys.innerHTML = KEY_HELP.filter((k) => strike || !k[2]).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
     // Sink-rate scale zones from this aircraft's landing limits.
     const max = d.hardFpm * 1.2;
     const z = (a, b, c) => `<i style="bottom:${(a / max) * 100}%;height:${((b - a) / max) * 100}%" class="${c}"></i>`;
@@ -173,6 +177,7 @@ export class Hud {
     if (this.msgQueue.length > 1 && this.msgT > 3.2) { this.msgQueue.shift(); this.msgT = 0; this.showMsg(this.msgQueue[0]); }
 
     this.time += dt;
+    this.cockpit.cue = this.fireCue(f);
     this.cockpit.draw(a, dt);
     this.cue.update(f, dt);
     if (this.el.tthr && document.activeElement !== this.el.tthr) this.el.tthr.value = Math.round(a.throttle * 100);
@@ -186,21 +191,20 @@ export class Hud {
         const t = f.missileTarget();
         state = ms === 'safe' ? 'SAFE · GEAR UP TO ARM'
           : ms === 'seeking' ? 'SEEKING…'
-          : ms === 'locked' ? `LOCKED ${(Math.abs(t.x - a.pos.x) / 1000).toFixed(1)} KM · SPACE`
+          : ms === 'locked' ? `LOCKED ${(Math.abs(t.x - a.pos.x) / 1000).toFixed(1)} KM · FIRE`
           : 'NO TARGET IN RANGE';
         hot = ms === 'locked';
       } else if (a.bombsLeft > 0) {
         const imp = a.onGround ? null : f.bombImpact();
         if (a.onGround) state = 'ARMED';
-        else if (imp && imp.onTarget) { state = d.bombGuided ? 'IN RANGE · SPACE' : 'ON TARGET · SPACE'; hot = true; }
+        else if (imp && imp.onTarget) { state = d.bombGuided ? 'IN RANGE · FIRE' : 'ON TARGET · FIRE'; hot = true; }
         else state = d.bombGuided ? 'PUT TARGET IN THE BRACKET' : 'WATCH THE RELEASE CUE';
       }
       this.set('wstate', this.el.wstate, state);
       this.cls('wstate', this.el.weapon, 'hot', hot);
-      // Gun rounds, flares/chaff, the picked target, airframe health.
+      // Gun rounds, flares/chaff, airframe health.
       const cb = f.cb;
-      const pick = f.manualTarget();
-      const sub = [d.gun ? `GUN ${cb.ammo}` : null, `FLR/CHF ${cb.cm}`, pick ? `TGT ${GROUND_UNITS[pick.kind].label}` : 'TGT AUTO (Q)'].filter(Boolean).join(' · ');
+      const sub = [d.gun ? `GUN ${cb.ammo}` : null, `FLR/CHF ${cb.cm}`].filter(Boolean).join(' · ');
       this.set('wsub', this.el.wsub, sub);
       const hp = Math.round(cb.hp);
       this.set('whp', this.el.whp, `${hp}%`, 'width');
@@ -222,7 +226,6 @@ export class Hud {
       if (inc.length) w.push(['MISSILE · FLARES X + BREAK', 'red']);
       else if (f.cb.radarLock) w.push(['SAM LOCK', 'amber']);
       if (f.cb.hp < 45 && f.cb.hp > 0) w.push(['ENGINE DAMAGE', 'amber']);
-      if (a.shotDown && !f.eject) w.push(['EJECT · PRESS E', 'red']);
     }
     const wk = w.map((x) => x.join(':')).join('|');
     if (this.cache.get('warn') !== wk) {
@@ -232,7 +235,7 @@ export class Hud {
 
     // Phase and distance.
     this.set('phase', this.el.phase, f.phase);
-    this.cls('eject', this.el.touch, 'ejecting', !!a.shotDown && !f.eject);
+    this.cls('eject', this.el.ejectcue, 'show', !!a.shotDown && !f.eject && !a.crashed);
     const toGo = f.dest.x - a.pos.x;
     const tgt = f.mode === 'strike' && !f.revealed ? f.targets.find((t) => t.objective && t.alive && t.x > a.pos.x) : null;
     const togo = tgt ? `TARGET ${((tgt.x - a.pos.x) / 1000).toFixed(1)} KM` : f.revealed ? `${f.dest.short} ${toGo > 0 ? (toGo / 1000).toFixed(1) + ' KM' : 'BEHIND'}` : 'LANDING BASE: AFTER ATTACK';
@@ -270,7 +273,7 @@ export class Hud {
 
     // Refuel bar.
     this.cls('refuel', this.el.refuel, 'show', !!f.refuel);
-    if (f.refuel) this.set('rf', this.el.rfill, `${(f.refuel.t / f.refuel.dur) * 100}%`, 'width');
+    if (f.refuel) this.set('rf', this.el.rfill, `${clamp((f.refuel.t - REFUEL.driveS) / REFUEL.pumpS, 0, 1) * 100}%`, 'width');
 
     if (f.airborneOnce && !this.keysAuto && f.flightTime > 25) { this.keysAuto = true; if (!this.keysHidden) this.toggleKeys(); }
     // Guided weapons: the bomb sight takes the radar's place during the target run.
@@ -281,10 +284,27 @@ export class Hud {
     else this.drawRadar(f);
   }
 
+  // Weapon cue lamp in the cockpit panel (took the flap box's place, owner 2026-11-20).
+  fireCue(f) {
+    const a = f.ac;
+    if (a.shotDown && !f.eject && !a.crashed) return 'eject';
+    if (f.mode !== 'strike') return 'none';
+    if (a.bombsLeft > 0) {
+      if (f.data.weaponIsMissile) {
+        const ms = f.missileState();
+        return ms === 'locked' ? 'fire' : ms === 'safe' ? 'safe' : 'arm';
+      }
+      if (a.onGround) return 'safe';
+      const imp = f.bombImpact();
+      return imp && imp.onTarget ? 'fire' : 'arm';
+    }
+    return f.data.gun && f.cb.ammo > 0 ? 'gun' : 'empty';
+  }
+
   sizeRadar() {
     const cv = this.radar;
     const dpr = Math.min(devicePixelRatio || 1, 2);
-    const w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
+    const w = Math.round(this.radarCss.w * dpr), h = Math.round(this.radarCss.h * dpr);
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   }
 
@@ -305,8 +325,8 @@ export class Hud {
 
   drawRadar(f) {
     const cv = this.radar;
-    const dpr = cv.width / Math.max(cv.clientWidth, 1);
-    const w = cv.clientWidth, h = cv.clientHeight;
+    const w = this.radarCss.w, h = this.radarCss.h;
+    const dpr = cv.width / Math.max(w, 1);
     const x = cv.getContext('2d');
     x.setTransform(dpr, 0, 0, dpr, 0, 0);
     x.clearRect(0, 0, w, h);

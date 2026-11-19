@@ -34,6 +34,16 @@ export const BASES = {
 // world is laid out from the home base (x = 0) to the right: the near destination at
 // ROUTE_M[0], the far one at ROUTE_M[1] (refuelling stop at the near base on the way).
 export const ROUTE_M = [6500, 12500];
+
+// Fuel truck at a refuelling stop (owner 2026-11-20: comes on its own once the jet
+// stops at a base that is not the destination). Drives in, pumps, drives off.
+export const REFUEL = {
+  driveS: 2.5,      // drive in / drive off
+  pumpS: 5,         // filling the tanks
+  parkAheadM: 22,   // parks this far ahead of the main wheels (clear of the nose)
+  driveInM: 70,     // arrives from this far ahead
+  cancelKt: 3,      // the jet rolling faster than this sends the truck away
+};
 export const ROUTES_FROM = {
   risalpur: ['masroor', 'mushaf'],
   mushaf: ['risalpur', 'masroor'],
