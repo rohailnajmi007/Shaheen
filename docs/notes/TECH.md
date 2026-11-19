@@ -51,7 +51,9 @@ src/
   render/scenery.js   builds scenery tiles (mountains, hills, trees, ground, city, sea)
   render/renderer.js  camera, world, bases, aircraft layers, lights, weapons, effects
   render/particles.js smoke, dust, sparks
-  ui/hud.js           cockpit display, radar, instructor box, touch controls
+  ui/hud.js           HUD: radar, instructor box, weapon card, landing guide, touch controls
+  ui/cockpit.js       instrument panel, one look per aircraft (cockpitStyle)
+  ui/weapon_aids.js   bomb sight (guided) and release cue (unguided)
   ui/screens.js       start menu, pause, result screen, settings/best-score storage
   style.css
 public/               copied as-is: sprites/*.png, fonts/ChakraPetch-SemiBold.ttf (+ OFL licence)
@@ -71,15 +73,16 @@ Rule: `src/sim` and `src/data` never touch the DOM, so they run in Node for test
 | `scenes/flight/flight.gd`, `strike_mission.gd`, `scripts/flight_phase.gd` | `src/sim/flight.js` |
 | `scenes/world/bomb.gd`, `missile.gd`, `ground_target.gd` | `src/sim/flight.js` (weapons) + `src/render/renderer.js` |
 | `scenes/flight/follow_camera.gd` | `Renderer` camera in `src/render/renderer.js` |
-| `scenes/ui/hud.gd`, `instrument_panel.gd`, `radar.gd`, `message_box.gd`, `bomb_sight.gd` | `src/ui/hud.js` |
+| `scenes/ui/instrument_panel.gd` | `src/ui/cockpit.js` (three styles, static layer drawn once) |
+| `scenes/ui/bomb_sight.gd`, `release_cue.gd` | `src/ui/weapon_aids.js` |
+| `scenes/ui/hud.gd`, `radar.gd`, `message_box.gd` | `src/ui/hud.js` |
 | `main_menu.gd`, `pause_menu.gd`, `result_screen.gd`, `GameState` | `src/ui/screens.js`, `src/main.js` |
 | `scripts/sound_synth.gd`, `aircraft_audio.gd` | `src/audio.js` |
 | Input Map in `project.godot` | `src/input.js` |
 | `assets/sprites/`, `assets/fonts/` | `public/sprites/`, `public/fonts/` (same files, byte-identical) |
 | `deploy.bat` (Godot export) | `deploy.bat` (npm build + Vercel) |
 
-Not ported yet (TODO in ROADMAP 2.8): analog per-aircraft instrument panels,
-instructor portrait, cadet name plate, Mushaf MiG-21 trophy, F1 debug label.
+Not ported yet (TODO in ROADMAP 2.8): instructor portrait, cadet name plate, Mushaf MiG-21 trophy, F1 debug label.
 
 ## Units and drawing
 

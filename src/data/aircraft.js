@@ -49,6 +49,9 @@ const COMMON = {
   ceilingFadeM: 2000,
   elevatorMaxDeg: 20,
   elevatorSpeed: 6,
+  // Cockpit panel: 'analog' (grey, round dials), 'darkAnalog' (Mirage), 'glass' (F-16 MFDs).
+  cockpitStyle: 'analog',
+  gaugeVsiMaxFpm: 6000,
   gEffects: true,
   gEffectMinKt: 250,
   blackoutStartG: 5,
@@ -66,7 +69,11 @@ const COMMON = {
   guidanceAccel: 15,
   bombScatterMs: 0,
   weaponIsMissile: false,
-  missile: { rangeMin: 500, rangeMax: 6000, dropS: 0.35, burnS: 8, speed: 420, accel: 140, turnDeg: 35, loft: 0.25, loftMax: 250 },
+  // Strike mission: first ground target this far (m) from the departure threshold.
+  strikeAreaStartM: 4500,
+  // Missile lock: only airborne with the gear up; the seeker needs lockS seconds on a
+  // target between rangeMin and rangeMax ahead before it reads LOCKED.
+  missile: { rangeMin: 500, rangeMax: 4000, lockS: 1.5, dropS: 0.35, burnS: 8, speed: 420, accel: 140, turnDeg: 35, loft: 0.25, loftMax: 250 },
   // Sprite: 1 texture px = 1/16 m (the art is drawn about 2x true size so it reads well).
   texM: 1 / 16,
   gearX: null, gearTopY: null, gearWheel: null,
@@ -93,7 +100,7 @@ export const AIRCRAFT = [
     perfectFpm: 150, goodFpm: 300, firmFpm: 500, hardFpm: 1000,
     bounceFromFpm: 500, bounceMinM: 0.3, bounceMaxM: 1.2, maxNoseDownTouchdownDeg: 2,
     overrunCrashKt: 30, maxSpeedKt: 160, serviceCeilingM: 3000, ceilingFadeM: 1000,
-    gEffects: false,
+    gEffects: false, cockpitStyle: 'analog', gaugeVsiMaxFpm: 2000,
     sprite: 'super_mushshak_body', gearSprite: 'super_mushshak_gear', gearTravel: 26,
     propSprite: 'super_mushshak_prop', propCenter: [272, 57], propRadius: 34,
     pivot: [172, 105],
@@ -109,7 +116,7 @@ export const AIRCRAFT = [
     stats: { speed: 0.85, agility: 0.6, difficulty: 0.8 },
     massKg: 10000, maxThrustN: 58000, afterburnerN: 34000,
     fuelKg: 1000, burnFullKgS: 2.6, dragCoef: 1.15,
-    stallKt: 140, rotateKt: 160, maxSpeedKt: 600,
+    stallKt: 140, rotateKt: 160, maxSpeedKt: 600, cockpitStyle: 'darkAnalog',
     sprite: 'mirage5_body', gearSprite: 'mirage5_gear', gearTravel: 48,
     pivot: [170, 159], nozzle: [16, 89], flameLength: 240, flameWidth: 26,
     strikeCapable: true, bombCount: 2, hardpoints: [[150, 140], [205, 140]],
@@ -127,7 +134,7 @@ export const AIRCRAFT = [
     stats: { speed: 1, agility: 0.9, difficulty: 0.7 },
     massKg: 12000, maxThrustN: 76000, afterburnerN: 53000,
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,
-    stallKt: 125, rotateKt: 145, maxSpeedKt: 600,
+    stallKt: 125, rotateKt: 145, maxSpeedKt: 600, cockpitStyle: 'glass',
     sprite: 'f16a_body', elevatorSprite: 'f16a_elevator', elevatorHinge: [55, 114],
     gearX: [202, 292], gearTopY: [148, 147], gearWheel: [20, 16],
     pivot: [202, 183], nozzle: [7, 102], flameLength: 260, flameWidth: 30,
@@ -146,13 +153,15 @@ export const AIRCRAFT = [
     stats: { speed: 1, agility: 0.9, difficulty: 0.7 },
     massKg: 12000, maxThrustN: 76000, afterburnerN: 53000,
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,
-    stallKt: 125, rotateKt: 145, maxSpeedKt: 600,
+    stallKt: 125, rotateKt: 145, maxSpeedKt: 600, cockpitStyle: 'glass',
     sprite: 'f16_body', elevatorSprite: 'f16_elevator', elevatorHinge: [58, 113],
     gearSprite: 'f16_gear', gearTravel: 33,
     pivot: [169, 175], nozzle: [6, 101], flameLength: 260, flameWidth: 30,
     strikeCapable: true, bombCount: 2, hardpoints: [[192, 128], [206, 134]],
     weaponSprite: 'agm88_body', weaponName: 'AGM-88 HARM', weaponLabel: 'Guided missile',
     weaponIsMissile: true, bombGuided: true,
+    // Targets further out than for bombs, so the HARM locks well after take-off.
+    strikeAreaStartM: 8000,
     lights: { navNear: [239, 116], navFar: [229, 112], tail: [10, 72], beacon: [16, 4], landing: [291, 153] },
   },
 ];

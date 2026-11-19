@@ -427,19 +427,23 @@ export class Renderer {
   drawAids(ctx, v, flight, st) {
     if (flight.mode !== 'strike' || flight.state === 'done') return;
     const S = v.S;
-    const imp = flight.bombImpact();
+    // Ground impact marker: a sighting aid for guided bombs only (as in Godot: the
+    // Mirage's unguided bombs get just the release cue; the HARM gets the LOCK box).
+    const imp = flight.data.bombGuided ? flight.bombImpact() : null;
     if (imp) {
-      ctx.fillStyle = imp.onTarget ? 'rgba(255,90,60,0.9)' : 'rgba(120,255,140,0.75)';
-      const arc = flight.aimArc;
-      for (let i = 0; i < arc.length; i += 4) {
-        const p = arc[i];
-        ctx.beginPath(); ctx.arc(v.sx(p.x), v.sy(p.y), Math.max(1.5, 0.25 * S), 0, Math.PI * 2); ctx.fill();
-      }
+      const col = imp.onTarget ? 'rgba(255,77,51,0.95)' : 'rgba(115,255,115,0.9)';
       const x = v.sx(imp.x), y = v.groundY;
-      ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2;
-      const r = Math.max(8, 3 * S);
-      ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x, y - r * 2.4); ctx.lineTo(x, y - r * 1.2); ctx.stroke();
+      const u = Math.max(1, v.H / 360);
+      ctx.fillStyle = imp.onTarget ? 'rgba(255,77,51,0.35)' : 'rgba(115,255,115,0.35)';
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5 * u;
+      ctx.beginPath(); ctx.moveTo(x, y - 7 * u); ctx.lineTo(x + 6 * u, y); ctx.lineTo(x, y + 7 * u); ctx.lineTo(x - 6 * u, y); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col;
+      for (let k = 0; k < 6; k++) {
+        ctx.globalAlpha = 0.8 - k * 0.12;
+        ctx.fillRect(x - 0.5 * u, y - (12 + k * 6) * u - 3 * u, u, 3 * u);
+      }
+      ctx.globalAlpha = 1;
     }
     if (flight.data.weaponIsMissile && flight.ac.bombsLeft > 0) {
       const tg = flight.missileTarget();

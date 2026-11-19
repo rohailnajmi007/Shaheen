@@ -54,7 +54,7 @@ export class Flight {
     this.fuelStart = this.data.fuelKg;
     this.extraFuel = 0;
     this.revealed = true;
-    this.aimArc = [];
+    this.seeker = { target: null, t: 0 }; // missile seeker: candidate target and time on it
     this.buildWorld();
     this.say(`${this.callsign()}! Engine start: E. Then throttle up. Move it!`);
   }
@@ -74,7 +74,7 @@ export class Flight {
       this.ac.bombsLeft = this.data.bombCount;
       const kinds = ['sam', 'radar', 'fuel', 'bunker'].sort(() => Math.random() - 0.5);
       const n = Math.random() < 0.5 ? 2 : 3;
-      let x = 4500;
+      let x = this.data.strikeAreaStartM;
       for (let i = 0; i < n; i++) {
         this.targets.push({ x, kind: kinds[i], alive: true, w: kinds[i] === 'fuel' ? 26 : 18, deadAt: 0 });
         x += rand(700, 1300);
@@ -162,22 +162,124 @@ export class Flight {
     if (d.weaponIsMissile) {
       const tgt = this.missileTarget();
       if (tgt) w.guideX = tgt.x;
-    } else if (d.bombGuided) {
-      const hit = predictImpact(r.pos, r.vel, w.k);
-      const tgt = this.targets.filter((t) => t.alive).sort((p, q) => Math.abs(p.x - hit.x) - Math.abs(q.x - hit.x))[0];
-      if (tgt && Math.abs(tgt.x - hit.x) <= d.guidanceReachM) w.guideX = tgt.x;
+      this.seeker = { target: null, t: 0 };
+    } else {
+      w.predX = predictImpact(r.pos, r.vel, w.k).x;
+      if (d.bombGuided) {
+        const tgt = this.guidedTargetNear(w.predX);
+        if (tgt) w.guideX = tgt.x;
+      }
     }
     this.weapons.push(w);
     this.emit(w.missile ? 'missileLaunch' : 'bombRelease', { x: r.pos.x, y: r.pos.y });
     if (a.bombsLeft === 0) this.say(w.guideX != null ? 'Weapon away, guided. Now get out of there!' : 'Last one gone. Egress, head for home!', false);
   }
 
-  missileTarget() {
+  // --- targeting (ported from the Godot strike_mission.gd) ---
+
+  // True if a weapon already in the air will take this target out (guided onto it,
+  // or an unguided bomb predicted to land on it), so the aids move on to the next.
+  claimed(t) {
+    const r = this.data.blastRadiusM + t.w / 2;
+    return this.weapons.some((w) => (w.guideX != null ? w.guideX === t.x : !w.missile && Math.abs(w.predX - t.x) <= r));
+  }
+
+  // Missile can lock: airborne, gear fully up, still flying the mission.
+  missileArmed() {
+    const a = this.ac;
+    return this.mode === 'strike' && !a.onGround && !a.crashed && a.gearPos <= 0 && a.bombsLeft > 0 && this.state === 'flying';
+  }
+
+  // Nearest live, unclaimed target between the missile's min and max range ahead.
+  missileCandidate() {
+    if (!this.missileArmed()) return null;
     const a = this.ac;
     const m = this.data.missile;
-    const taken = new Set(this.weapons.map((w) => w.guideX));
-    return this.targets.filter((t) => t.alive && !taken.has(t.x) && t.x - a.pos.x >= m.rangeMin && t.x - a.pos.x <= m.rangeMax)
-      .sort((p, q) => p.x - q.x)[0] || null;
+    let best = null;
+    for (const t of this.targets) {
+      const dx = t.x - a.pos.x;
+      if (t.alive && dx >= m.rangeMin && dx <= m.rangeMax && !this.claimed(t) && (!best || t.x < best.x)) best = t;
+    }
+    return best;
+  }
+
+  // The seeker must stay on one candidate for lockS seconds (run every step).
+  stepSeeker(dt) {
+    const c = this.data.weaponIsMissile ? this.missileCandidate() : null;
+    if (c && c === this.seeker.target) this.seeker.t += dt;
+    else this.seeker = { target: c, t: 0 };
+  }
+
+  // Locked target, or null. Fired with no lock, the missile flies on unguided.
+  missileTarget() {
+    const s = this.seeker;
+    return s.target && s.t >= this.data.missile.lockS && s.target.alive ? s.target : null;
+  }
+
+  // For the HUD: 'safe' (gear down / on the ground), 'search', 'seeking', 'locked', 'empty'.
+  missileState() {
+    const a = this.ac;
+    if (a.bombsLeft <= 0) return 'empty';
+    if (!this.missileArmed()) return 'safe';
+    if (this.missileTarget()) return 'locked';
+    return this.seeker.target ? 'seeking' : 'search';
+  }
+
+  // Guided bombs: the live, unclaimed target nearest x within the guidance reach.
+  guidedTargetNear(x) {
+    const reach = this.data.guidanceReachM;
+    let best = null;
+    for (const t of this.targets) {
+      if (t.alive && Math.abs(t.x - x) <= reach && !this.claimed(t) && (!best || Math.abs(t.x - x) < Math.abs(best.x - x))) best = t;
+    }
+    return best;
+  }
+
+  // The live target a bomb hitting x would destroy, or null.
+  targetAt(x) {
+    const r = this.data.blastRadiusM;
+    return this.targets.find((t) => t.alive && Math.abs(x - t.x) <= r + t.w / 2) || null;
+  }
+
+  // Metres to the next live target ahead (Infinity if none).
+  distanceToNextTarget() {
+    const a = this.ac;
+    let best = Infinity;
+    for (const t of this.targets) if (t.alive && t.x > a.pos.x - 50) best = Math.min(best, t.x - a.pos.x);
+    return best;
+  }
+
+  // Where the weapons already in the air will hit (bomb sight white bars).
+  fallingImpacts() {
+    const out = [];
+    for (const w of this.weapons) {
+      if (w.missile) { if (w.guideX != null) out.push(w.guideX); } else out.push(w.predX);
+    }
+    return out;
+  }
+
+  // Guided-weapon bomb sight wanted (F-16s): airborne on the target run with weapons left or in the air.
+  sightWanted() {
+    const a = this.ac;
+    return this.mode === 'strike' && !this.revealed && this.data.bombGuided && !a.crashed && !a.onGround
+      && (a.bombsLeft > 0 || this.weapons.length > 0);
+  }
+
+  // Unguided release cue (Mirage) for the next live target ahead: seconds until a bomb
+  // released now would land on its middle (negative = late), window = +- seconds that
+  // still hit it. null if there is none.
+  nextRelease() {
+    const a = this.ac;
+    const aim = this.bombImpact();
+    if (!aim || a.vel.x < 1) return null;
+    let out = null;
+    for (const t of this.targets) {
+      if (!t.alive || this.claimed(t)) continue;
+      const window = (this.data.blastRadiusM + t.w / 2) / a.vel.x;
+      const s = (t.x - aim.x) / a.vel.x;
+      if (s > -window - 1.5 && (!out || s < out.seconds)) out = { seconds: s, window, target: t };
+    }
+    return out;
   }
 
   requestRefuel() {
@@ -227,7 +329,7 @@ export class Flight {
     if (this.state === 'preflight' && !a.onGround) this.state = 'flying';
     if (this.state === 'stopover') this.stepRefuel(dt);
     this.instructor();
-    if (this.mode === 'strike') this.stepStrike();
+    if (this.mode === 'strike') { this.stepSeeker(dt); this.stepStrike(); }
     // Too far past everything: fuel or not, end the misery.
     if (a.pos.x > this.lastX + 9000) this.crash('Lost. You flew right past the base.', -1);
   }
@@ -319,10 +421,18 @@ export class Flight {
 
   stepStrike() {
     const a = this.ac;
+    const d = this.data;
     const live = this.targets.filter((t) => t.alive);
-    const first = live[0];
-    if (first && first.x - a.pos.x < 3000 && first.x > a.pos.x) {
-      this.say(`Targets ahead! ${this.data.weaponIsMissile ? 'Wait for LOCK, then Space.' : 'Put the cross on them, Space to drop.'}`, false, 'targets');
+    const dist = this.distanceToNextTarget();
+    if (!this.revealed && !a.onGround && !a.crashed && dist < 3000) {
+      const km = (dist / 1000).toFixed(1);
+      if (d.weaponIsMissile) this.say(`Targets ${km} km! Wait for LOCK on the sight, then SPACE to fire!`, false, 'targets');
+      else if (d.bombGuided) this.say(`Targets ${km} km! Down to 300 ft. Target in the bracket, then SPACE!`, false, 'targets');
+      else this.say(`Targets ${km} km! Down to 300 ft. Watch the RELEASE CUE, drop on DROP!`, false, 'targets');
+    }
+    if (d.weaponIsMissile && !this.revealed && !a.onGround && a.gearPos > 0 && a.bombsLeft > 0
+      && this.targets.some((t) => t.alive && t.x - a.pos.x <= d.missile.rangeMax && t.x > a.pos.x)) {
+      this.say('Gear UP! The HARM stays SAFE with the wheels hanging out!', true, 'armgear');
     }
     if (!this.revealed) {
       const last = this.targets[this.targets.length - 1].x;
@@ -368,6 +478,7 @@ export class Flight {
       } else {
         if (w.guideX != null) {
           const hit = predictImpact(w.pos, w.vel, w.k);
+          w.predX = hit.x;
           const need = (w.guideX - hit.x) / Math.max(hit.t, 0.3);
           w.vel.x += clamp(need, -d.guidanceAccel * dt, d.guidanceAccel * dt);
         }
@@ -392,18 +503,24 @@ export class Flight {
     else this.say(`Missed by ${Math.round(Math.min(...this.targets.map((t) => Math.abs(t.x - x))))} m. Wake up!`, true);
   }
 
-  // Where a bomb dropped now would land (HUD aid).
+  // Where a bomb released now would land, from the hardpoint the next bomb leaves
+  // (same as Aircraft.releaseStore). target: the target it would get (guided: within
+  // reach; unguided: within the blast). Cached per physics step: HUD and renderer share it.
   bombImpact() {
+    if (this.aimCacheT === this.time) return this.aimCache;
+    this.aimCacheT = this.time;
+    this.aimCache = null;
     const a = this.ac;
-    if (this.mode !== 'strike' || a.bombsLeft <= 0 || a.onGround || this.data.weaponIsMissile) return null;
-    const hp = this.data.hardpoints[0];
+    const d = this.data;
+    if (this.mode !== 'strike' || a.bombsLeft <= 0 || a.onGround || a.crashed || d.weaponIsMissile) return null;
+    const hp = d.hardpoints[Math.min(a.bombsLeft - 1, d.hardpoints.length - 1)];
     const p = a.pointM(hp[0], hp[1] + 6);
-    const e = this.data.bombEjectMs;
+    const e = d.bombEjectMs;
     const v = { x: a.vel.x + Math.sin(a.pitch) * e, y: a.vel.y - Math.cos(a.pitch) * e };
-    const hit = predictImpact(p, v, this.data.bombDrag, this.aimArc);
-    const near = this.targets.filter((t) => t.alive).sort((q, r) => Math.abs(q.x - hit.x) - Math.abs(r.x - hit.x))[0];
-    const reach = this.data.bombGuided ? this.data.guidanceReachM : this.data.blastRadiusM + (near ? near.w / 2 : 0);
-    return { x: hit.x, t: hit.t, onTarget: !!near && Math.abs(near.x - hit.x) <= reach, target: near };
+    const hit = predictImpact(p, v, d.bombDrag);
+    const target = d.bombGuided ? this.guidedTargetNear(hit.x) : this.targetAt(hit.x);
+    this.aimCache = { x: hit.x, t: hit.t, onTarget: !!target, target };
+    return this.aimCache;
   }
 
   instructor() {

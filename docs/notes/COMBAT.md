@@ -1,6 +1,6 @@
 # Combat notes
 
-> **JavaScript port (2026-11-19):** written for the Godot version, so file names below (`.gd`, `.tres`, `res://`) are the old ones. The behaviour and numbers still apply. Now: weapons, targets and impact prediction in `src/sim/flight.js`, drawing in `src/render/renderer.js`, bomb sight in `src/ui/hud.js`. Full map: `TECH.md` "Godot to JS map".
+> **JavaScript port (2026-11-19):** written for the Godot version, so file names below (`.gd`, `.tres`, `res://`) are the old ones. The behaviour and numbers still apply. Now: weapons, targets and impact prediction in `src/sim/flight.js`, drawing in `src/render/renderer.js`, bomb sight and release cue in `src/ui/weapon_aids.js` (shown by `src/ui/hud.js`). Full map: `TECH.md` "Godot to JS map".
 
 Air to ground, pulled forward from Phase 6 at the owner's request (2026-11-18).
 Keep up to date when combat decisions change.
@@ -22,3 +22,9 @@ Keep up to date when combat decisions change.
   - **F-16A: GBU-12 Paveway II** ("GUIDED AIR-TO-GROUND BOMB"; name is my reading of the owner's art), the guided bomb as before.
   - **Mirage V: Mk 82** ("UNGUIDED BOMB"), the unguided bomb as before.
   - **HUD weapon panel** (strike missions, under the name badge, `hud.weapon_panel_pos`): "WPN  <weapon>  x<left>". The bomb sight's title is the weapon name.
+
+## Missile lock (JS, owner fix 2026-11-19)
+- Problem: the first target stood 4.5 km out and the HARM's range was 0.5-6 km, so the JS port showed LOCKED on the runway (Godot had the same numbers but only showed the sight once airborne).
+- Now (`src/sim/flight.js`: `missileArmed`, `stepSeeker`, `missileState`): the HARM is **SAFE** on the ground and while the gear is not fully up (instructor shouts once if targets are in range with the gear down). Armed, the seeker takes the nearest unclaimed live target `missile.rangeMin`-`rangeMax` ahead (0.5-**4** km, was 6) and must stay on it `missile.lockS` (1.5 s): **SEEKING** (blinking box on the sight), then **LOCKED** (solid yellow box, "LOCKED - FIRE!", LOCK diamond in the world). Fired without a lock it flies on unguided.
+- F-16D targets start further out: `strikeAreaStartM` 8000 (other jets 4500), so the first lock comes ~20 s after gear-up, not right after take-off. Headless check 2026-11-19: SAFE until gear up, first SEEKING ~19 s later, both HARMs hit.
+- Weapon card states: SAFE · GEAR UP TO ARM / NO TARGET IN RANGE / SEEKING… / LOCKED x.x KM · SPACE / EMPTY.

@@ -1,6 +1,6 @@
 # UI notes
 
-> **JavaScript port (2026-11-19):** written for the Godot version, so file names below (`.gd`, `.tres`, `res://`) are the old ones. The behaviour and numbers still apply. Now: HUD in `src/ui/hud.js`, menus/pause/result and saves (`localStorage`) in `src/ui/screens.js`. The port changed the look: one-page start menu, full-resolution HTML HUD instead of the 640x360 pixel panels; instructor portrait, cadet name plate, analog panels and F1 debug label not ported yet (ROADMAP 2.8). Full map: `TECH.md` "Godot to JS map".
+> **JavaScript port (2026-11-19):** written for the Godot version, so file names below (`.gd`, `.tres`, `res://`) are the old ones. The behaviour and numbers still apply. Now: HUD in `src/ui/hud.js`, menus/pause/result and saves (`localStorage`) in `src/ui/screens.js`. The port changed the look: one-page start menu, full-resolution HTML HUD instead of the 640x360 pixel panels; per-aircraft instrument panels restored (`src/ui/cockpit.js`); instructor portrait, cadet name plate and F1 debug label not ported yet (ROADMAP 2.8). Full map: `TECH.md` "Godot to JS map".
 
 Start screen, HUD, instructor, result screen, GameState, and the visual/layout intent. Moved from CLAUDE.md "Working notes" (2026-11-18); keep up to date.
 

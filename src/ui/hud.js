@@ -1,6 +1,8 @@
 // In-flight display: HTML over the game canvas.
 import { FLAP_NAMES, KT } from '../sim/aircraft.js';
 import { KEY_HELP } from '../input.js';
+import { Cockpit } from './cockpit.js';
+import { drawBombSight, ReleaseCue } from './weapon_aids.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -30,24 +32,9 @@ export class Hud {
           <canvas class="radar-cv"></canvas>
           <div class="radar-foot"><span class="phase">PRE-FLIGHT</span><span class="togo"></span></div>
         </div>
-        <div class="card panel">
-          <div class="readouts">
-            <div class="ro"><label>SPEED</label><b class="spd">0</b><small>KT</small><div class="spdbar"><i class="stallmark"></i><i class="spdfill"></i></div></div>
-            <div class="ro"><label>ALTITUDE</label><b class="alt">0</b><small>FT</small></div>
-            <div class="ro"><label>V/S</label><b class="vs">0</b><small>FT/MIN</small></div>
-            <div class="ro gro"><label>G</label><b class="gl">1.0</b></div>
-          </div>
-          <div class="levers">
-            <div class="lever"><label>THR</label><div class="vbar thr"><i class="abzone"></i><i class="fill"></i></div><span class="thrv">0%</span></div>
-            <div class="lever"><label>FUEL</label><div class="vbar fuel"><i class="fill"></i></div><span class="fuelv">100%</span></div>
-            <div class="chips">
-              <span class="chip eng">ENG OFF</span>
-              <span class="chip flaps">FLAPS TO</span>
-              <span class="chip gear"><span class="gd"></span><span class="gd"></span><span class="gd"></span> GEAR</span>
-              <span class="chip brk">BRAKE</span>
-              <span class="chip wpn"></span>
-            </div>
-          </div>
+        <div class="rcol">
+          <div class="card panel"><canvas class="cockpit-cv"></canvas></div>
+          <div class="card weapon"><div class="wname"></div><div class="wstate"></div></div>
         </div>
       </div>
       <div class="warnings"></div>
@@ -60,7 +47,7 @@ export class Hud {
           <div class="gtext"><div class="gl1"></div><div class="gl2"></div></div>
         </div>
       </div>
-      <div class="card weapon"><div class="wname"></div><div class="wstate"></div></div>
+      <canvas class="cue-cv"></canvas>
       <div class="card refuel"><label>REFUELLING</label><div class="rbar"><i></i></div></div>
       <div class="nameplate"><img class="wings" alt="" /><div><div class="rank"></div><div class="pname"></div></div></div>
       <div class="keys"></div>
@@ -79,17 +66,15 @@ export class Hud {
         </div>
       </div>`;
     this.el = {};
-    for (const k of ['itext', 'phase', 'togo', 'spd', 'alt', 'vs', 'gl', 'thrv', 'fuelv', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'instructor', 'gro', 'spdfill', 'stallmark', 'wname', 'wstate', 'gl1', 'gl2'])
+    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'instructor', 'wname', 'wstate', 'gl1', 'gl2'])
       this.el[k] = $(`.${k}`, root);
-    this.el.thrFill = $('.thr .fill', root);
-    this.el.abzone = $('.abzone', root);
-    this.el.fuelFill = $('.fuel .fill', root);
-    this.el.eng = $('.chip.eng', root); this.el.flaps = $('.chip.flaps', root);
-    this.el.gear = $('.chip.gear', root); this.el.gds = [...root.querySelectorAll('.gd')];
-    this.el.brk = $('.chip.brk', root); this.el.wpn = $('.chip.wpn', root);
+    this.cockpit = new Cockpit($('.cockpit-cv', root));
+    this.cue = new ReleaseCue($('.cue-cv', root));
+    this.time = 0;
     this.el.gsDia = $('.gs-dia', root); this.el.sinkPtr = $('.sink-ptr', root); this.el.sinkScale = $('.sink-scale', root);
     this.el.rfill = $('.rbar i', root);
     this.radar = $('.radar-cv', root);
+    this.el.radarCard = $('.card.radar', root);
     this.cache = new Map();
     this.msgQueue = [];
     this.msgT = 0;
@@ -127,12 +112,10 @@ export class Hud {
     $('.wings', this.root).src = `${import.meta.env.BASE_URL}sprites/paf_pilot_wings.png`;
     $('.rank', this.root).textContent = d.rank;
     $('.pname', this.root).textContent = (opts.name || 'Shaheen').toUpperCase();
-    this.el.abzone.style.display = d.afterburnerN > 0 ? '' : 'none';
-    this.el.abzone.style.height = `${(1 - d.afterburnerThreshold) * 100}%`;
-    this.el.gro.style.display = d.gEffects ? '' : 'none';
-    this.el.stallmark.style.left = `${clamp(d.stallKt / d.maxSpeedKt, 0, 1) * 100}%`;
+    this.cockpit.setAircraft(d);
+    this.cue.hide();
+    this.cache.clear();
     this.el.weapon.classList.toggle('show', flight.mode === 'strike');
-    this.el.wpn.style.display = flight.mode === 'strike' ? '' : 'none';
     this.el.wname.textContent = d.weaponName || '';
     // Sink-rate scale zones from this aircraft's landing limits.
     const max = d.hardFpm * 1.2;
@@ -175,49 +158,30 @@ export class Hud {
     this.msgT += dt;
     if (this.msgQueue.length > 1 && this.msgT > 3.2) { this.msgQueue.shift(); this.msgT = 0; this.showMsg(this.msgQueue[0]); }
 
-    const spd = Math.round(a.speedKt);
-    this.set('spd', this.el.spd, String(spd));
-    this.set('alt', this.el.alt, Math.round(a.altFt / 10) * 10 >= 1000 ? Math.round(a.altFt / 10) * 10 + '' : String(Math.round(a.altFt)));
-    const vs = Math.round(a.vsFpm / 10) * 10;
-    this.set('vs', this.el.vs, (vs > 0 ? '+' : '') + vs);
-    this.set('gl', this.el.gl, a.gLoad.toFixed(1));
-    this.set('spdfill', this.el.spdfill, `${clamp(a.speedKt / d.maxSpeedKt, 0, 1) * 100}%`, 'width');
-    this.cls('spd', this.el.spd, 'warn', !a.onGround && a.speedKt < d.stallKt * 1.08);
-    this.set('thr', this.el.thrFill, `${Math.round(a.throttle * 100)}%`, 'height');
-    this.cls('thr', this.el.thrFill, 'ab', a.afterburner > 0);
-    this.set('thrv', this.el.thrv, a.afterburner > 0 ? 'A/B' : `${Math.round(a.throttle * 100)}%`);
-    this.set('fuel', this.el.fuelFill, `${a.fuelFraction * 100}%`, 'height');
-    this.cls('fuel', this.el.fuelFill, 'low', a.lowFuel);
-    this.set('fuelv', this.el.fuelv, `${Math.round(a.fuelFraction * 100)}%`);
+    this.time += dt;
+    this.cockpit.draw(a, dt);
+    this.cue.update(f, dt);
     if (this.el.tthr && document.activeElement !== this.el.tthr) this.el.tthr.value = Math.round(a.throttle * 100);
 
-    const engTxt = a.engineOn ? (a.rpm < 0.95 ? `SPOOL ${Math.round(a.rpm * 100)}%` : 'ENG ON') : a.rpm > 0 ? 'ENG STOP' : 'ENG OFF';
-    this.set('eng', this.el.eng, engTxt);
-    this.cls('eng', this.el.eng, 'on', a.engineOn && a.rpm >= 0.95);
-    this.cls('eng', this.el.eng, 'amber', a.engineOn !== (a.rpm >= 0.95));
-    this.set('flaps', this.el.flaps, `FLAPS ${FLAP_NAMES[a.flapSetting]}`);
-    this.cls('flaps', this.el.flaps, 'amber', Math.abs(a.flapPos - a.flapSetting) > 0.01);
-    const gs = a.gearPos >= 1 ? 'down' : a.gearPos <= 0 ? 'up' : 'transit';
-    if (this.cache.get('gear') !== gs) {
-      this.cache.set('gear', gs);
-      for (const g of this.el.gds) g.className = `gd ${gs}`;
-      this.el.gear.classList.toggle('fixed', !d.retractableGear);
-    }
-    this.cls('brk', this.el.brk, 'on', a.braking);
     if (f.mode === 'strike') {
-      this.set('wpn', this.el.wpn, `${d.weaponIsMissile ? 'MSL' : 'BOMB'} ${a.bombsLeft}`);
-      let state = a.bombsLeft === 0 ? 'EMPTY' : 'ARMED';
+      this.set('wname', this.el.wname, `${d.weaponName || 'WEAPON'}  x${a.bombsLeft}`);
+      let state = 'EMPTY';
       let hot = false;
       if (a.bombsLeft > 0 && d.weaponIsMissile) {
+        const ms = f.missileState();
         const t = f.missileTarget();
-        state = t ? `LOCKED ${(Math.abs(t.x - a.pos.x) / 1000).toFixed(1)} KM · SPACE` : 'NO LOCK';
-        hot = !!t;
+        state = ms === 'safe' ? 'SAFE · GEAR UP TO ARM'
+          : ms === 'seeking' ? 'SEEKING…'
+          : ms === 'locked' ? `LOCKED ${(Math.abs(t.x - a.pos.x) / 1000).toFixed(1)} KM · SPACE`
+          : 'NO TARGET IN RANGE';
+        hot = ms === 'locked';
       } else if (a.bombsLeft > 0) {
-        const imp = f.bombImpact();
-        if (imp && imp.onTarget) { state = 'RELEASE · SPACE'; hot = true; }
-        else if (imp && imp.target) state = `TARGET ${Math.round(imp.target.x - imp.x)} M ${imp.target.x > imp.x ? 'AHEAD' : 'BEHIND'}`;
+        const imp = a.onGround ? null : f.bombImpact();
+        if (a.onGround) state = 'ARMED';
+        else if (imp && imp.onTarget) { state = d.bombGuided ? 'IN RANGE · SPACE' : 'ON TARGET · SPACE'; hot = true; }
+        else state = d.bombGuided ? 'PUT TARGET IN THE BRACKET' : 'WATCH THE RELEASE CUE';
       }
-      this.set('wstate', this.el.wstate, `${state}`);
+      this.set('wstate', this.el.wstate, state);
       this.cls('wstate', this.el.weapon, 'hot', hot);
     }
 
@@ -278,7 +242,19 @@ export class Hud {
     if (f.refuel) this.set('rf', this.el.rfill, `${(f.refuel.t / f.refuel.dur) * 100}%`, 'width');
 
     if (f.airborneOnce && !this.keysAuto && f.flightTime > 25) { this.keysAuto = true; if (!this.keysHidden) this.toggleKeys(); }
-    this.drawRadar(f);
+    // Guided weapons: the bomb sight takes the radar's place during the target run.
+    const sight = f.sightWanted();
+    this.cls('radar', this.el.radarCard, 'sight', sight);
+    this.sizeRadar();
+    if (sight) drawBombSight(this.radar, f, this.time);
+    else this.drawRadar(f);
+  }
+
+  sizeRadar() {
+    const cv = this.radar;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   }
 
   showMsg(m) {
@@ -298,9 +274,8 @@ export class Hud {
 
   drawRadar(f) {
     const cv = this.radar;
-    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const dpr = cv.width / Math.max(cv.clientWidth, 1);
     const w = cv.clientWidth, h = cv.clientHeight;
-    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
     const x = cv.getContext('2d');
     x.setTransform(dpr, 0, 0, dpr, 0, 0);
     x.clearRect(0, 0, w, h);
