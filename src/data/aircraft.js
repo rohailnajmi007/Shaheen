@@ -139,8 +139,15 @@ export const AIRCRAFT = [
     sprite: 'jf17_body', gearSprite: 'jf17_gear', gearTravel: 29,
     elevatorSprite: 'jf17_elevator', elevatorHinge: [55, 124],
     pivot: [160, 170], nozzle: [7, 107], flameLength: 240, flameWidth: 28,
-    // Weapons: to be decided by the owner (not strike-capable yet).
-    strikeCapable: false,
+    // Ra'ad (Hatf-VIII) air-launched cruise missile (owner, 2026-11-19): drops clear,
+    // turbojet starts, cruises low and level, dives onto the target. Long range, so
+    // the targets start further out. Two carried (near and far wing).
+    strikeCapable: true, bombCount: 2, hardpoints: [[236, 132], [244, 136]],
+    weaponSprite: 'raad_body', weaponName: "RA'AD", weaponLabel: 'Cruise missile',
+    weaponIsMissile: true, bombGuided: true,
+    strikeAreaStartM: 10000,
+    missile: { rangeMin: 1500, rangeMax: 8000, lockS: 2, dropS: 0.9, burnS: 60, speed: 240, accel: 50, turnDeg: 18,
+      loft: 0, loftMax: 0, cruiseAltM: 60, diveM: 900, flame: 0.4, trail: 0.25 },
     lights: { navNear: [177, 119], navFar: [198, 115], tail: [20, 75], beacon: [41, 3], landing: [328, 143] },
   },
   {

@@ -114,6 +114,10 @@ CONFIGS = {
         "src": "docs/reference/gbu12_source.png",
         "display_width": 25, "gear_regions": [], "prop": None, "points": {},
     },
+    "raad": {    # Ra'ad (Hatf-VIII) air-launched cruise missile, JF-17 (4.85 m), owner's art 2026-11-19
+        "src": "docs/reference/raad_source.png",
+        "display_width": 37, "gear_regions": [], "prop": None, "points": {},
+    },
     "mk82": {    # Mk 82 unguided bomb, Mirage V (2.2 m); the "Mk 82" caption is erased
         "src": "docs/reference/mk82_source.png", "erase": [(180, 79, 330, 97)],
         "display_width": 17, "gear_regions": [], "prop": None, "points": {},

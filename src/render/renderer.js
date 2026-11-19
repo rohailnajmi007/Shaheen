@@ -17,6 +17,8 @@ export const ATTACK_CAM = {
   lookFactor: 0.5,  // look-ahead x this, so the ground behind (where bombs land) stays in view
   leadFactor: 0.5,  // vertical lead x this, so climbs and dives show as movement on screen
 };
+// Tail strobe: flash starts (s) within each period.
+export const STROBE = { periodS: 1.6, flashes: [0, 0.2], flashS: 0.06 };
 // Crash breakup (see crashFx). Shard sizes in aircraft texture px (1/16 m).
 export const CRASH = {
   bigSeverity: 0.6,     // from this severity: explosion, debris blasted out
@@ -630,8 +632,9 @@ export class Renderer {
     dot(SOFT.green, L.navNear, 26);
     dot(SOFT.red, L.navFar, 20);
     dot(SOFT.white, L.tail, 22);
-    if ((t % 1.2) < 0.12) dot(SOFT.red, L.beacon, 44);
-    if ((t % 1.5) < 0.06) dot(SOFT.white, L.navNear, 60);
+    // White anti-collision strobe on top of the tail (owner): two quick flashes, pause.
+    const ph = t % STROBE.periodS;
+    if (STROBE.flashes.some((f) => ph >= f && ph < f + STROBE.flashS)) dot(SOFT.white, L.beacon, 56);
     if (s.gearPos > 0.5) {
       const p = L.landing;
       const g = ctx.createLinearGradient(p[0], p[1], p[0] + 520, p[1]);
@@ -655,11 +658,13 @@ export class Renderer {
       ctx.scale(k, k);
       ctx.drawImage(tinted(img, this.lightBody), -img.width / 2, -img.height / 2);
       if (w.motor) {
+        // Rocket (HARM): long flame. Turbojet (Ra'ad): small exhaust glow (missile.flame).
+        const fl = flight.data.missile.flame ?? 1;
         ctx.globalCompositeOperation = 'lighter';
-        const l = img.height * 2.2 * (0.85 + 0.15 * Math.sin(this.time * 60));
+        const l = img.height * 2.2 * fl * (0.85 + 0.15 * Math.sin(this.time * 60));
         ctx.fillStyle = 'rgba(255,160,50,0.9)';
         ctx.beginPath(); ctx.moveTo(-img.width / 2, -img.height * 0.25); ctx.lineTo(-img.width / 2 - l, 0); ctx.lineTo(-img.width / 2, img.height * 0.25); ctx.fill();
-        ctx.drawImage(SOFT.warm, -img.width / 2 - 30, -30, 60, 60);
+        ctx.drawImage(SOFT.warm, -img.width / 2 - 30 * fl, -30 * fl, 60 * fl, 60 * fl);
         ctx.globalCompositeOperation = 'source-over';
       }
       ctx.restore();
@@ -988,7 +993,7 @@ export class Renderer {
       if (d.hasPropeller && a.onGround && a.rpm > 0.8 && a.throttle > 0.6 && Math.random() < 0.3) P.spawn('dust', a.pos.x - 6, 0.3, -12, 0.5, 2, 1, { grow: 2, alpha: 0.35 });
     }
     for (const w of flight.weapons) {
-      if (w.motor) P.spawn('smoke', w.pos.x, w.pos.y, w.vel.x * 0.05, 0, 1.2, 2.5, { grow: 4, alpha: 0.55, ground: false, drag: 0.3 });
+      if (w.motor) P.spawn('smoke', w.pos.x, w.pos.y, w.vel.x * 0.05, 0, 1.2, 2.5, { grow: 4, alpha: 0.55 * (d.missile.trail ?? 1), ground: false, drag: 0.3 });
     }
     // Burning targets and wreck.
     for (const t of flight.targets) {

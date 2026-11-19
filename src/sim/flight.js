@@ -437,7 +437,7 @@ export class Flight {
     }
     if (d.weaponIsMissile && !this.revealed && !a.onGround && a.gearPos > 0 && a.bombsLeft > 0
       && this.targets.some((t) => t.alive && t.x - a.pos.x <= d.missile.rangeMax && t.x > a.pos.x)) {
-      this.say('Gear UP! The HARM stays SAFE with the wheels hanging out!', true, 'armgear');
+      this.say(`Gear UP! The ${d.weaponName} stays SAFE with the wheels hanging out!`, true, 'armgear');
     }
     if (!this.revealed) {
       const last = this.targets[this.targets.length - 1].x;
@@ -467,7 +467,8 @@ export class Flight {
           }
         } else {
           const dist = w.guideX - w.pos.x;
-          const aimY = clamp(dist * m.loft, 0, m.loftMax);
+          // Cruise missile: hold cruiseAltM, dive in the last diveM. Others: loft.
+          const aimY = m.cruiseAltM != null ? (dist > m.diveM ? m.cruiseAltM : 0) : clamp(dist * m.loft, 0, m.loftMax);
           const want = Math.atan2(aimY - w.pos.y, w.guideX - w.pos.x);
           let heading = Math.atan2(w.vel.y, w.vel.x);
           let diff = want - heading;
@@ -476,7 +477,7 @@ export class Flight {
           const turn = m.turnDeg * Math.PI / 180 * dt;
           heading += clamp(diff, -turn, turn);
           let s = Math.hypot(w.vel.x, w.vel.y);
-          if (w.t < m.dropS + m.burnS) s = Math.min(s + m.accel * dt, m.speed);
+          if (w.t < m.dropS + m.burnS) s += clamp(m.speed - s, -m.accel * dt, m.accel * dt);
           w.vel = { x: Math.cos(heading) * s, y: Math.sin(heading) * s };
         }
         w.motor = w.t >= m.dropS && w.t < m.dropS + m.burnS;

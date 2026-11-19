@@ -24,6 +24,7 @@ export function buildLayer(slot, themeId, time, res) {
   const th = THEMES[themeId];
   const L = LAYERS.find((l) => l.slot === slot);
   if (slot === 'city' && !th.city) return null;
+  if (slot === 'mountains' && !th.mountains) return null;
   const W = Math.round(TILE_W * res), H = Math.round(L.h * res);
   const c = makeCanvas(W, H);
   const x = c.getContext('2d');

@@ -68,7 +68,8 @@ One chunk at a time, in this order (owner chose sound first).
   - Owner fixes (2026-11-19, second round): crash breakup redone (many small scorched shards, sliding debris field, burning pieces, camera follows the wreck; FLIGHT_MODEL.md); base scenery restored (Karachi landmarks, Sargodha landmarks, Mushaf trophies/banyans/welcome monuments; WORLD.md); sequential start screen, title just SHAHEEN, plain aircraft role/weapon text (UI.md).
   - Owner requests (2026-11-19, third round): attack-run camera fixed (COMBAT.md); home bases per aircraft (WORLD.md); JF-17 Thunder added, weapons TBD (AIRCRAFT.md).
   - Owner fixes (2026-11-19, fourth round): JF-17 no longer greyed out in the menu; crash fire/smoke fixed (dev-server double module load); structural crash breakup; JF-17 colour glass cockpit.
-  - TODO (owner): JF-17 weapons / strike capability; confirm JF-17 rank (FLT LT for now).
+  - Owner requests (2026-11-19, fifth round): JF-17 armed with the Ra'ad cruise missile (COMBAT.md); tail-top double-flash strobe on all aircraft (AIRCRAFT.md); no mountains at Karachi (WORLD.md).
+  - TODO (owner): confirm JF-17 rank (FLT LT for now).
   - TODO (not ported yet, owner to pick what to bring back): instructor portrait in the message box, cadet name plate (wings + rank + name), F1 debug label. Not yet played/checked in detail against the Godot feel: landing grades, bounce, refuelling stop, night lights, parked aircraft.
 
 **Everything below Phase 2 is on hold.** Don't start any of it until the owner says so. It's listed only so the code stays easy to extend.

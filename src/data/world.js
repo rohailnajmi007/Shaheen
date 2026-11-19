@@ -73,7 +73,8 @@ export const THEMES = {
     sea: false, city: false,
   },
   coast: {
-    mountains: '#a59a92', mountainsHi: 0.18, snow: false,
+    // Karachi is flat coast: no mountain layer (owner, 2026-11-19).
+    mountains: null, mountainsHi: 0, snow: false,
     hills: '#c2a676', hillsHi: 0.1,
     trees: '#6d7343',
     ground: '#c4ad7c', groundDark: '#ad9564',
