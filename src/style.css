@@ -131,7 +131,7 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
     inset 0 0 0 4px rgba(190,200,215,0.35), inset 0 0 14px rgba(0,0,0,0.5);
 }
 .nameplate .rank, .nameplate .tagname {
-  font-family: Georgia, 'Times New Roman', serif; font-weight: 700; color: #dfe4ea;
+  font-weight: 700; color: #dfe4ea;
   background: linear-gradient(180deg, #f6f8fa 0%, #c4ccd6 55%, #9aa4b0 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 1px 0 rgba(0,0,0,0.7));

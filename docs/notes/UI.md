@@ -64,7 +64,7 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 - Disabled once the flight ends (result screen has its own buttons). Volumes live in `GameState.volumes`, applied to the audio buses at start-up and saved to `user://settings.cfg` when the menu closes.
 
 ## Flying name tag (owner, 2026-11-19)
-- Replaces the old wings | rank / name plate, bottom-left of the HUD (hidden with touch controls). One embroidered navy cloth rectangle like a real PAF flying name tag: full rank top right (e.g. WING COMMANDER), pilot wings in the middle, name below in silver serif thread; long names shrink to fit (`NAMETAG_FONT_PX`, `NAMETAG_TEXT_W` in `src/ui/hud.js`). Styles: `.nameplate` in `src/style.css`.
+- Replaces the old wings | rank / name plate, bottom-left of the HUD (hidden with touch controls). One embroidered navy cloth rectangle like a real PAF flying name tag: full rank top right (e.g. WING COMMANDER), pilot wings in the middle, name below in silver thread (Chakra Petch, the game font); long names shrink to fit (`NAMETAG_FONT_PX`, `NAMETAG_TEXT_W` in `src/ui/hud.js`). Styles: `.nameplate` in `src/style.css`.
 - Wings: `public/sprites/paf_pilot_wings_{white,blue,red}.png` from `python tools/make_badge.py` (dark backing plate knocked out, crescent and star tinted). Colour per aircraft = `rankBadge` in `src/data/aircraft.js`: white FLT LT (and cadet: owner did not say, my pick), blue SQN LDR, red WG CDR.
 
 ## Debrief (result screen, owner 2026-11-19)
