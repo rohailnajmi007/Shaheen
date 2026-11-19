@@ -34,3 +34,13 @@ npm run build    # static site in dist/
 - `src/data/` aircraft numbers, bases, themes, times of day
 
 Aircraft art in `public/sprites/` comes from the original project.
+
+## Docs
+
+- `CLAUDE.md`: project rules and conventions (start here).
+- `docs/GAME_DESIGN.md`, `docs/ROADMAP.md`, `docs/PROTOTYPE_SPEC.md`: vision, plan, current milestone.
+- `docs/DEPLOYMENT.md`: publishing to Vercel (`deploy.bat`).
+- `docs/notes/`: detailed notes per area; `docs/notes/TECH.md` maps the old Godot files to this code.
+- `tools/`: Python scripts that build `public/sprites/` from the art in `docs/reference/`.
+
+The original Godot version is kept in git as tag `godot-final`.

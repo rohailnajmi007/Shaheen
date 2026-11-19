@@ -1,5 +1,7 @@
 # World notes
 
+> **JavaScript port (2026-11-19):** written for the Godot version, so file names below (`.gd`, `.tres`, `res://`) are the old ones. The behaviour and numbers still apply. Now: bases, routes, themes and times of day in `src/data/world.js`, scenery in `src/render/scenery.js`, camera and bases in `src/render/renderer.js`. Mushaf MiG-21 trophy not ported yet. Full map: `TECH.md` "Godot to JS map".
+
 The shared route world: bases, scenery, landmarks, the refuelling stop, night mode, camera. Moved from CLAUDE.md "Working notes" (2026-11-18); keep up to date.
 
 ## Notes

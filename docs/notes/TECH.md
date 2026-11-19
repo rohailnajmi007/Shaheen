@@ -1,51 +1,139 @@
 # Tech notes
 
-Tools, project structure, rendering, performance, testing, git and deploy. Moved from CLAUDE.md "Working notes" (2026-11-18); keep up to date.
+Tools, project structure, rendering, performance, testing, git and deploy. Keep up to date.
 
-## Notes
+**History:** the game was built in Godot 4.7.2 (GDScript) up to commit `dca728c`
+(tag `godot-final`). In 2026-11 a friend (GitHub `reachrazamair`, PR #1) ported
+it to plain JavaScript, and the owner made that the main version. The other notes
+files still name some Godot files (`aircraft.gd`, `.tres`, `hud.gd` ...): the
+behaviour they describe still applies; see "Godot to JS map" below for where it
+lives now. To look at the old code: `git show godot-final:<path>`.
 
-- **Godot 4.7.2** installed via winget. Executables: `C:\Users\rohai\AppData\Local\Microsoft\WinGet\Links\godot.exe` (editor) and `godot_console.exe` (headless/CLI). Both are on the user PATH as `godot` / `godot_console` (VS Code must be restarted to see it).
-  - Open the editor: `godot -e` from the project root. Run the game: F5.
-  - Headless checks: `godot_console --headless --path . --import` then `godot_console --headless --path . --quit-after 120`. Throwaway test scripts (`extends SceneTree`) go in the scratchpad, run with `-s <script>`.
-- **Performance (owner reported heavy lag in the browser, 2026-11-17):** the cause was redrawing static scenery every frame (desktop flight ran at only ~28 fps uncapped; web GDScript is several times slower). Rules now: **never `queue_redraw()` static scenery every frame.** Parallax bands redraw only when their tile window, colour or height changes, and send each band as ONE `RenderingServer.canvas_item_add_triangle_array` (shapes pre-triangulated in `_tris`) instead of one draw call per cloud puff/tree. Bases draw once; the windsock and tower beacon live on a small child layer (`_anim`) that redraws per frame. Landmarks draw once (night: 6-7 redraws/s for beacons). Runway night lights 15/s, stars 10/s. Measured uncapped on the dev PC: takeoff 28 → ~310-350 fps, night 20 → ~200 fps, draw calls ~885 → ~120. Re-measure with a vsync-off windowed test script if adding scenery.
-- **Performance, second pass (owner: live build lagging, 2026-11-18):** measured in Chrome on the dev PC with a temporary probe build (scripted flights reporting frame times to a local server). Sound made no difference. Two costs found: (1) the **analog instrument panel** (Mushshak, Mirage) redrew every dial face, tick and label every frame: ~1.1 ms of a 2.8 ms desktop frame. Now `instrument_panel.gd` draws everything static once on a child layer behind it (`_static`, show_behind_parent; redrawn only when the aircraft or size changes) and redraws only needles, readouts, tapes, lever, fuel bar and lamps; helpers draw on `_ci` (the layer being drawn). Pixel-identical, ~0.15 ms. (2) **Air-to-ground impact prediction** (bomb sight, release cue, guided bombs, target claiming) simulated whole bomb falls several times a frame: now 0.1 s midpoint steps (more accurate, ~3x cheaper) and each falling bomb keeps its `predicted_x`. Chrome, Mirage bombing: 54.7 -> 58.2 fps, frames over 20 ms 21% -> 12%, worst 49 -> 38 ms. Rule: anything drawn per frame must be only the moving parts; keep static drawing on a layer drawn once.
-- **Web deploy:** live at **https://shaheen-green.vercel.app** (Vercel project `shaheen`, owner's account). `export_presets.cfg` "Web" preset (threads off, `build/web/index.html`); `deploy.bat` exports headless, deletes `build/web/.env.local` (token written by `vercel link`, must never be uploaded) and runs `vercel deploy build/web --prod --yes`. Web templates installed (`web_nothreads_*.zip` extracted from the official 4.7.2 archive because the editor download stalled). Vercel CLI 65 logged in. Deploying publishes publicly: only when the owner asks.
-- **Sound (chunk 2.1):** no audio files. `scripts/sound_synth.gd` (`SoundSynth`) synthesises short mono 16-bit `AudioStreamWAV` buffers at 22,050 Hz and caches them in a static dictionary (built once per session, ~135 ms on the dev PC; slower in the browser). Loops are seamless (tones fit whole cycles, noise is cross-faded), so `AircraftAudio` (`scenes/aircraft/aircraft_audio.gd`, added by `flight.gd`) only varies `volume_db` and `pitch_scale` each frame and stops silent loops. Per-aircraft engine sound in AircraftData "Sound" (`engine_sound` Piston/Jet, pitch idle/full, volume, idle drop, afterburner volume); wind, rumble, warnings, touchdown and crash levels are exports on AircraftAudio. Events: `Aircraft.touched_down`, `Aircraft.wrecked(severity)`; GEAR warning logic is `Aircraft.gear_warning` (shared with the panel lamp). Buses (chunk 2.2, `default_bus_layout.tres`): engine, roar and afterburner on "Engine", everything else on "Effects", both into "Master"; GameState sets the bus volumes from the saved options. Test scripts run with `-s` can't use typed `Aircraft`/`GameState` references (they compile before autoloads): keep test code untyped and load scenes at runtime.
-- **Git:** this folder is its own repo (branch `main`). Small commits per step. **Always ask the owner before pushing.** Remote `origin` = https://github.com/rohailnajmi007/Shaheen.git (added 2026-11-17).
-- **Controls** (owner's layout, source of truth is the Input Map in `project.godot`): ↑/↓ throttle (hold), ← pitch nose up, → pitch nose down, E engine, F flaps, G gear, B brake (ground and air), T fuel truck (refuelling stop), Space drop bomb (air-to-ground mission), Esc pause, R restart.
-- **Data files:** the Godot editor drops .tres values equal to the script defaults when it re-saves a resource. Keep `super_mushshak.tres` explicit (restore from git if it gets stripped) so the Mushshak's numbers don't silently change when a script default changes.
-- **Smooth motion:** the aircraft remembers its transform at the last two physics ticks and each rendered frame draws it in between (`_sync_node`, `_process`, `Engine.get_physics_interpolation_fraction()`), so it doesn't judder on screens faster than 60 Hz. The camera (`follow_camera.gd`) runs every frame after the aircraft (process_priority aircraft -10, camera -5, scenery 0), is locked horizontally to the plane and eases only the look-ahead and the height (Godot's own position smoothing is off).
-- **Rendering:** stretch mode is `canvas_items` (layout is 640x360, but sprites/text render at window resolution, 2x at 1280x720), integer scaling. Cleaner rotation and text than `viewport` mode. Base buildings: `building_scale` = 1.
-- **Testing note:** screenshot test scripts must run windowed (`godot_console --path . -s ...`), headless can't read the viewport. After teleporting the plane in a test (setting `pos_m`), call `aircraft._sync_node(true)` and `camera.snap()`, or the shot shows the camera still catching up.
-- **Units:** physics in SI; drawing at 4 px/m (`scripts/world_scale.gd`). Aircraft node origin = **main wheel** contact point (`sprite_main_wheel_x`: F-16 202, Mushshak 172), so on the takeoff roll the aircraft pivots on its main wheels and only the nose wheel lifts; nose points +x. Altitude A m is drawn at y = -A × 4.
-- **Layout conventions:** scene scripts live next to their `.tscn`; shared/global scripts in `scripts/`; Resource classes (`AircraftData`, later `BaseData`) in `scripts/data/`; `.tres` data in `data/`. `docs/` has a `.gdignore` so Godot doesn't import it.
+## Stack
 
-## Tech stack (original CLAUDE.md text)
+- **Language:** JavaScript (ES modules), no framework, no TypeScript.
+- **Build tool:** Vite 7 (`package.json`). Node 22 / npm 11 on the dev PC.
+- **Rendering:** one HTML `<canvas>` with the Canvas 2D API for the world and
+  aircraft; the HUD, menus, pause and result screens are HTML + CSS layered on top
+  (`index.html`: `#game`, `#hud`, `#menu`, `#pause`, `#result`).
+- **Sound:** Web Audio, synthesised in code (`src/audio.js`), no audio files.
+- **Saves:** `localStorage` keys `shaheen.settings` (name, aircraft, mode, route,
+  time of day, quality, volumes) and `shaheen.best` (best score per aircraft/route).
+- **Platforms:** web first (desktop browsers; touch and gamepad also work). No back end.
+- **Hosting:** Vercel static site, see `docs/DEPLOYMENT.md`.
 
-- **Engine:** Godot 4 (latest stable 4.x release).
-- **Language:** GDScript only. Godot 4 can't export C# projects to the web, and the web build is how we share the game.
-- **Renderer:** Compatibility (OpenGL / WebGL 2). Required for reliable web export and older phones.
-- **Platforms:** Web (HTML5) first. Windows desktop as a secondary export. Android later.
-- **Back end:** none for now. Saves are local (Godot `user://`, which maps to browser storage on web). Cloud saves and leaderboards come much later (likely Supabase or Firebase).
-- **Hosting:** Vercel, as a static site serving the Godot web export (see `docs/DEPLOYMENT.md`). No other hosts for now.
-
-
-## Suggested project structure
+## Commands
 
 ```
-res://
-  project.godot
-  scenes/
-    main.tscn              # entry point
-    flight/flight.tscn     # one flight: world + aircraft + HUD
-    aircraft/aircraft.tscn
-    world/runway.tscn, base.tscn, parallax_bg.tscn
-    ui/hud.tscn, result_screen.tscn, main_menu.tscn
-  scripts/                 # or keep scripts next to their scenes
-  data/
-    aircraft/*.tres        # AircraftData resources
-    bases/*.tres           # BaseData resources
-  assets/
-    sprites/ fonts/ audio/
-docs/
+npm install        # once, or after package.json changes
+npm run dev        # dev server, http://localhost:5173 (also on the LAN: --host)
+npm run build      # static site in dist/
+npm run preview    # serve dist/ locally
 ```
+
+In dev mode `window.__shaheen` exposes `flight`, `renderer`, `hud`, `input` in the
+browser console. F3 toggles the FPS counter.
+
+## Project structure
+
+```
+index.html            page shell, loads src/main.js
+src/
+  main.js             boot, game loop (fixed 120 Hz physics step + interpolation), mode switching
+  input.js            keyboard / gamepad / touch -> actions; KEY_HELP list (controls source of truth)
+  audio.js            Web Audio synth: engine per aircraft, wind, warnings, thumps, explosions
+  data/aircraft.js    AIRCRAFT: every per-aircraft number (COMMON defaults + overrides)
+  data/world.js       BASES, FERRY_LAYOUT, ROUTES, THEMES (scenery colours), TIMES (dawn/day/dusk/night)
+  sim/aircraft.js     flight model (lift, drag, stall, flaps, gear, ground roll, G)  [no DOM]
+  sim/flight.js       one flight: world layout, mission rules, landing judge, grades,
+                      score, refuelling, weapons, instructor lines             [no DOM]
+  render/assets.js    loads the sprites in public/sprites
+  render/scenery.js   builds scenery tiles (mountains, hills, trees, ground, city, sea)
+  render/renderer.js  camera, world, bases, aircraft layers, lights, weapons, effects
+  render/particles.js smoke, dust, sparks
+  ui/hud.js           cockpit display, radar, instructor box, touch controls
+  ui/screens.js       start menu, pause, result screen, settings/best-score storage
+  style.css
+public/               copied as-is: sprites/*.png, fonts/ChakraPetch-SemiBold.ttf (+ OFL licence)
+tools/                Python sprite tools (see AIRCRAFT.md)
+docs/                 design docs and these notes (not part of the build)
+```
+
+Rule: `src/sim` and `src/data` never touch the DOM, so they run in Node for tests.
+
+## Godot to JS map
+
+| Godot (old) | JavaScript (now) |
+|---|---|
+| `data/aircraft/*.tres`, `scripts/data/aircraft_data.gd` | `src/data/aircraft.js` (snake_case fields became camelCase, e.g. `stall_kt` -> `stallKt`) |
+| `data/bases/*.tres`, base/landmark scenes | `src/data/world.js`, `src/render/scenery.js`, `src/render/renderer.js` |
+| `scenes/aircraft/aircraft.gd` | `src/sim/aircraft.js` |
+| `scenes/flight/flight.gd`, `strike_mission.gd`, `scripts/flight_phase.gd` | `src/sim/flight.js` |
+| `scenes/world/bomb.gd`, `missile.gd`, `ground_target.gd` | `src/sim/flight.js` (weapons) + `src/render/renderer.js` |
+| `scenes/flight/follow_camera.gd` | `Renderer` camera in `src/render/renderer.js` |
+| `scenes/ui/hud.gd`, `instrument_panel.gd`, `radar.gd`, `message_box.gd`, `bomb_sight.gd` | `src/ui/hud.js` |
+| `main_menu.gd`, `pause_menu.gd`, `result_screen.gd`, `GameState` | `src/ui/screens.js`, `src/main.js` |
+| `scripts/sound_synth.gd`, `aircraft_audio.gd` | `src/audio.js` |
+| Input Map in `project.godot` | `src/input.js` |
+| `assets/sprites/`, `assets/fonts/` | `public/sprites/`, `public/fonts/` (same files, byte-identical) |
+| `deploy.bat` (Godot export) | `deploy.bat` (npm build + Vercel) |
+
+Not ported yet (TODO in ROADMAP 2.8): analog per-aircraft instrument panels,
+instructor portrait, cadet name plate, Mushaf MiG-21 trophy, F1 debug label.
+
+## Units and drawing
+
+- Physics in SI (m, m/s, kg, N); knots/feet only for display and data (`KT`, `FT` in `sim/aircraft.js`).
+- Screen scale: `v.S = (viewport height / 720) * 7.2 * zoom` px per metre, so the
+  view shows the same amount of world at any window size. (Godot used a fixed 4 px/m
+  on a 640x360 viewport.)
+- Aircraft origin = **main wheel** contact point: `pivot` in the aircraft data, in
+  sprite texture px (Mushshak 172, F-16A 202, same numbers as the old `sprite_main_wheel_x`).
+  Sprite texture px are `texM` = 1/16 m (art drawn about 2x true size so it reads well).
+- Smooth motion: physics steps at a fixed 1/120 s (`STEP` in `main.js`); each frame
+  draws the aircraft interpolated between the last two steps (`Flight.renderState(alpha)`).
+- Resolution: full window resolution times `devicePixelRatio`, capped by the
+  quality setting (high 2, medium 1.5, low 1). No more 640x360 pixel scaling (owner
+  accepted this with the port). Aircraft sprites are the same PNGs as before.
+
+## Performance rules
+
+The Godot lessons still hold in a new form (Godot measurements: redrawing static
+scenery every frame took the browser build from ~60 to ~20-28 fps; per-frame
+redraw of the analog panel cost ~1.1 ms of a 2.8 ms frame; bomb impact prediction
+had to be made cheaper):
+
+- **Static scenery is drawn once into offscreen canvases** (`buildLayer` /
+  `buildGround` in `scenery.js`, built in `Renderer.setupWorld` per theme and time
+  of day). Each frame only `drawImage`s those tiles. Never rebuild tiles per frame.
+- Per frame, draw only moving or changing parts (aircraft, lights, particles,
+  weapons, HUD numbers).
+- HUD: update DOM text/styles only when the value changes; don't rebuild HTML per frame.
+- Keep impact prediction (`predictImpact`) coarse-stepped; don't run it many times a frame.
+- Check FPS with F3 in a production build (`npm run build && npm run preview`),
+  in Chrome, before and after adding scenery.
+
+## Testing
+
+- **Build check:** `npm run build` must finish without errors.
+- **Headless sim tests:** Node scripts (in the scratchpad, not the repo) can import
+  `src/sim/flight.js` directly with `await import('file:///<project>/src/sim/flight.js')`,
+  create `new Flight({ aircraftId, mode: 'ferry', dest: 'masroor', name })`, call
+  `flight.action('engine')`, then `flight.step(1/120, { throttle, pitch, brake, throttleSet: null })`
+  in a loop and read `flight.ac` (`pos`, `vel`, `onGround`, `crashed`) and `flight.result`.
+  Clear `flight.fx` each step. Checked 2026-11-19: all four aircraft take off and climb.
+- **Visual check:** `npm run dev` and play in the browser; nothing renders headless.
+
+## Git
+
+- This folder is its own repo (branch `main`). Small commits per step. **Always ask
+  the owner before pushing.** Remote `origin` = https://github.com/rohailnajmi007/Shaheen.git.
+- `node_modules/`, `dist/`, `.vercel/`, `.env.local` are git-ignored.
+
+## Sprite tools
+
+`tools/make_aircraft_sprites.py` and `tools/make_badge.py` (Python 3 + Pillow) cut
+the owner's reference art in `docs/reference/` into the layered sprites in
+`public/sprites/` and print the texture positions to copy into
+`src/data/aircraft.js`. Verified 2026-11-19: they regenerate the current sprites
+byte for byte. Details in `AIRCRAFT.md`.

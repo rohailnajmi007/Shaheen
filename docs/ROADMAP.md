@@ -51,9 +51,9 @@ One chunk at a time, in this order (owner chose sound first).
   - Done 2026-11-18: `scenes/ui/pause_menu.gd` (added by flight.gd, off once the flight ends). Audio buses Master / Engine / Effects (`default_bus_layout.tres`); slider volumes saved by GameState to `user://settings.cfg`. A short thump plays when a slider is let go, so the level can be heard while paused.
   - Owner request (2026-11-18): clearer, less pixelated text everywhere: project font Silkscreen -> Chakra Petch SemiBold, smoothed.
   - Owner fixes (2026-11-18): F-16A/D moving tailplane now uncovers the real art underneath (each F-16's body is the owner's picture without the tailplane) instead of a blank/grey block; menus show body + tailplane; start-screen preview shows the F-16A and F-16D at the same size.
-- [ ] 2.3 Landing readability: sink-rate cue on the HUD, short-final callouts, fairer nose-down rule.
+- [ ] 2.3 Landing readability: sink-rate cue on the HUD, short-final callouts, fairer nose-down rule. (Sink-rate cue and callouts came with the JS port, 2.8; nose-down rule still to review.)
 - [x] 2.4 PAF liveries: already in the aircraft art (owner, 2026-11-18); nothing to do.
-- [ ] 2.5 Gamepad support.
+- [x] 2.5 Gamepad support. (Came with the JS port, 2.8.)
 - [ ] 2.6 Friends' feedback: gather it from the live build, tune controls and flight feel, settle the open questions above.
 
 - [x] 2.7 Air-to-ground mission (owner request 2026-11-18, pulled forward from Phase 6): MISSION step on the start screen, jets only, 2 free-fall bombs (Space), 2-3 random ground targets, bomb sight + impact marker, landing base (random Masroor/Mushaf) appears after the attack, targets destroyed on the result screen. Details: `docs/notes/COMBAT.md`.
@@ -61,6 +61,10 @@ One chunk at a time, in this order (owner chose sound first).
   - Follow-up (owner): attack-run camera zooms out (0.4) after take-off so bombs falling and targets exploding are visible; back to normal for the landing.
   - Follow-up (owner): weapon art: AGM-88 HARM missile on the F-16D (rocket motor, missile flight path), GBU-12 guided bomb on the F-16A, Mk 82 on the Mirage; HUD shows the selected weapon; cards: guided air-to-ground missile / guided air-to-ground bomb / unguided bomb.
   - TODO later (Phase 6): anti-air threats, more weapons (rockets), mission planner loadouts, scoring/pay.
+
+- [x] 2.8 JavaScript port (owner request 2026-11-19): a friend (`reachrazamair`, PR #1) rewrote the game in JavaScript (Vite, Canvas 2D, HTML HUD, Web Audio); the owner made it `main`. Godot version kept as tag `godot-final` (`dca728c`). Docs restored and rewritten for JS (`CLAUDE.md`, `docs/notes/TECH.md`, `docs/DEPLOYMENT.md`, new `deploy.bat`); sprite tools restored and pointed at `public/sprites/` (regenerate the sprites byte for byte). Same aircraft art and data numbers.
+  - The port also brought: full-resolution rendering, four times of day (dawn/day/dusk/night), speed and bomb-run camera zoom, landing guide on final (glide path, sink rate, speed, height callouts; covers much of 2.3), PAPI lights, one-page start menu with best score per aircraft/route, touch controls, gamepad (2.5).
+  - TODO (not ported yet, owner to pick what to bring back): per-aircraft analog instrument panels (Mushshak, Mirage round gauges; `cockpit_style`), instructor portrait in the message box, cadet name plate (wings + rank + name), Mushaf MiG-21 trophy, F1 debug label. Not yet played/checked in detail against the Godot feel: landing grades, bounce, refuelling stop, night lights, parked aircraft.
 
 **Everything below Phase 2 is on hold.** Don't start any of it until the owner says so. It's listed only so the code stays easy to extend.
 
