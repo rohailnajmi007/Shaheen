@@ -10,13 +10,22 @@ export const BASES = {
     id: 'masroor', name: 'PAF Base Masroor', city: 'Karachi', short: 'MASROOR',
     runwayM: 1400, hangars: 2, towerM: 28, parked: 'jf17_front_body', apron: [300, 900],
     boards: ['NO. 2 SQN|MINHASIANS', 'NO. 8 SQN|HAIDER'],
-    welcome: ['WELCOME TO MASROOR', 'THE HOME OF WARRIORS'], theme: 'coast',
+    welcome: ['WELCOME TO MASROOR', 'THE HOME OF WARRIORS'], welcomeX: [1430], theme: 'coast',
+    // Background landmarks (src/render/landmarks.js), seen on the approach.
+    landmarks: ['port_cranes', 'teen_talwar', 'bahria_icon', 'mazar_e_quaid', 'masjid_e_tooba', 'skyline'],
   },
   mushaf: {
     id: 'mushaf', name: 'PAF Base Mushaf', city: 'Sargodha', short: 'MUSHAF',
     runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [300, 1000],
     boards: ['NO. 9 SQN|GRIFFINS', 'NO. 29 SQN|AGGRESSORS'],
     welcome: ['WELCOME TO MUSHAF', 'THE HOME OF EAGLES'], theme: 'punjab',
+    // Stone monument (dark blue, gold key-pattern border, crest) at both runway ends.
+    welcomeX: [-170, 1540], welcomeStyle: 'monument',
+    boardColor: '#8c0f0f', boardTrim: '#ebbd4d',
+    // Captured-aircraft tail displays on black plinths (m from the threshold).
+    trophies: [{ kind: 'mig21', x: 80 }, { kind: 'su30', x: 520 }],
+    banyanX: [-250, -30, 240, 1080, 1210, 1380, 1650, 1780],
+    landmarks: ['fields', 'orchard', 'banyan', 'village'],
   },
 };
 

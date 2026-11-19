@@ -21,6 +21,21 @@ export function setBest(s, v) {
   return false;
 }
 
+// Start screen in sequential steps (owner, like the Godot start screen): one question
+// per page, BACK / NEXT (Esc / Enter), left / right arrows change the choice.
+// PILOT -> AIRCRAFT -> MISSION -> ROUTE (ferry only) -> TIME OF DAY (+ FLY).
+const STEPS = [
+  { id: 'pilot', title: 'Enter your name' },
+  { id: 'aircraft', title: 'Choose your aircraft' },
+  { id: 'mode', title: 'Choose your mission' },
+  { id: 'dest', title: 'Choose your route' },
+  { id: 'time', title: 'Time of day' },
+];
+const MODES = [
+  { id: 'ferry', label: 'Ferry flight', note: 'Take off from Risalpur, fly to the base you pick, land and stop on the runway.' },
+  { id: 'strike', label: 'Air to ground', note: 'Jets only. Destroy 2-3 ground targets, then land at the base that appears.' },
+];
+
 export class Menu {
   constructor(root, settings, { onFly, onChange, sound }) {
     this.root = root;
@@ -28,74 +43,101 @@ export class Menu {
     this.onFly = onFly;
     this.onChange = onChange;
     this.sound = sound;
+    this.step = 0;
     const base = import.meta.env.BASE_URL;
     root.innerHTML = `
       <div class="menu-wrap">
-        <header class="brand">
-          <div class="logo"><span>SHAHEEN</span><em>PAF FLIGHT SCHOOL</em></div>
-        </header>
-        <section class="msec">
-          <h3>Pilot</h3>
+        <header class="brand"><div class="logo"><span>SHAHEEN</span></div></header>
+        <nav class="steps">${STEPS.map((st, i) => `<button class="stepdot" data-i="${i}"><b>${i + 1}</b><span>${st.id === 'dest' ? 'Route' : st.id === 'mode' ? 'Mission' : st.id === 'time' ? 'Time' : st.id[0].toUpperCase() + st.id.slice(1)}</span></button>`).join('')}</nav>
+        <h2 class="steptitle"></h2>
+        <section class="page" data-step="pilot">
           <input class="pname" maxlength="16" placeholder="Your name" spellcheck="false" autocomplete="off" />
         </section>
-        <section class="msec">
-          <h3>Aircraft</h3>
+        <section class="page" data-step="aircraft">
           <div class="acgrid">${AIRCRAFT.map((a) => `
             <button class="accard" data-id="${a.id}">
               <div class="acimg"><img src="${base}sprites/${a.sprite}.png" alt="" /></div>
               <div class="acname">${a.name}</div>
-              <div class="acrole">${a.role}${a.weaponLabel ? ` · ${a.weaponLabel}` : ''}</div>
-              <div class="stats">
-                <div><label>SPEED</label><i style="--v:${a.stats.speed}"></i></div>
-                <div><label>AGILITY</label><i style="--v:${a.stats.agility}"></i></div>
-                <div><label>DIFFICULTY</label><i class="d" style="--v:${a.stats.difficulty}"></i></div>
-              </div>
+              <div class="acrole">${a.role}</div>
+              <div class="acwpn">${a.weaponLabel || 'No weapons'}</div>
             </button>`).join('')}
           </div>
-          <p class="blurb"></p>
+          <p class="hint achint"></p>
         </section>
-        <section class="msec two">
-          <div>
-            <h3>Mission</h3>
-            <div class="seg mode">
-              <button data-v="ferry">Ferry flight</button>
-              <button data-v="strike">Air-to-ground strike</button>
-            </div>
-            <p class="hint modehint"></p>
-          </div>
-          <div class="routebox">
-            <h3>Route</h3>
-            <div class="seg dest">${ROUTES.map((r) => `<button data-v="${r.id}">${r.label}<small>${r.km} km</small></button>`).join('')}</div>
-            <p class="hint routehint"></p>
-          </div>
+        <section class="page" data-step="mode">
+          <div class="seg big mode">${MODES.map((m) => `<button data-v="${m.id}">${m.label}<small>${m.note}</small></button>`).join('')}</div>
         </section>
-        <section class="msec">
-          <h3>Time of day</h3>
+        <section class="page" data-step="dest">
+          <div class="seg big dest">${ROUTES.map((r) => `<button data-v="${r.id}">${r.label}<small>${r.km} km · ${r.note}</small></button>`).join('')}</div>
+        </section>
+        <section class="page" data-step="time">
           <div class="seg time">${Object.entries(TIMES).map(([k, t]) => `<button data-v="${k}">${t.label}</button>`).join('')}</div>
+          <p class="summary"></p>
+          <div class="best"></div>
         </section>
         <footer class="mfoot">
-          <button class="fly">FLY <kbd>Enter</kbd></button>
-          <div class="best"></div>
+          <button class="ghost back">Back <kbd>Esc</kbd></button>
+          <button class="fly next">Next <kbd>Enter</kbd></button>
           <button class="ghost keysbtn">Controls</button>
         </footer>
         <div class="keypop">${KEY_HELP.map(([k, t]) => `<div><kbd>${k}</kbd><span>${t}</span></div>`).join('')}<p>Gamepad: left stick pitch, triggers throttle, A drop, B brake, X flaps, Y gear, LB engine.</p></div>
       </div>`;
     const name = $('.pname', root);
     name.value = settings.name;
-    name.addEventListener('input', () => { this.s.name = name.value; this.changed(false); });
-    for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => { if (b.disabled) return; this.s.aircraft = b.dataset.id; this.changed(true); });
-    const seg = (cls, key) => {
-      for (const b of root.querySelectorAll(`.seg.${cls} button`)) b.addEventListener('click', () => { this.s[key] = b.dataset.v; this.changed(key === 'time'); });
-    };
-    seg('mode', 'mode'); seg('dest', 'dest'); seg('time', 'time');
-    $('.fly', root).addEventListener('click', () => this.fly());
+    name.addEventListener('input', () => { this.s.name = name.value; saveSettings(this.s); });
+    for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => { if (b.disabled) return; this.pick('aircraft', b.dataset.id); });
+    for (const [cls, key] of [['mode', 'mode'], ['dest', 'dest'], ['time', 'time']]) {
+      for (const b of root.querySelectorAll(`.seg.${cls} button`)) b.addEventListener('click', () => this.pick(key, b.dataset.v));
+    }
+    for (const b of root.querySelectorAll('.stepdot')) b.addEventListener('click', () => { const i = +b.dataset.i; if (i < this.step) this.go(i); });
+    $('.next', root).addEventListener('click', () => this.next());
+    $('.back', root).addEventListener('click', () => this.back());
     $('.keysbtn', root).addEventListener('click', () => root.querySelector('.keypop').classList.toggle('show'));
     this.keyHandler = (e) => {
       if (!this.root.classList.contains('show')) return;
-      if (e.code === 'Enter') { e.preventDefault(); this.fly(); }
+      if (e.code === 'Enter') { e.preventDefault(); this.next(); }
+      else if (e.code === 'Escape') { e.preventDefault(); this.back(); }
+      else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && !(e.target instanceof HTMLInputElement)) {
+        e.preventDefault(); this.cycle(e.code === 'ArrowRight' ? 1 : -1);
+      }
     };
     addEventListener('keydown', this.keyHandler);
     this.refresh();
+  }
+
+  // Steps that apply (no route step on an air-to-ground mission).
+  steps() { return STEPS.filter((st) => !(st.id === 'dest' && this.s.mode === 'strike')); }
+  current() { return this.steps()[Math.min(this.step, this.steps().length - 1)]; }
+
+  go(i) {
+    this.step = Math.max(0, Math.min(i, this.steps().length - 1));
+    this.sound.click();
+    this.refresh();
+    if (this.current().id === 'pilot') setTimeout(() => $('.pname', this.root).focus(), 0);
+  }
+  next() {
+    if (this.step >= this.steps().length - 1) { this.fly(); return; }
+    this.go(this.step + 1);
+  }
+  back() { if (this.step > 0) this.go(this.step - 1); }
+
+  // Left / right on a choice page.
+  cycle(dir) {
+    const id = this.current().id;
+    let opts;
+    if (id === 'aircraft') opts = AIRCRAFT.filter((a) => this.s.mode !== 'strike' || a.strikeCapable).map((a) => a.id);
+    else if (id === 'mode') opts = MODES.map((m) => m.id);
+    else if (id === 'dest') opts = ROUTES.map((r) => r.id);
+    else if (id === 'time') opts = Object.keys(TIMES);
+    else return;
+    const key = id === 'aircraft' ? 'aircraft' : id;
+    const i = opts.indexOf(this.s[key]);
+    this.pick(key, opts[(i + dir + opts.length) % opts.length]);
+  }
+
+  pick(key, v) {
+    this.s[key] = v;
+    this.changed(key === 'aircraft' || key === 'time');
   }
 
   fly() {
@@ -106,7 +148,7 @@ export class Menu {
   changed(visual) {
     this.sound.click();
     const a = AIRCRAFT.find((x) => x.id === this.s.aircraft);
-    if (this.s.mode === 'strike' && !a.strikeCapable) this.s.aircraft = 'f16a';
+    if (this.s.mode === 'strike' && !a.strikeCapable) { this.s.aircraft = 'f16a'; visual = true; }
     saveSettings(this.s);
     this.refresh();
     if (visual) this.onChange(this.s);
@@ -115,27 +157,43 @@ export class Menu {
   refresh() {
     const s = this.s;
     const r = this.root;
+    const steps = this.steps();
+    const cur = this.current();
     const a = AIRCRAFT.find((x) => x.id === s.aircraft);
+    for (const p of r.querySelectorAll('.page')) p.classList.toggle('on', p.dataset.step === cur.id);
+    $('.steptitle', r).textContent = cur.title;
+    for (const b of r.querySelectorAll('.stepdot')) {
+      const st = STEPS[+b.dataset.i];
+      const idx = steps.indexOf(st);
+      b.classList.toggle('skip', idx < 0);
+      b.classList.toggle('done', idx >= 0 && idx < this.step);
+      b.classList.toggle('cur', st === cur);
+    }
     for (const b of r.querySelectorAll('.accard')) {
       const ac = AIRCRAFT.find((x) => x.id === b.dataset.id);
       b.classList.toggle('sel', b.dataset.id === s.aircraft);
       b.disabled = s.mode === 'strike' && !ac.strikeCapable;
     }
-    $('.blurb', r).textContent = `${a.blurb} You fly as ${a.rank}.`;
+    const name = (s.name || 'Shaheen').trim().toUpperCase();
+    $('.achint', r).textContent = `You fly as ${a.rank} ${name}.`;
     for (const [cls, key] of [['mode', 'mode'], ['dest', 'dest'], ['time', 'time']]) {
       for (const b of r.querySelectorAll(`.seg.${cls} button`)) b.classList.toggle('sel', b.dataset.v === s[key]);
     }
-    $('.routebox', r).classList.toggle('off', s.mode === 'strike');
-    $('.modehint', r).textContent = s.mode === 'ferry'
-      ? 'Take off from Risalpur, fly to the base you pick, land and stop on the runway.'
-      : '2–3 ground targets a few km out. Destroy them, then land at the base that appears.';
     const route = ROUTES.find((x) => x.id === s.dest);
-    $('.routehint', r).textContent = route ? route.note : '';
+    $('.summary', r).textContent = `${a.rank} ${name} · ${a.name} · ${s.mode === 'strike' ? 'Air to ground' : route ? route.label : ''}`;
     const best = getBest(s);
     $('.best', r).textContent = best ? `Best score: ${best}` : '';
+    const last = this.step >= steps.length - 1;
+    $('.next', r).innerHTML = last ? 'FLY <kbd>Enter</kbd>' : 'Next <kbd>Enter</kbd>';
+    $('.next', r).classList.toggle('go', last);
+    $('.back', r).style.visibility = this.step > 0 ? 'visible' : 'hidden';
   }
 
-  show() { this.root.classList.add('show'); }
+  show() {
+    this.root.classList.add('show');
+    this.refresh();
+    if (this.current().id === 'pilot') setTimeout(() => $('.pname', this.root).focus(), 0);
+  }
   hide() { this.root.classList.remove('show'); }
 }
 

@@ -87,25 +87,8 @@ export function buildLayer(slot, themeId, time, res) {
       if (r() < 0.4) { x.fillRect(px + w * 0.45, H - h - 22 * res, 2 * res, 22 * res); }
       if (win) drawWindows(x, px, H - h, w, h, res, r, win, 0.35);
     }
-    // Two landmark silhouettes: a white dome with four slim towers, and a big tower.
-    const domeX = W * 0.3;
-    x.fillStyle = shade('#e9e7e1', light, time.haze, L.haze);
-    x.fillRect(domeX - 34 * res, H - 34 * res, 68 * res, 34 * res);
-    x.beginPath(); x.ellipse(domeX, H - 34 * res, 26 * res, 30 * res, 0, Math.PI, 0); x.fill();
-    for (const o of [-44, -34, 34, 44]) x.fillRect(domeX + o * res - 1.5 * res, H - 78 * res, 3 * res, 78 * res);
-    const tx = W * 0.72;
-    x.fillStyle = sil;
-    x.beginPath();
-    x.moveTo(tx - 18 * res, H); x.lineTo(tx - 12 * res, H - 200 * res); x.lineTo(tx, H - 222 * res);
-    x.lineTo(tx + 12 * res, H - 200 * res); x.lineTo(tx + 18 * res, H); x.fill();
-    if (win) drawWindows(x, tx - 12 * res, H - 196 * res, 24 * res, 190 * res, res, r, win, 0.5);
-    // Port cranes.
-    x.strokeStyle = shade('#b4524a', light, time.haze, L.haze);
-    x.lineWidth = 2.5 * res;
-    for (const cx of [W * 0.52, W * 0.56, W * 0.9]) {
-      x.beginPath(); x.moveTo(cx, H); x.lineTo(cx, H - 70 * res); x.lineTo(cx + 46 * res, H - 70 * res);
-      x.moveTo(cx - 14 * res, H - 70 * res); x.lineTo(cx, H - 84 * res); x.lineTo(cx + 46 * res, H - 70 * res); x.stroke();
-    }
+    // Karachi landmarks (Mazar-e-Quaid, Teen Talwar, Bahria Icon, port...) are drawn
+    // by landmarks.js near Masroor; this tile is only the generic skyline.
     bottom = sil;
   } else if (slot === 'mid') {
     if (th.sea) {
@@ -365,28 +348,229 @@ function welcome(time, R, lines) {
   });
 }
 
+// --- Godot-unit base objects (ported from base.gd: 4 Godot px per metre) ---
+// Drawn centred on x = 0 with the ground at y = 0 (y up is negative), like Godot.
+const GPX = 4; // Godot px per metre
+// Signs and trophies were sized for Godot's double-size aircraft: drawn at this many
+// Godot px per metre instead (smaller), so they sit right next to the parked jets.
+const SIGN_GPX = 6;
+function godotSprite(wPx, hPx, R, draw, ppm = GPX) {
+  return sprite(wPx / ppm, hPx / ppm, R, (x) => {
+    x.scale(R / ppm, R / ppm);
+    x.translate(wPx / 2, hPx);
+    draw(x);
+  });
+}
+const c01 = (c, a = 1) => `rgba(${Math.round(Math.min(1, c[0]) * 255)},${Math.round(Math.min(1, c[1]) * 255)},${Math.round(Math.min(1, c[2]) * 255)},${a})`;
+const lit01 = (c, L) => [c[0] * L[0], c[1] * L[1], c[2] * L[2]];
+const lighter = (c, a) => [c[0] + (1 - c[0]) * a, c[1] + (1 - c[1]) * a, c[2] + (1 - c[2]) * a];
+const darker = (c, a) => [c[0] * (1 - a), c[1] * (1 - a), c[2] * (1 - a)];
+function gfx(x) {
+  return {
+    rect: (rx, ry, w, h, s) => { x.fillStyle = s; x.fillRect(rx, ry, w, h); },
+    poly: (pts, s) => { x.fillStyle = s; x.beginPath(); pts.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath(); x.fill(); },
+    line: (pts, s, w = 1) => { x.strokeStyle = s; x.lineWidth = w; x.beginPath(); pts.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.stroke(); },
+    circle: (cx, cy, r, s) => { x.fillStyle = s; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); },
+    ellipse: (cx, cy, rx, ry, s) => { x.fillStyle = s; x.beginPath(); x.ellipse(cx, cy, Math.max(rx, 0.1), Math.max(ry, 0.1), 0, 0, Math.PI * 2); x.fill(); },
+    text: (s, tx, ty, size, col, align = 'center') => { x.font = `600 ${size}px "Chakra Petch", sans-serif`; x.textAlign = align; x.textBaseline = 'alphabetic'; x.fillStyle = col; x.fillText(s, tx, ty); },
+  };
+}
+function textW(s, size) {
+  const x = makeCanvas(4, 4).getContext('2d');
+  x.font = `600 ${size}px "Chakra Petch", sans-serif`;
+  return x.measureText(s).width;
+}
+
+// Welcome monument (Mushaf): dark-blue stone slab with a gold key-pattern frame,
+// round crest, a gold calligraphy line and the two lines of text. Floodlit at night.
+function monument(time, R, lines) {
+  const [l1, l2 = ''] = lines;
+  const w1 = textW(l1, 16), w2 = textW(l2, 8);
+  const w = Math.max(w1, w2) + 28;
+  const night = !!time.lights;
+  const L = time.light;
+  const gold = night ? c01([0.95, 0.8, 0.45]) : c01(lit01([0.93, 0.78, 0.42], L));
+  const navy = [0.1, 0.16, 0.3], stone = [0.45, 0.44, 0.42], outline = [0.18, 0.18, 0.2];
+  return godotSprite(w + 20, 78, R, (x) => {
+    const g = gfx(x);
+    g.rect(-w / 2 - 6, -6, w + 12, 6, c01(lit01(stone, L)));
+    g.rect(-w / 2 - 6, -6, w + 12, 1, c01(lit01(lighter(stone, 0.2), L)));
+    const top = -60, bottom = -6;
+    g.poly([[-w / 2, bottom], [w / 2, bottom], [w / 2 - 3, top], [-w / 2 + 3, top]], c01(lit01(outline, L)));
+    g.poly([[-w / 2 + 1, bottom], [w / 2 - 1, bottom], [w / 2 - 4, top + 1], [-w / 2 + 4, top + 1]], c01(lit01(navy, L)));
+    g.rect(-w / 2 + 4, top + 1, w - 8, 2, c01(lit01(lighter(navy, 0.12), L)));
+    // Gold frame with key-pattern corners.
+    const fx = -w / 2 + 7, fy = top + 6, fw = w - 14, fh = bottom - top - 10;
+    x.strokeStyle = gold; x.lineWidth = 1; x.strokeRect(fx + 0.5, fy + 0.5, fw - 1, fh - 1);
+    const key = [[0, 0], [8, 0], [8, 6], [3, 6], [3, 3], [6, 3]];
+    for (const [px, py, sx, sy] of [[fx, fy, 1, 1], [fx + fw, fy, -1, 1], [fx, fy + fh, 1, -1], [fx + fw, fy + fh, -1, -1]]) {
+      g.line(key.map(([a, b]) => [px + a * sx, py + b * sy]), gold);
+      g.line(key.map(([a, b]) => [px + b * sx, py + a * sy]), gold);
+    }
+    // Crest: gold ring, blue disc, white centre, green dot, star above.
+    g.circle(0, top + 4, 8, gold);
+    g.circle(0, top + 4, 6.5, c01(lit01([0.12, 0.3, 0.62], L)));
+    g.circle(0, top + 4, 3.5, night ? c01([0.92, 0.94, 0.95]) : c01(lit01([0.92, 0.94, 0.95], L)));
+    g.circle(0, top + 4, 1.5, c01(lit01([0.1, 0.4, 0.22], L)));
+    const star = [];
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + Math.PI * i / 5; const r = i % 2 === 0 ? 3 : 1.35; star.push([Math.cos(a) * r, top - 7 + Math.sin(a) * r]); }
+    g.poly(star, gold);
+    // Calligraphy line: short gold strokes and dots.
+    const r = rng(77);
+    for (let lx = -w1 * 0.4; lx < w1 * 0.4;) {
+      const sw = 2 + Math.floor(r() * 5);
+      g.rect(lx, top + 17, sw, 1, gold);
+      if (r() < 0.5) g.rect(lx + Math.floor(r() * sw), top + 14 - Math.floor(r() * 3), 1, 3, gold);
+      if (r() < 0.3) g.rect(lx + 1, top + 19, 1, 1, gold);
+      lx += sw + 1 + Math.floor(r() * 3);
+    }
+    g.text(l1, 0, top + 36, 16, gold);
+    g.text(l2, 0, top + 47, 8, gold);
+    if (night) for (const fxl of [-w * 0.3, w * 0.3]) { g.rect(fxl - 2, -3, 4, 3, '#333'); g.circle(fxl, -4, 1.5, 'rgb(255,230,150)'); }
+  }, SIGN_GPX);
+}
+
+// Captured-aircraft display (Mushaf): the tail section of an IAF jet on a black stone
+// plinth with its name in gold. The tail faces left. Floodlit at night.
+const TROPHY_SCALE = 1.5;
+function trophy(time, R, kind) {
+  const label = kind === 'mig21' ? 'IAF MIG-21 BISON' : 'IAF SU-30MKI';
+  const tw = textW(label, 8);
+  const w = tw + 14;
+  const night = !!time.lights;
+  const L = time.light;
+  const flood = (c) => (night ? c01([c[0] * 0.75, c[1] * 0.72, c[2] * 0.65].map((v) => Math.min(1, v * 1.25))) : c01(lit01(c, L)));
+  const gold = night ? c01([0.95, 0.8, 0.45]) : c01(lit01([0.92, 0.78, 0.42], L));
+  return godotSprite(Math.max(w, 70) + 4, 84, R, (x) => {
+    const g = gfx(x);
+    g.poly([[-w / 2, 0], [w / 2, 0], [w / 2, -17], [-w / 2, -13]], c01(lit01([0.1, 0.1, 0.11], L)));
+    g.line([[-w / 2, -13], [w / 2, -17]], c01(lit01([0.32, 0.32, 0.34], L)));
+    g.text(label, 0, -3, 8, gold);
+    const sc = TROPHY_SCALE;
+    g.rect(-10 * sc, -16 - 3 * sc, 2, 3 * sc, c01(lit01([0.18, 0.18, 0.2], L)));
+    g.rect(8 * sc, -16 - 3 * sc, 2, 3 * sc, c01(lit01([0.18, 0.18, 0.2], L)));
+    x.save();
+    x.translate(0, -16 - 3 * sc);
+    x.scale(sc, sc);
+    const fin = (p, size) => {
+      const bw = size[0] / 3;
+      g.rect(p[0], p[1], bw, size[1], flood([0.1, 0.5, 0.2]));
+      g.rect(p[0] + bw, p[1], bw, size[1], flood([0.95, 0.95, 0.93]));
+      g.rect(p[0] + bw * 2, p[1], bw, size[1], flood([0.95, 0.55, 0.15]));
+    };
+    if (kind === 'mig21') {
+      const skin = [0.66, 0.68, 0.7], shade = [0.5, 0.52, 0.55], dark = [0.2, 0.2, 0.22];
+      g.rect(-22, -8, 42, 8, flood(shade));
+      g.rect(-22, -8, 42, 5, flood(skin));
+      g.rect(-22, -8, 42, 1, flood(lighter(skin, 0.15)));
+      g.rect(20, -7, 3, 7, flood(dark));
+      g.rect(-22, -8, 1, 8, flood(dark));
+      const f = [[-14, -8], [6, -31], [13, -31], [17, -8]];
+      g.poly(f, flood(skin));
+      g.line(f, flood(dark));
+      g.poly([[5, -30], [6, -31], [13, -31], [13.3, -28], [7.7, -28]], flood([0.45, 0.6, 0.35]));
+      g.line([[9, -27], [15, -10]], flood(shade));
+      fin([-1, -22], [9, 6]);
+    } else {
+      const skin = [0.56, 0.62, 0.68], patch = [0.44, 0.5, 0.58], shade = [0.4, 0.45, 0.5], dark = [0.18, 0.19, 0.22];
+      const far = [[-16, -9], [-1, -35], [5, -35], [9, -9]];
+      g.poly(far, flood(shade)); g.line([...far, far[0]], flood(dark));
+      g.rect(-26, -9, 50, 9, flood(shade));
+      g.rect(-26, -9, 50, 6, flood(skin));
+      g.rect(-10, -8, 14, 4, flood(patch));
+      g.rect(-26, -9, 1, 9, flood(dark));
+      g.rect(24, -8, 4, 4, flood(dark));
+      g.rect(24, -4, 4, 4, flood(lighter(dark, 0.1)));
+      g.poly([[12, -5], [30, -3], [30, -1], [12, -2]], flood(shade));
+      const f = [[-10, -9], [6, -37], [12, -37], [17, -9]];
+      g.poly(f, flood(skin));
+      g.poly([[-2, -20], [6, -32], [10, -24], [4, -16]], flood(patch));
+      g.line(f, flood(dark));
+      g.rect(7, -40, 1, 3, flood(dark));
+      fin([4, -27], [8, 5]);
+    }
+    x.restore();
+    if (night) g.circle(-w / 2 + 3, -1, 1.5, 'rgb(255,230,150)');
+  }, SIGN_GPX);
+}
+
+// Banyan tree on the base: short thick trunk, prop-roots, huge wide low dome of foliage.
+const BANYAN = { heightM: 17, widthM: 34 };
+function banyanTree(time, R, index, leafHex) {
+  const r = rng(911 + index * 37);
+  const L = time.light;
+  const h = BANYAN.heightM * GPX * (0.85 + r() * 0.25);
+  const w = BANYAN.widthM * GPX * (0.85 + r() * 0.3);
+  const lh = hexToRgb(leafHex).map((v) => v / 255);
+  const leaf = (k) => c01(lit01(k > 0 ? lighter(lh, k) : darker(lh, -k), L));
+  const bark = [0.4, 0.33, 0.26], root = c01(lit01([0.48, 0.42, 0.35], L));
+  return godotSprite(w * 1.15, h * 1.08, R, (x) => {
+    const g = gfx(x);
+    const cy = -h * 0.62;
+    for (let k = 0; k < 14; k++) {
+      const rx = -w * 0.42 + r() * w * 0.84;
+      if (Math.abs(rx) < 8) continue;
+      const reach = r() < 0.6 ? 0 : -(h * 0.15 + r() * h * 0.2);
+      const thick = reach === 0 && r() < 0.5 ? 2 : 1;
+      g.rect(rx, cy + h * 0.12, thick, reach - cy - h * 0.12, root);
+    }
+    g.poly([[-12, 0], [12, 0], [6, -10], [5, cy + 8], [-5, cy + 8], [-6, -10]], c01(lit01(bark, L)));
+    g.line([[-3, cy + 14], [-w * 0.3, cy + 4]], c01(lit01(bark, L)), 3);
+    g.line([[3, cy + 12], [w * 0.32, cy + 6]], c01(lit01(bark, L)), 3);
+    g.ellipse(0, cy + 2, w * 0.5, h * 0.16, leaf(-0.3));
+    for (let k = 0; k <= 10; k++) {
+      const t = k / 10, arch = Math.sin(t * Math.PI);
+      const bx = (t - 0.5) * w * 0.86, by = cy - h * 0.12 * arch - r() * 4;
+      g.ellipse(bx, by, w * (0.11 + r() * 0.04), h * (0.14 + r() * 0.06) * (0.7 + 0.5 * arch), leaf(-r() * 0.15));
+    }
+    for (let k = 0; k < 6; k++) {
+      g.ellipse(-w * 0.3 + r() * w * 0.6, cy - h * 0.22 - r() * h * 0.08, w * 0.09, h * 0.08, leaf(0.06 + r() * 0.1));
+    }
+  });
+}
+
 // All static objects for one base, positions in metres from its threshold.
 export function buildBase(base, time, R) {
   const objs = [];
   const add = (spr, x, layer = 0) => objs.push({ ...spr, x: base.x + x, layer });
+  // Centred on cx (Godot placement).
+  const addC = (spr, cx) => add(spr, cx - spr.wM / 2);
   const col = '#e2d9c3';
+  (base.banyanX || []).forEach((bx, i) => addC(banyanTree(time, R, i, THEMES[base.theme].trees), bx));
   for (let i = 0; i < base.hangars; i++) add(hangar(time, R, col), 120 + i * 72);
   add(admin(time, R, base.id === 'risalpur' ? 3 : 2, col), 120 + base.hangars * 72 + 20);
   const tw = tower(time, R, base.towerM);
   add(tw, 120 + base.hangars * 72 + 104);
+  // Squadron boards and trophies; parked aircraft keep clear of them.
+  const boardX = base.boards.map((_, i) => base.apron[0] + 80 + i * 70);
+  const trophies = base.trophies || [];
+  const trophySprites = trophies.map((t) => ({ t, spr: trophy(time, R, t.kind) }));
+  // [centre, half width] of everything the parked aircraft must keep clear of.
+  const blocked = [...boardX.map((x) => [x + 7, 7]), ...trophySprites.map(({ t, spr }) => [t.x, spr.wM / 2])];
+  const CLEAR_M = 4;
   // Parked aircraft on the apron, some in shelters.
   const front = images[base.parked];
   if (front) {
     const sh = shelter(time, R);
     const ac = { canvas: tinted(front, time.light, base.parked), wM: front.width / 16, hM: front.height / 16 };
     let n = 0;
-    for (let x = base.apron[0]; x < base.apron[1] && n < 12; x += 15, n++) {
-      if (n % 3 === 2) { add(sh, x - 6, -1); add({ ...ac, wM: ac.wM * 0.8, hM: ac.hM * 0.8 }, x - 6 + 14 - ac.wM * 0.4); }
+    for (let x = base.apron[0]; x < base.apron[1] && n < 12; x += 15) {
+      const inShelter = n % 3 === 2;
+      const c = inShelter ? x + 8 : x + ac.wM / 2, half = inShelter ? 14 : ac.wM / 2;
+      if (blocked.some(([bc, bh]) => Math.abs(c - bc) < half + bh + CLEAR_M)) continue;
+      if (inShelter) { add(sh, x - 6, -1); add({ ...ac, wM: ac.wM * 0.8, hM: ac.hM * 0.8 }, x - 6 + 14 - ac.wM * 0.4); }
       else add(ac, x);
+      n++;
     }
   }
-  base.boards.forEach((t, i) => add(board(time, R, t, base.id === 'mushaf' ? '#7a1010' : '#16365c'), base.apron[0] + 80 + i * 70));
-  if (base.welcome) add(welcome(time, R, base.welcome), base.runwayM + 40);
+  base.boards.forEach((t, i) => add(board(time, R, t, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), boardX[i]));
+  for (const { t, spr } of trophySprites) addC(spr, t.x);
+  if (base.welcome) {
+    for (const wx of base.welcomeX || [base.runwayM + 40]) {
+      if (base.welcomeStyle === 'monument') addC(monument(time, R, base.welcome), wx);
+      else add(welcome(time, R, base.welcome), wx);
+    }
+  }
   return { objs, towerX: base.x + 120 + base.hangars * 72 + 110, towerH: base.towerM };
 }
 

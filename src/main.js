@@ -158,7 +158,7 @@ function frame(now) {
   renderer.renderFlight(flight, acc / STEP, dt);
   soundFx(flight);
   for (const e of flight.fx) {
-    if (e.type === 'end') endTimer = e.result.grade === 'CRASH' ? 2.2 : 1.2;
+    if (e.type === 'end') endTimer = e.result.grade === 'CRASH' ? 3.5 : 1.2; // crash: time to watch the wreck settle
   }
   flight.fx.length = 0;
   const a = flight.ac;

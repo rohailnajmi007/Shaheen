@@ -68,7 +68,9 @@ Rule: `src/sim` and `src/data` never touch the DOM, so they run in Node for test
 | Godot (old) | JavaScript (now) |
 |---|---|
 | `data/aircraft/*.tres`, `scripts/data/aircraft_data.gd` | `src/data/aircraft.js` (snake_case fields became camelCase, e.g. `stall_kt` -> `stallKt`) |
-| `data/bases/*.tres`, base/landmark scenes | `src/data/world.js`, `src/render/scenery.js`, `src/render/renderer.js` |
+| `data/bases/*.tres`, `base.gd` | `src/data/world.js`, `src/render/scenery.js` (`buildBase`), `src/render/renderer.js` |
+| `scenes/world/landmarks.gd` | `src/render/landmarks.js` |
+| `scenes/world/crash_effect.gd`, crash shards in `aircraft.gd` | `src/render/renderer.js` (`crashFx`, `CRASH`) |
 | `scenes/aircraft/aircraft.gd` | `src/sim/aircraft.js` |
 | `scenes/flight/flight.gd`, `strike_mission.gd`, `scripts/flight_phase.gd` | `src/sim/flight.js` |
 | `scenes/world/bomb.gd`, `missile.gd`, `ground_target.gd` | `src/sim/flight.js` (weapons) + `src/render/renderer.js` |
@@ -82,7 +84,7 @@ Rule: `src/sim` and `src/data` never touch the DOM, so they run in Node for test
 | `assets/sprites/`, `assets/fonts/` | `public/sprites/`, `public/fonts/` (same files, byte-identical) |
 | `deploy.bat` (Godot export) | `deploy.bat` (npm build + Vercel) |
 
-Not ported yet (TODO in ROADMAP 2.8): instructor portrait, cadet name plate, Mushaf MiG-21 trophy, F1 debug label.
+Not ported yet (TODO in ROADMAP 2.8): instructor portrait, cadet name plate, F1 debug label.
 
 ## Units and drawing
 

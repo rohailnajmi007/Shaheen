@@ -2,6 +2,7 @@
 import { images, tinted, SOFT, makeCanvas, rng } from './assets.js';
 import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget } from './scenery.js';
 import { Particles } from './particles.js';
+import { buildLandmarks, LANDMARKS } from './landmarks.js';
 import { THEMES, TIMES } from '../data/world.js';
 import { KT } from '../sim/aircraft.js';
 
@@ -9,6 +10,22 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const LAYER_ZOOM = { mountains: 0.12, city: 0.25, mid: 0.4, trees: 0.7 };
 const LAYER_DROP = { mountains: 0.07, city: 0.1, mid: 0.14, trees: 0.2 };
+// Crash breakup (see crashFx). Shard sizes in aircraft texture px (1/16 m).
+export const CRASH = {
+  bigSeverity: 0.6,     // from this severity: explosion, debris blasted out
+  shardTexPx: 15,       // small crash shard size
+  shardTexPxBig: 12,    // big crash: smaller, more pieces
+  maxShards: 260,
+  blastMs: 8,           // big crash: outward debris speed (m/s, scaled by severity)
+  hotBig: 0.15,         // share of pieces glowing as hot embers (big / small crash)
+  hotSmall: 0.02,
+  friction: 1.0,        // sliding friction coefficient on the ground
+  landKeep: 0.5,        // share of a piece's speed kept when it first hits the ground
+  emberCoolS: 4,        // hot shards glow this long
+  burningBig: 0.06,     // share of pieces that keep burning (big / small crash)
+  burningSmall: 0.015,
+  burnS: 30,            // burning / smoking time
+};
 
 export class Renderer {
   constructor(canvas) {
@@ -56,6 +73,7 @@ export class Renderer {
     this.clouds = buildClouds(time, res);
     this.stars = time.stars > 0 ? buildStars(res) : null;
     const R = Math.round(10 * res);
+    this.landmarks = buildLandmarks(world.bases, time, res);
     this.baseGfx = world.bases.map((b) => ({ base: b, ...buildBase(b, time, R) }));
     this.targetGfx = {};
     for (const k of ['sam', 'radar', 'fuel', 'bunker']) {
@@ -143,7 +161,13 @@ export class Renderer {
     this.time += dt;
     this.dt = dt;
     this.resize();
-    const st = flight.renderState(alpha);
+    let st = flight.renderState(alpha);
+    // After a crash the camera follows the debris field (its middle), not the impact point.
+    if (flight.ac.crashed && this.shards.length) {
+      let sx = 0;
+      for (const s of this.shards) sx += s.x;
+      st = { ...st, x: sx / this.shards.length, y: 0, vx: 0, vy: 0 };
+    }
     this.updateCamera(dt, st, flight);
     const v = this.makeView();
     this.handleFx(flight);
@@ -237,11 +261,27 @@ export class Renderer {
     for (const L of LAYERS) {
       const zf = lerp(1, this.cam.zoom, LAYER_ZOOM[L.slot]);
       const yBase = v.restY + Math.min((v.groundY - v.restY) * L.lift, v.H * LAYER_DROP[L.slot]);
+      if (L.slot === 'trees') this.drawLandmarks(ctx, v, yBase);
       const A = this.tiles[ta][L.slot], B = this.tiles[tb][L.slot];
       const aA = ta === tb ? 1 : Math.min(1, 2 * (1 - t));
       const aB = ta === tb ? 0 : Math.min(1, 2 * t);
       if (A && aA > 0) this.drawTile(ctx, v, A, L, zf, yBase, aA);
       if (B && aB > 0) this.drawTile(ctx, v, B, L, zf, yBase, aB);
+    }
+  }
+
+  // Base landmarks (landmarks.js): in front of the hills, behind the tree layer.
+  drawLandmarks(ctx, v, treesBaseY) {
+    const zf = lerp(1, this.cam.zoom, 0.55);
+    const u = v.H / 720;
+    const gp = (v.H / 360) * zf; // screen px per Godot px
+    const y = treesBaseY - LANDMARKS.lift * u * zf;
+    for (const it of this.landmarks) {
+      if (!it.base.visible) continue;
+      const x = v.W / 2 + (it.camX - this.cam.x) * LANDMARKS.speed * u * zf + it.left * gp;
+      const w = it.w * gp;
+      if (x > v.W || x + w < 0) continue;
+      ctx.drawImage(it.canvas, x, y - it.h * gp, w, it.h * gp);
     }
   }
 
@@ -651,86 +691,202 @@ export class Renderer {
     if (secondary) setTimeout(() => this.explode(x + 8, y, power * 0.7), 450);
   }
 
+  // --- crash ---
+  // The airframe (body + tailplane + gear) breaks into many small irregular shards
+  // (owner: no big "Lego" chunks). Shards keep the aircraft's momentum, land without
+  // bouncing and scrape to a stop throwing sparks and dust; each has its own scorch
+  // tint, some glow as hot embers, some keep burning or smoking where they stop.
+  //  - small crash (severity < CRASH.bigSeverity): debris scrapes forward, dust,
+  //    low sparks, thin grey smoke, no fireball.
+  //  - big crash: flash, a fireball that rolls forward with the wreck, debris blasted
+  //    out, burning pieces across the debris field, thick black smoke.
   crashFx(e, flight) {
     const d = flight.data;
-    const big = e.severity >= 0.6;
-    if (big) this.explode(e.x, 1, 1.3);
-    else {
-      this.cam.shake = 0.7;
-      for (let i = 0; i < 30; i++) this.particles.spawn('dust', e.x + (Math.random() - 0.5) * 10, 1, e.vx * 0.3 + (Math.random() - 0.5) * 10, 2 + Math.random() * 3, 6 + Math.random() * 6, 2 + Math.random() * 2, { grow: 2.5, alpha: 0.7 });
+    const big = e.severity >= CRASH.bigSeverity;
+    const P = this.particles;
+    const x = e.x, y = Math.max(0.5, e.y);
+    const vx = e.vx;
+    if (big) {
+      this.explode(x, y + 1, 1.2 + e.severity * 0.3);
+      // Rolling fireball: blobs carried forward with the wreck's momentum.
+      for (let i = 0; i < 26; i++) {
+        P.spawn('fire', x + (Math.random() - 0.5) * 10, y + 1 + Math.random() * 4, vx * (0.25 + Math.random() * 0.35), 2 + Math.random() * 6,
+          8 + Math.random() * 10, 0.7 + Math.random() * 0.9, { grow: 2.2, drag: 1.2, lift: 5 });
+      }
+    } else {
+      this.cam.shake = Math.max(this.cam.shake, 0.6);
+      for (let i = 0; i < 36; i++) {
+        P.spawn('dust', x + (Math.random() - 0.5) * 12, 0.6, vx * (0.15 + Math.random() * 0.3) + (Math.random() - 0.5) * 6, 1 + Math.random() * 3,
+          5 + Math.random() * 7, 1.8 + Math.random() * 2, { grow: 2.6, alpha: 0.7, drag: 1.2 });
+      }
     }
-    this.makeShards(d, e, big);
-    this.burnX = e.x; this.burnT = 0;
+    // Sparks: low and forward when scraping, everywhere when it blows up.
+    for (let i = 0; i < (big ? 50 : 28); i++) {
+      const a = Math.random() * Math.PI;
+      const sp = big ? 20 + Math.random() * 50 : 8 + Math.random() * 22;
+      P.spawn('spark', x, y, big ? Math.cos(a) * sp + vx * 0.3 : Math.abs(vx) * 0.5 + Math.random() * sp, big ? Math.sin(a) * sp : Math.random() * sp * 0.4,
+        big ? 1.1 : 0.8, 0.5 + Math.random() * 0.9, { grow: 0.4, drag: 0.6 });
+    }
+    this.makeShards(d, e, big, flight.ac);
+    this.burnX = big ? x : null; this.burnT = 0;
   }
 
-  makeShards(d, e, big) {
-    const img = images[d.sprite];
-    if (!img) return;
-    const cols = big ? 6 : 5, rows = big ? 3 : 2;
-    const W = img.width, H = img.height;
-    const r = Math.random;
-    const pts = [];
-    for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
-      const jx = i === 0 || i === cols ? 0 : (r() - 0.5) * W / cols * 0.7;
-      const jy = j === 0 || j === rows ? 0 : (r() - 0.5) * H / rows * 0.7;
-      pts.push([i * W / cols + jx, j * H / rows + jy]);
+  // Whole airframe as one texture: gear (if down), body, tailplane.
+  wreckTexture(d, ac) {
+    const body = images[d.sprite];
+    const L = this.lightBody;
+    const gear = d.gearSprite && ac.gearPos > 0.5 ? images[d.gearSprite] : null;
+    const W = Math.max(body.width, gear ? gear.width : 0);
+    const H = Math.max(body.height, gear ? gear.height : 0);
+    const c = makeCanvas(W, H);
+    const x = c.getContext('2d', { willReadFrequently: true });
+    if (gear) x.drawImage(tinted(gear, L), 0, 0);
+    x.drawImage(tinted(body, L), 0, 0);
+    if (d.elevatorSprite && images[d.elevatorSprite]) x.drawImage(tinted(images[d.elevatorSprite], L), 0, 0);
+    return c;
+  }
+
+  makeShards(d, e, big, ac) {
+    if (!images[d.sprite]) return;
+    const src = this.wreckTexture(d, ac);
+    const W = src.width, H = src.height;
+    const data = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
+    const solid = (px, py) => {
+      const ix = Math.floor(px), iy = Math.floor(py);
+      return ix >= 0 && iy >= 0 && ix < W && iy < H && data[(iy * W + ix) * 4 + 3] > 40;
+    };
+    // Painted area only.
+    let x0 = W, y0 = H, x1 = 0, y1 = 0;
+    for (let py = 0; py < H; py += 2) for (let px = 0; px < W; px += 2) {
+      if (data[(py * W + px) * 4 + 3] > 40) { x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); }
     }
-    const probe = makeCanvas(W, H).getContext('2d', { willReadFrequently: true });
-    probe.drawImage(img, 0, 0);
-    const data = probe.getImageData(0, 0, W, H).data;
-    const c = Math.cos(e.pitch), s = Math.sin(e.pitch);
+    if (x1 <= x0 || y1 <= y0) return;
+    // Jittered lattice over it; each cell is a 4-sided chunk or two triangles.
+    const cell = big ? CRASH.shardTexPxBig : CRASH.shardTexPx;
+    const cols = Math.max(3, Math.round((x1 - x0) / cell)), rows = Math.max(2, Math.round((y1 - y0) / cell));
+    const cw = (x1 - x0) / cols, ch = (y1 - y0) / rows;
+    const r = Math.random;
+    const pt = [];
+    for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
+      const jx = i === 0 || i === cols ? 0 : (r() - 0.5) * cw * 0.75;
+      const jy = j === 0 || j === rows ? 0 : (r() - 0.5) * ch * 0.75;
+      pt.push([x0 + i * cw + jx, y0 + j * ch + jy]);
+    }
+    const polys = [];
     for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-      const q = [pts[j * (cols + 1) + i], pts[j * (cols + 1) + i + 1], pts[(j + 1) * (cols + 1) + i + 1], pts[(j + 1) * (cols + 1) + i]];
-      const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4;
-      let filled = 0;
-      for (const [px, py] of [[cx, cy], ...q.map((p) => [(p[0] + cx) / 2, (p[1] + cy) / 2])]) {
-        if (data[(Math.floor(py) * W + Math.floor(px)) * 4 + 3] > 40) filled++;
-      }
+      const a = pt[j * (cols + 1) + i], b = pt[j * (cols + 1) + i + 1], c = pt[(j + 1) * (cols + 1) + i + 1], q = pt[(j + 1) * (cols + 1) + i];
+      if (r() < 0.55) {
+        if (r() < 0.5) polys.push([a, b, c], [a, c, q]); else polys.push([a, b, q], [b, c, q]);
+      } else polys.push([a, b, c, q]);
+    }
+    const cosP = Math.cos(e.pitch), sinP = Math.sin(e.pitch);
+    // Blast centre: middle of the painted area.
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    const power = big ? CRASH.blastMs * (0.6 + e.severity) : 0;
+    const bodyW = images[d.sprite].width;
+    for (const poly of polys) {
+      if (this.shards.length >= CRASH.maxShards) break;
+      const cx = poly.reduce((s, p) => s + p[0], 0) / poly.length, cy = poly.reduce((s, p) => s + p[1], 0) / poly.length;
+      let filled = solid(cx, cy) ? 1 : 0;
+      for (const p of poly) if (solid((p[0] + cx) / 2, (p[1] + cy) / 2)) filled++;
       if (filled < 2) continue;
-      const minX = Math.min(...q.map((p) => p[0])), minY = Math.min(...q.map((p) => p[1]));
-      const maxX = Math.max(...q.map((p) => p[0])), maxY = Math.max(...q.map((p) => p[1]));
-      const cv = makeCanvas(maxX - minX + 2, maxY - minY + 2);
-      const x = cv.getContext('2d');
-      x.beginPath(); q.forEach((p, n) => (n ? x.lineTo(p[0] - minX, p[1] - minY) : x.moveTo(p[0] - minX, p[1] - minY))); x.closePath(); x.clip();
-      x.drawImage(tinted(img, this.lightBody), -minX, -minY);
+      const bx0 = Math.floor(Math.min(...poly.map((p) => p[0]))), by0 = Math.floor(Math.min(...poly.map((p) => p[1])));
+      const bx1 = Math.ceil(Math.max(...poly.map((p) => p[0]))), by1 = Math.ceil(Math.max(...poly.map((p) => p[1])));
+      const cv = makeCanvas(bx1 - bx0 + 2, by1 - by0 + 2);
+      const g = cv.getContext('2d');
+      g.beginPath(); poly.forEach((p, n) => (n ? g.lineTo(p[0] - bx0 + 1, p[1] - by0 + 1) : g.moveTo(p[0] - bx0 + 1, p[1] - by0 + 1))); g.closePath();
+      g.save(); g.clip();
+      g.drawImage(src, -bx0 + 1, -by0 + 1);
+      // Scorch: darken the painted pixels only.
+      g.globalCompositeOperation = 'source-atop';
+      g.fillStyle = `rgba(22,14,8,${big ? 0.25 + r() * 0.5 : 0.08 + r() * 0.35})`;
+      g.fillRect(0, 0, cv.width, cv.height);
+      g.restore();
+      // World position of the shard centre (aircraft frame -> world).
       const lx = (cx - d.pivot[0]) * d.texM, ly = -(cy - d.pivot[1]) * d.texM;
-      const wx = e.x + lx * c - ly * s, wy = Math.max(0.3, e.y + lx * s + ly * c);
-      const blast = big ? 18 : 4;
+      const wx = e.x + lx * cosP - ly * sinP, wy = Math.max(0.15, e.y + lx * sinP + ly * cosP);
+      let vx, vy;
+      if (big) {
+        const dx = cx - mx, dy = -(cy - my);
+        const dl = Math.hypot(dx, dy) || 1;
+        const sp = power * (0.4 + r() * 0.8);
+        // Most of the wreck carries on along the ground; the blast only adds a spread.
+        vx = e.vx * (0.15 + r() * 0.3) + (dx / dl) * sp;
+        vy = Math.abs(dy / dl) * sp * 0.45 + 1 + r() * sp * 0.25;
+      } else {
+        // Breaking up while scraping: mostly forward, a little hop, spread along the track.
+        vx = e.vx * (0.5 + r() * 0.45) + (r() - 0.5) * 5;
+        vy = r() * 2.5;
+      }
       this.shards.push({
-        cv, ox: (cx - minX), oy: (cy - minY), x: wx, y: wy,
-        vx: e.vx * (big ? 0.35 : 0.6) + (r() - 0.5) * blast, vy: Math.abs(e.vy) * 0.15 + r() * blast * 0.7,
-        rot: -e.pitch, spin: (r() - 0.5) * (big ? 10 : 4), texM: d.texM, rest: false, smoke: big || r() < 0.3,
+        cv, ox: cx - bx0 + 1, oy: cy - by0 + 1, x: wx, y: wy, vx, vy,
+        rot: -e.pitch, spin: (r() - 0.5) * (big ? 14 : 6), texM: d.texM, bodyW,
+        // Uneven debris field: most pieces dig in and stop early, a few heavy ones slide far.
+        mu: CRASH.friction * (0.45 + 2.2 * r() * r()), rest: false,
+        heat: r() < (big ? CRASH.hotBig : CRASH.hotSmall) ? 0.5 + r() * 0.4 : 0,
+        fire: r() < (big ? CRASH.burningBig : CRASH.burningSmall), smoke: r() < (big ? 0.3 : 0.12), t: 0,
       });
     }
   }
 
   updateShards(dt) {
+    const P = this.particles;
     for (const s of this.shards) {
-      if (s.rest) continue;
-      s.vy -= 9.81 * dt;
-      s.x += s.vx * dt; s.y += s.vy * dt;
-      s.rot += s.spin * dt;
-      if (s.y <= 0.3) {
-        s.y = 0.3;
-        s.vy = Math.abs(s.vy) * 0.15;
-        const f = Math.exp(-dt * 2.2);
-        s.vx *= f; s.spin *= f;
-        if (Math.abs(s.vx) > 3 && Math.random() < 0.3) this.particles.spawn('dust', s.x, 0.5, s.vx * 0.2, 1, 3, 1, { grow: 2, alpha: 0.5 });
-        if (Math.abs(s.vx) < 0.3 && s.vy < 0.5) s.rest = true;
+      s.t += dt;
+      s.heat = Math.max(0, s.heat - dt / CRASH.emberCoolS);
+      if (!s.rest) {
+        if (s.y > 0.15) {
+          s.vy -= 9.81 * dt;
+          s.vx *= Math.exp(-0.15 * dt);
+        }
+        s.x += s.vx * dt; s.y += s.vy * dt;
+        s.rot += s.spin * dt;
+        if (s.y <= 0.15) {
+          // Land and slide: no bounce, friction slows it, spin dies quickly. The first
+          // contact digs in and takes a share of the speed (keeps the debris field compact).
+          if (!s.landed) { s.landed = true; s.vx *= CRASH.landKeep; }
+          s.y = 0.15; s.vy = 0;
+          const dv = s.mu * 9.81 * dt;
+          s.vx = Math.abs(s.vx) <= dv ? 0 : s.vx - Math.sign(s.vx) * dv;
+          s.spin *= Math.exp(-dt * 6);
+          const sp = Math.abs(s.vx);
+          if (sp > 6 && Math.random() < dt * 10) P.spawn('spark', s.x, 0.3, s.vx * 0.4 + (Math.random() - 0.5) * 4, 1 + Math.random() * 3, 0.7, 0.3 + Math.random() * 0.3, { grow: 0.3, drag: 1 });
+          if (sp > 2 && Math.random() < dt * 6) P.spawn('dust', s.x, 0.4, s.vx * 0.2, 0.8, 2.5, 1.2, { grow: 2.2, alpha: 0.45 });
+          if (sp === 0 && Math.abs(s.spin) < 0.05) s.rest = true;
+        }
       }
-      if (s.smoke && Math.random() < dt * 8) this.particles.spawn('dark', s.x, s.y, 0, 2, 3, 2, { grow: 3, lift: 2, alpha: 0.5 });
+      // Burning pieces: flames and black smoke for a while; smoking pieces: grey wisps.
+      if (s.fire && s.t < CRASH.burnS) {
+        const k = 1 - s.t / CRASH.burnS;
+        if (Math.random() < dt * 7 * k) P.spawn('fire', s.x + (Math.random() - 0.5), s.y + 0.3, 0, 1.5, 1.6 + Math.random() * 1.6, 0.5 + Math.random() * 0.4, { lift: 4, alpha: 0.85, ground: false });
+        if (Math.random() < dt * 4 * k) P.spawn('dark', s.x, s.y + 1, 0.6, 2.5, 2.5, 3.5, { grow: 3.5, lift: 2.5, alpha: 0.5 });
+      } else if (s.smoke && s.t < CRASH.burnS * 0.6 && Math.random() < dt * 2) {
+        P.spawn('smoke', s.x, s.y + 0.5, 0.4, 1.5, 1.5, 2.5, { grow: 3, lift: 1.5, alpha: 0.35 });
+      }
     }
   }
 
   drawShards(ctx, v) {
     for (const s of this.shards) {
-      const k = v.S * s.texM;
+      // Same scale the aircraft was drawn at (it never shrinks below a minimum on screen).
+      const k = Math.max(v.S * s.texM, (0.07 * v.W) / s.bodyW);
+      const x = v.sx(s.x), y = v.sy(s.y);
+      if (x < -60 || x > v.W + 60 || y < -60 || y > v.H + 60) continue;
       ctx.save();
-      ctx.translate(v.sx(s.x), v.sy(s.y));
+      ctx.translate(x, y);
       ctx.rotate(s.rot);
       ctx.scale(k, k);
       ctx.drawImage(s.cv, -s.ox, -s.oy);
       ctx.restore();
+      if (s.heat > 0.02) {
+        // Hot ember glow.
+        const r = Math.max(3, s.cv.width * k * 0.6);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = s.heat * 0.5;
+        ctx.drawImage(SOFT.warm, x - r, y - r, r * 2, r * 2);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+      }
     }
   }
 
