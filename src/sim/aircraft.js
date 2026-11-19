@@ -63,6 +63,8 @@ export class Aircraft {
     this.propAngle = 0;
     this.time = 0;
     this.stick = 0;
+    this.thrustFactor = 1;  // < 1 with a damaged engine (src/sim/combat.js)
+    this.shotDown = false;  // shot down: no control, nose drops until it hits the ground
   }
 
   get speed() { return Math.hypot(this.vel.x, this.vel.y); }
@@ -119,7 +121,7 @@ export class Aircraft {
     if (!this.controls) {
       this.throttle = moveToward(this.throttle, 0, this.throttleRate * dt);
       this.braking = this.onGround;
-      this.stick = 0;
+      this.stick = this.shotDown ? -0.6 : 0;
       return;
     }
     if (input.throttleSet != null) this.throttle = input.throttleSet;
@@ -230,7 +232,7 @@ export class Aircraft {
     } else t = d.maxThrustN * this.throttle * this.rpm;
     if (d.thrustZeroSpeedKt > 0) t *= Math.max(0, 1 - speed * KT / d.thrustZeroSpeedKt);
     t *= clamp(1 - (this.pos.y - d.serviceCeilingM) / d.ceilingFadeM, 0, 1);
-    return t;
+    return t * this.thrustFactor;
   }
 
   integrate(dt) {

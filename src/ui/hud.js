@@ -3,6 +3,7 @@ import { FLAP_NAMES, KT } from '../sim/aircraft.js';
 import { KEY_HELP } from '../input.js';
 import { Cockpit } from './cockpit.js';
 import { drawBombSight, ReleaseCue } from './weapon_aids.js';
+import { GROUND_UNITS } from '../data/combat.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -37,7 +38,7 @@ export class Hud {
         </div>
         <div class="rcol">
           <div class="card panel"><canvas class="cockpit-cv"></canvas></div>
-          <div class="card weapon"><div class="wname"></div><div class="wstate"></div></div>
+          <div class="card weapon"><div class="wname"></div><div class="wstate"></div><div class="wsub"></div><div class="whp"><i></i></div></div>
         </div>
       </div>
       <div class="warnings"></div>
@@ -63,19 +64,22 @@ export class Hud {
           <div class="tbtns">
             <button data-act="engine">ENG</button><button data-act="flaps">FLAP</button><button data-act="gear">GEAR</button>
             <button data-hold="brake">BRK</button><button data-act="drop">DROP</button><button data-act="refuel">FUEL</button>
+            <button data-hold="gun" class="strike-only">GUN</button><button data-act="target" class="strike-only">TGT</button>
+            <button data-act="flare" class="strike-only">FLR</button><button data-act="chaff" class="strike-only">CHF</button>
             <button data-act="pause">II</button>
           </div>
           <input class="tthr" type="range" min="0" max="100" value="0" orient="vertical" aria-label="Throttle" />
         </div>
       </div>`;
     this.el = {};
-    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'instructor', 'wname', 'wstate', 'gl1', 'gl2'])
+    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'instructor', 'wname', 'wstate', 'wsub', 'gl1', 'gl2'])
       this.el[k] = $(`.${k}`, root);
     this.cockpit = new Cockpit($('.cockpit-cv', root));
     this.cue = new ReleaseCue($('.cue-cv', root));
     this.time = 0;
     this.el.gsDia = $('.gs-dia', root); this.el.sinkPtr = $('.sink-ptr', root); this.el.sinkScale = $('.sink-scale', root);
     this.el.rfill = $('.rbar i', root);
+    this.el.whp = $('.whp i', root);
     this.radar = $('.radar-cv', root);
     this.el.radarCard = $('.card.radar', root);
     this.cache = new Map();
@@ -97,6 +101,7 @@ export class Hud {
       const on = (v) => (e) => {
         e.preventDefault();
         if (a === 'brake') inp.touch.brake = v;
+        else if (a === 'gun') inp.touch.gun = v;
         else inp.touch.pitch = v ? (a === 'pitchUp' ? 1 : -1) : 0;
         b.classList.toggle('active', v);
       };
@@ -123,6 +128,7 @@ export class Hud {
     this.cue.hide();
     this.cache.clear();
     this.el.weapon.classList.toggle('show', flight.mode === 'strike');
+    this.el.touch.classList.toggle('strike', flight.mode === 'strike');
     this.el.wname.textContent = d.weaponName || '';
     // Sink-rate scale zones from this aircraft's landing limits.
     const max = d.hardFpm * 1.2;
@@ -190,6 +196,15 @@ export class Hud {
       }
       this.set('wstate', this.el.wstate, state);
       this.cls('wstate', this.el.weapon, 'hot', hot);
+      // Gun rounds, flares, chaff, the picked target, airframe health.
+      const cb = f.cb;
+      const pick = f.manualTarget();
+      const sub = [d.gun ? `GUN ${cb.ammo}` : null, `FLR ${cb.flares}`, `CHF ${cb.chaff}`, pick ? `TGT ${GROUND_UNITS[pick.kind].label}` : 'TGT AUTO (Q)'].filter(Boolean).join(' · ');
+      this.set('wsub', this.el.wsub, sub);
+      const hp = Math.round(cb.hp);
+      this.set('whp', this.el.whp, `${hp}%`, 'width');
+      this.cls('whp', this.el.weapon, 'dmg', hp < 60);
+      this.cls('whp2', this.el.weapon, 'crit', hp < 30);
     }
 
     // Warnings.
@@ -201,6 +216,13 @@ export class Hud {
     else if (!a.onGround && a.pos.y < 8 && a.pitch * 57.3 > d.tailStrikeDeg - 3 && a.pitch < 1.5) w.push(['NOSE HIGH', 'amber']);
     if (a.lowFuel) w.push([a.fuel <= 0 ? 'NO FUEL' : 'LOW FUEL', 'amber']);
     if (a.speedKt > d.maxSpeedKt * 1.02) w.push(['OVERSPEED', 'amber']);
+    if (f.mode === 'strike' && !a.crashed) {
+      const inc = f.cb.incoming();
+      if (inc.length) w.push([`MISSILE ${inc.some((m) => m.seeker === 'ir') ? '· FLARES X' : '· CHAFF C'}`, 'red']);
+      else if (f.cb.radarLock) w.push(['SAM LOCK', 'amber']);
+      if (f.cb.hp < 45 && f.cb.hp > 0) w.push(['ENGINE DAMAGE', 'amber']);
+      if (a.shotDown) w.push(['EJECT', 'red']);
+    }
     const wk = w.map((x) => x.join(':')).join('|');
     if (this.cache.get('warn') !== wk) {
       this.cache.set('warn', wk);
@@ -210,7 +232,7 @@ export class Hud {
     // Phase and distance.
     this.set('phase', this.el.phase, f.phase);
     const toGo = f.dest.x - a.pos.x;
-    const tgt = f.mode === 'strike' && !f.revealed ? f.targets.find((t) => t.alive && t.x > a.pos.x) : null;
+    const tgt = f.mode === 'strike' && !f.revealed ? f.targets.find((t) => t.objective && t.alive && t.x > a.pos.x) : null;
     const togo = tgt ? `TARGET ${((tgt.x - a.pos.x) / 1000).toFixed(1)} KM` : f.revealed ? `${f.dest.short} ${toGo > 0 ? (toGo / 1000).toFixed(1) + ' KM' : 'BEHIND'}` : 'LANDING BASE: AFTER ATTACK';
     this.set('togo', this.el.togo, togo);
 
@@ -306,8 +328,20 @@ export class Hud {
       x.fillText(b.short, (px(b.x) + px(b.x + b.runwayM)) / 2, py(0) + 11);
     }
     for (const t of f.targets) {
-      x.fillStyle = t.alive ? '#ff6a4d' : 'rgba(255,106,77,0.3)';
-      x.beginPath(); x.moveTo(px(t.x), py(0) - 7); x.lineTo(px(t.x) + 4, py(0) - 1); x.lineTo(px(t.x) - 4, py(0) - 1); x.fill();
+      if (t.objective) {
+        x.fillStyle = t.alive ? '#ff6a4d' : 'rgba(255,106,77,0.3)';
+        x.beginPath(); x.moveTo(px(t.x), py(0) - 7); x.lineTo(px(t.x) + 4, py(0) - 1); x.lineTo(px(t.x) - 4, py(0) - 1); x.fill();
+      } else {
+        // Air defence: amber diamond (SAM) or square (AAA).
+        x.fillStyle = t.alive ? '#ffbe3c' : 'rgba(255,190,60,0.3)';
+        const cx = px(t.x), cy = py(0) - 4;
+        if (t.role === 'sam') { x.beginPath(); x.moveTo(cx, cy - 4); x.lineTo(cx + 3.5, cy); x.lineTo(cx, cy + 4); x.lineTo(cx - 3.5, cy); x.fill(); }
+        else x.fillRect(cx - 2.5, cy - 2.5, 5, 5);
+      }
+    }
+    if (f.mode === 'strike') {
+      x.fillStyle = '#ff3b30';
+      for (const m of f.cb.threats) { x.beginPath(); x.arc(px(m.x), py(m.y), 2.2, 0, Math.PI * 2); x.fill(); }
     }
     // Ideal 3 degree path into the destination.
     if (f.revealed) {

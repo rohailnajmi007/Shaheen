@@ -579,7 +579,13 @@ export function buildBase(base, time, R) {
 export function buildTarget(kind, time, R, dead) {
   const L = time.light;
   const burnt = (c) => (dead ? shade('#2b2725', L) : shade(c, L));
-  if (kind === 'sam') {
+  if (kind === 'satcom') return satcom(time, R, dead);
+  if (kind === 'tank') return tank(time, R, dead);
+  if (kind === 'apc') return apc(time, R, dead);
+  if (kind === 'aaa') return aaaSite(time, R, dead);
+  if (kind === 'samRadar') return samRadar(time, R, dead);
+  if (kind === 'samIr') return samIr(time, R, dead);
+  if (kind === 'launcher') {
     return sprite(16, 7, R, (x, W, H, R) => {
       x.fillStyle = burnt('#5e6a3c'); x.fillRect(0.5 * R, 3.5 * R, 12 * R, 2.3 * R); x.fillRect(10 * R, 2 * R, 4 * R, 3.8 * R);
       x.fillStyle = shade('#1d1d1d', L);
@@ -617,6 +623,118 @@ export function buildTarget(kind, time, R, dead) {
     x.beginPath(); x.moveTo(0, H); x.lineTo(2 * R, 1 * R); x.lineTo(W - 2 * R, 1 * R); x.lineTo(W, H); x.fill();
     x.fillStyle = shade('#1b1b1b', L); x.fillRect(5 * R, 2.5 * R, 6 * R, 1.2 * R);
     if (dead) { x.fillStyle = shade('#151414', L); x.beginPath(); x.arc(8 * R, 1 * R, 4 * R, 0, Math.PI); x.fill(); }
+  });
+}
+
+// Sizes (m) match GROUND_UNITS in src/data/combat.js (rounds hit that box).
+const OLIVE = '#5e6a3c', SAND = '#8a7d55', DARKOLIVE = '#454d2c', TYRE = '#1d1d1d', BURNT = '#2b2725';
+function wheel(x, cx, cy, r, L) {
+  x.fillStyle = shade(TYRE, L); x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
+  x.fillStyle = shade('#55574f', L); x.beginPath(); x.arc(cx, cy, r * 0.4, 0, Math.PI * 2); x.fill();
+}
+
+// Satellite ground station: control hut and a big dish on a pedestal.
+function satcom(time, R, dead) {
+  const L = time.light;
+  return sprite(18, 14, R, (x, W, H, R) => {
+    x.fillStyle = shade(dead ? BURNT : '#b9b4a4', L); x.fillRect(0.5 * R, H - 4.5 * R, 7 * R, 4.5 * R);
+    x.fillStyle = shade(dead ? '#1a1817' : '#4d5a66', L); x.fillRect(1.5 * R, H - 3.2 * R, 2 * R, 1.4 * R); x.fillRect(4.3 * R, H - 3.2 * R, 2 * R, 1.4 * R);
+    x.fillStyle = shade(dead ? BURNT : '#8d8a80', L); x.fillRect(11.4 * R, H - 6.5 * R, 1.4 * R, 6.5 * R);
+    if (!dead) {
+      x.save(); x.translate(12.2 * R, H - 8.2 * R); x.rotate(-0.55);
+      x.fillStyle = shade('#e6e6df', L); x.beginPath(); x.ellipse(0, 0, 5.6 * R, 2.4 * R, 0, Math.PI, 0); x.fill();
+      x.fillStyle = shade('#c5c6be', L); x.beginPath(); x.ellipse(0, 0, 5.6 * R, 1 * R, 0, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = shade('#9a9b94', L); x.lineWidth = 0.3 * R; x.beginPath(); x.moveTo(-3 * R, -0.3 * R); x.lineTo(0, -4.5 * R); x.lineTo(3 * R, -0.3 * R); x.stroke();
+      x.fillStyle = shade('#6f706a', L); x.fillRect(-0.4 * R, -5 * R, 0.8 * R, 0.9 * R);
+      x.restore();
+      x.fillStyle = shade('#c0392b', L); x.fillRect(0.5 * R, H - 4.9 * R, 7 * R, 0.4 * R);
+    } else {
+      x.save(); x.translate(13.5 * R, H - 1.4 * R); x.rotate(0.35);
+      x.fillStyle = shade('#3a3632', L); x.beginPath(); x.ellipse(0, 0, 4.5 * R, 1.5 * R, 0, Math.PI, 0); x.fill();
+      x.restore();
+    }
+  });
+}
+
+// Main battle tank, gun pointing left (toward the incoming jet).
+function tank(time, R, dead) {
+  const L = time.light;
+  return sprite(11, 5, R, (x, W, H, R) => {
+    const body = shade(dead ? BURNT : SAND, L);
+    x.fillStyle = shade(TYRE, L); x.beginPath(); x.roundRect(0.4 * R, H - 1.7 * R, 10.2 * R, 1.6 * R, 0.8 * R); x.fill();
+    for (let i = 0; i < 6; i++) wheel(x, (1.3 + i * 1.68) * R, H - 0.9 * R, 0.55 * R, L);
+    x.fillStyle = body;
+    x.beginPath(); x.moveTo(0.2 * R, H - 1.8 * R); x.lineTo(1.2 * R, H - 2.9 * R); x.lineTo(10.4 * R, H - 2.9 * R); x.lineTo(10.8 * R, H - 1.8 * R); x.fill();
+    if (!dead) {
+      x.fillStyle = shade('#7b7050', L); x.beginPath(); x.roundRect(4 * R, H - 4.2 * R, 4.6 * R, 1.4 * R, 0.4 * R); x.fill();
+      x.fillRect(-0.2 * R + 0.2 * R, H - 3.75 * R, 4.2 * R, 0.4 * R);
+      x.fillStyle = shade('#3b3a33', L); x.fillRect(6.8 * R, H - 4.6 * R, 0.9 * R, 0.4 * R);
+    } else {
+      x.save(); x.translate(7.5 * R, H - 3.1 * R); x.rotate(0.5);
+      x.fillStyle = shade('#1f1d1b', L); x.beginPath(); x.roundRect(-2 * R, -1.2 * R, 4.2 * R, 1.2 * R, 0.3 * R); x.fill();
+      x.fillRect(-4.5 * R, -0.9 * R, 3 * R, 0.35 * R);
+      x.restore();
+    }
+  });
+}
+
+// Eight-wheeled armoured personnel carrier.
+function apc(time, R, dead) {
+  const L = time.light;
+  return sprite(10, 4.5, R, (x, W, H, R) => {
+    for (const wx of [1.4, 3.2, 6.4, 8.3]) wheel(x, wx * R, H - 0.8 * R, 0.75 * R, L);
+    x.fillStyle = shade(dead ? BURNT : OLIVE, L);
+    x.beginPath(); x.moveTo(0.2 * R, H - 1.9 * R); x.lineTo(1.4 * R, H - 3.5 * R); x.lineTo(9.6 * R, H - 3.5 * R); x.lineTo(9.8 * R, H - 1.2 * R); x.lineTo(0.5 * R, H - 1.2 * R); x.fill();
+    x.fillStyle = shade(dead ? '#1a1817' : DARKOLIVE, L); x.fillRect(3 * R, H - 2.9 * R, 1 * R, 0.6 * R); x.fillRect(5 * R, H - 2.9 * R, 1 * R, 0.6 * R);
+    if (!dead) {
+      x.fillStyle = shade(DARKOLIVE, L); x.fillRect(5.5 * R, H - 4.2 * R, 1.8 * R, 0.8 * R);
+      x.fillRect(3.4 * R, H - 4 * R, 2.2 * R, 0.25 * R);
+    }
+  });
+}
+
+// Twin 23 mm AAA gun behind sandbags. The barrels are drawn each frame by the
+// renderer (they track the jet), pivoting at 80% of the height in the middle.
+function aaaSite(time, R, dead) {
+  const L = time.light;
+  return sprite(8, 3.5, R, (x, W, H, R) => {
+    x.fillStyle = shade(dead ? BURNT : '#a89a72', L);
+    for (const [cx, w] of [[1.4, 2.6], [6.6, 2.6]]) { x.beginPath(); x.ellipse(cx * R, H, w / 2 * R, 1.4 * R, 0, Math.PI, 0); x.fill(); }
+    x.fillStyle = shade(dead ? '#1f1d1b' : DARKOLIVE, L);
+    x.fillRect(3.3 * R, H - 2.8 * R, 1.4 * R, 2.8 * R);
+    x.beginPath(); x.arc(4 * R, H - 2.8 * R, 1 * R, Math.PI, 0); x.fill();
+    if (!dead) { x.fillStyle = shade('#6f6650', L); x.fillRect(4.6 * R, H - 2.2 * R, 1.2 * R, 0.4 * R); }
+  });
+}
+
+// Radar-guided SAM: six-wheel truck, search radar at the back, two missiles on rails
+// (missiles drawn by the renderer: they leave when fired).
+function samRadar(time, R, dead) {
+  const L = time.light;
+  return sprite(14, 7, R, (x, W, H, R) => {
+    for (const wx of [1.6, 3.4, 11.6]) wheel(x, wx * R, H - 0.8 * R, 0.8 * R, L);
+    x.fillStyle = shade(dead ? BURNT : OLIVE, L);
+    x.fillRect(0.4 * R, H - 2.6 * R, 13.2 * R, 1.3 * R);
+    x.fillRect(10.4 * R, H - 4.2 * R, 3.2 * R, 2 * R);
+    x.fillStyle = shade(dead ? '#1a1817' : '#9bb3c4', L); x.fillRect(12 * R, H - 3.9 * R, 1.3 * R, 0.8 * R);
+    x.fillStyle = shade(dead ? '#1f1d1b' : DARKOLIVE, L); x.fillRect(4.5 * R, H - 3.6 * R, 3.6 * R, 1 * R);
+    if (!dead) {
+      x.fillStyle = shade('#4b4f45', L); x.fillRect(1.6 * R, H - 4.6 * R, 0.5 * R, 2 * R);
+      x.fillStyle = shade('#d8dcd2', L); x.beginPath(); x.ellipse(1.85 * R, H - 5.6 * R, 1.6 * R, 0.9 * R, -0.25, 0, Math.PI * 2); x.fill();
+      x.fillStyle = shade('#9da397', L); x.fillRect(1.6 * R, H - 6.8 * R, 0.5 * R, 0.6 * R);
+    }
+  });
+}
+
+// Infrared SAM: light tracked vehicle with a twin launcher (missiles drawn by the renderer).
+function samIr(time, R, dead) {
+  const L = time.light;
+  return sprite(10, 5, R, (x, W, H, R) => {
+    x.fillStyle = shade(TYRE, L); x.beginPath(); x.roundRect(0.6 * R, H - 1.5 * R, 8.8 * R, 1.4 * R, 0.7 * R); x.fill();
+    for (let i = 0; i < 5; i++) wheel(x, (1.5 + i * 1.75) * R, H - 0.8 * R, 0.5 * R, L);
+    x.fillStyle = shade(dead ? BURNT : SAND, L);
+    x.beginPath(); x.moveTo(0.4 * R, H - 1.5 * R); x.lineTo(1.3 * R, H - 2.9 * R); x.lineTo(9.4 * R, H - 2.9 * R); x.lineTo(9.6 * R, H - 1.5 * R); x.fill();
+    x.fillStyle = shade(dead ? '#1f1d1b' : '#6b6247', L); x.fillRect(4.6 * R, H - 3.6 * R, 1.2 * R, 0.8 * R);
   });
 }
 

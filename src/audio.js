@@ -90,6 +90,18 @@ export class Sound {
     n.warn = start(this.osc('triangle', 1000));
     n.warnG = this.gain(0, this.fxBus);
     n.warn.connect(n.warnG);
+    // Gun: band-passed noise chopped at the gun's fire rate ("brrrt").
+    n.gun = start(this.noiseSrc());
+    n.gunF = this.filter('bandpass', 420, 0.9);
+    n.gunG = this.gain(0, this.fxBus);
+    n.gun.connect(n.gunF).connect(n.gunG);
+    n.gunLfo = start(this.osc('sawtooth', data.gun ? data.gun.rps : 50));
+    n.gunAm = this.gain(0);
+    n.gunLfo.connect(n.gunAm); n.gunAm.connect(n.gunG.gain);
+    // Radar warning receiver: lock beeps, missile-launch warble.
+    n.rwr = start(this.osc('square', 1100));
+    n.rwrG = this.gain(0, this.fxBus);
+    n.rwr.connect(this.filter('lowpass', 2500)).connect(n.rwrG);
     this.nodes = n;
     this.data = data;
     void c;
@@ -127,6 +139,16 @@ export class Sound {
     const beat = (t * 4) % 1 < 0.5;
     set(n.hornG.gain, alarms.stall ? 0.08 : 0, 0.01);
     set(n.warnG.gain, alarms.gear && beat ? 0.06 : 0, 0.01);
+    set(n.gunG.gain, alarms.gun ? 0.22 : 0, 0.01);
+    set(n.gunAm.gain, alarms.gun ? 0.2 : 0, 0.01);
+    if (alarms.missile) {
+      const hi = (t * 8) % 1 < 0.5;
+      set(n.rwr.frequency, hi ? 1450 : 950, 0.005);
+      set(n.rwrG.gain, 0.05, 0.01);
+    } else if (alarms.lock) {
+      set(n.rwr.frequency, 1100, 0.01);
+      set(n.rwrG.gain, (t * 5) % 1 < 0.45 ? 0.04 : 0, 0.005);
+    } else set(n.rwrG.gain, 0, 0.01);
   }
 
   // --- one-shots ---
@@ -166,5 +188,10 @@ export class Sound {
   gearMotor(dur) { this.burst({ freq: 220, type: 'bandpass', q: 3, dur, vol: 0.12 }); }
   whoosh() { this.burst({ freq: 3000, type: 'bandpass', q: 0.8, dur: 1.5, vol: 0.4, sweep: 0.2 }); }
   click() { this.tone(1400, 0.05, 0.08, 'triangle', 0.8); }
+  // Combat one-shots.
+  aaaThud(near) { this.tone(70, 0.12, 0.12 * near, 'sine', 0.6); this.burst({ freq: 500, dur: 0.1, vol: 0.12 * near }); }
+  launch() { this.whoosh(); this.burst({ freq: 160, dur: 1.2, vol: 0.35, sweep: 0.5 }); }
+  pop() { this.tone(900, 0.04, 0.08, 'square', 0.5); this.burst({ freq: 2500, type: 'bandpass', dur: 0.12, vol: 0.12 }); }
+  clank() { this.tone(700, 0.08, 0.12, 'square', 0.6); this.burst({ freq: 3000, type: 'bandpass', q: 2, dur: 0.1, vol: 0.25 }); }
   chime(up = true) { this.tone(up ? 660 : 520, 0.15, 0.08); setTimeout(() => this.tone(up ? 990 : 390, 0.2, 0.08), 110); }
 }

@@ -22,7 +22,7 @@ export const SIGHT = {
   rangeM: 900, // metres of ground shown each side of the impact point (bombs)
   logicalH: 70, // sight height in Godot px (its width follows the canvas)
   glass: rgba(0.03, 0.07, 0.04), frame: rgba(0.22, 0.24, 0.23), frameLight: rgba(0.4, 0.43, 0.41),
-  ink: [0.45, 1, 0.45], target: rgba(1, 0.45, 0.3), inRange: [1, 0.85, 0.3],
+  ink: [0.45, 1, 0.45], target: rgba(1, 0.45, 0.3), defence: rgba(1, 0.75, 0.25), inRange: [1, 0.85, 0.3],
 };
 
 export const CUE = {
@@ -96,6 +96,7 @@ export function drawBombSight(cv, f, time) {
   // Targets (arrows at the edges when off the screen).
   const lo = sr.x + 4, hi = sr.x + sr.w - 4;
   const seekT = missile ? f.seeker.target : null;
+  const pick = f.manualTarget();
   for (const t of f.targets) {
     const tx = toX(t.x);
     if (!t.alive) {
@@ -109,7 +110,12 @@ export function drawBombSight(cv, f, time) {
     else if (tx > hi) poly(c, [[hi + 1, groundY - 3], [hi - 3, groundY - 6], [hi - 3, groundY]], SIGHT.target);
     else {
       const half = Math.max(((t.w / 2) / span) * halfW, 1.5);
-      R(Math.round(tx - half), groundY - 5, Math.round(half * 2), 5, SIGHT.target);
+      R(Math.round(tx - half), groundY - 5, Math.round(half * 2), 5, t.objective ? SIGHT.target : SIGHT.defence);
+      // Target picked with Q: bracket above it.
+      if (t === pick) {
+        c.strokeStyle = ink(SIGHT.inRange); c.lineWidth = 1;
+        c.beginPath(); c.moveTo(tx - 4, groundY - 9); c.lineTo(tx - 4, groundY - 11); c.lineTo(tx + 4, groundY - 11); c.lineTo(tx + 4, groundY - 9); c.stroke();
+      }
       // Missile seeker box on its target: blinking while seeking, solid when locked.
       if (t === seekT && (mState === 'locked' || time % 0.3 < 0.18)) {
         c.strokeStyle = mState === 'locked' ? ink(SIGHT.inRange) : ink(SIGHT.ink, 0.9); c.lineWidth = 1;

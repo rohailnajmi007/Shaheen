@@ -105,6 +105,12 @@ function soundFx(f) {
       case 'engineStart': sound.click(); break;
       case 'revealed': sound.chime(true); break;
       case 'refuelDone': sound.chime(true); break;
+      case 'aaaFire': sound.aaaThud(Math.max(0.15, 1 - e.dist / 2500)); break;
+      case 'samLaunch': sound.launch(); break;
+      case 'flare': case 'chaff': sound.pop(); break;
+      case 'acHit': sound.clank(); break;
+      case 'airBurst': sound.explosion(0.45 * (e.power || 1)); break;
+      case 'designate': sound.click(); break;
       default: break;
     }
   }
@@ -164,7 +170,11 @@ function frame(now) {
   }
   flight.fx.length = 0;
   const a = flight.ac;
-  sound.update(a, a.onGround, { stall: a.stalled && !a.onGround && !a.crashed, gear: a.gearWarning && !a.crashed });
+  const cb = flight.mode === 'strike' ? flight.cb : null;
+  sound.update(a, a.onGround, {
+    stall: a.stalled && !a.onGround && !a.crashed, gear: a.gearWarning && !a.crashed,
+    gun: !!cb && cb.firing, lock: !!cb && cb.radarLock, missile: !!cb && !a.crashed && cb.incoming().length > 0,
+  });
   hud.update(dt, sound);
   if (endTimer > 0) {
     endTimer -= dt;

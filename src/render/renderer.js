@@ -4,6 +4,7 @@ import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, build
 import { Particles } from './particles.js';
 import { buildLandmarks, LANDMARKS } from './landmarks.js';
 import { THEMES, TIMES } from '../data/world.js';
+import { GROUND_UNITS, AIR_DEFENCE, DAMAGE } from '../data/combat.js';
 import { KT } from '../sim/aircraft.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -16,6 +17,15 @@ export const ATTACK_CAM = {
   zoom: 0.4,        // camera zoom during the attack run (1 = normal)
   lookFactor: 0.5,  // look-ahead x this, so the ground behind (where bombs land) stays in view
   leadFactor: 0.5,  // vertical lead x this, so climbs and dives show as movement on screen
+};
+// Air-to-ground combat drawing (owner, 2026-11-19).
+export const COMBAT_FX = {
+  tracerS: 0.03,        // tracer streak length = speed x this (s)
+  tracerMinPx: 1.6,     // tracer line width floor (px)
+  missileMinW: 0.018,   // enemy missile drawn at least this share of the screen width
+  missileLenM: 3.2,     // ... true length (m), drawn x weaponScale like our weapons
+  weaponScale: 1.6,
+  arrowMarginPx: 34,    // incoming-missile arrows this far inside the screen edge
 };
 // Tail strobe: flash starts (s) within each period.
 export const STROBE = { periodS: 1.6, flashes: [0, 0.2], flashS: 0.06 };
@@ -88,7 +98,7 @@ export class Renderer {
     this.landmarks = buildLandmarks(world.bases, time, res);
     this.baseGfx = world.bases.map((b) => ({ base: b, ...buildBase(b, time, R) }));
     this.targetGfx = {};
-    for (const k of ['sam', 'radar', 'fuel', 'bunker']) {
+    for (const k of Object.keys(GROUND_UNITS)) {
       this.targetGfx[k] = [buildTarget(k, time, R, false), buildTarget(k, time, R, true)];
     }
     // Cloud field: far (slow parallax) and near (world) clouds.
@@ -198,10 +208,13 @@ export class Renderer {
     if (!flight.ac.crashed) this.drawShadow(ctx, v, st, flight.data);
     this.particles.draw(ctx, v, this.timeData.lights ? 0.6 : 1);
     this.drawWeapons(ctx, v, flight);
+    if (flight.mode === 'strike') this.drawCombat(ctx, v, flight);
     if (!flight.ac.crashed) this.drawAircraft(ctx, v, flight.data, st);
+    if (flight.mode === 'strike' && !flight.ac.crashed) this.drawMuzzle(ctx, v, flight, st);
     this.drawShards(ctx, v);
     this.drawRings(ctx, v);
     this.drawClouds(ctx, v, true);
+    if (flight.mode === 'strike') this.drawThreatArrows(ctx, v, flight);
     this.drawScreenFx(ctx, v, flight.ac);
   }
 
@@ -463,18 +476,187 @@ export class Renderer {
   drawTargets(ctx, v, flight) {
     if (!flight.targets.length) return;
     const S = v.S;
+    const u = Math.max(1, v.H / 720);
+    const pick = flight.mode === 'strike' ? flight.manualTarget() : null;
     for (const tg of flight.targets) {
       const spr = this.targetGfx[tg.kind][tg.alive ? 0 : 1];
       const x = v.sx(tg.x - spr.wM / 2);
       const w = spr.wM * S, h = spr.hM * S;
       if (x > v.W + 100 || x + w < -100) continue;
+      if (tg.alive && tg.role === 'sam') this.drawSamMissiles(ctx, v, tg);
       ctx.drawImage(spr.canvas, x, v.groundY - h, w, h);
-      if (tg.alive) {
-        // Floating marker so targets read at the wide zoom.
-        const mx = x + w / 2, my = v.groundY - h - Math.max(18, 6 * S);
-        ctx.strokeStyle = 'rgba(255,90,60,0.95)'; ctx.lineWidth = Math.max(2, 0.3 * S);
-        ctx.beginPath(); ctx.moveTo(mx - 7, my - 9); ctx.lineTo(mx, my); ctx.lineTo(mx + 7, my - 9); ctx.stroke();
+      if (tg.role === 'aaa') this.drawAaaBarrels(ctx, v, tg);
+      if (!tg.alive) continue;
+      // Floating marker so units read at the wide zoom: red chevron = mission target,
+      // amber diamond + label = air defence. Box = the target picked with Q.
+      const mx = x + w / 2, my = v.groundY - h - Math.max(18 * u, 6 * S);
+      ctx.lineWidth = Math.max(2 * u, 0.3 * S);
+      if (tg.objective) {
+        ctx.strokeStyle = 'rgba(255,90,60,0.95)';
+        ctx.beginPath(); ctx.moveTo(mx - 7 * u, my - 9 * u); ctx.lineTo(mx, my); ctx.lineTo(mx + 7 * u, my - 9 * u); ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(255,190,60,0.95)';
+        ctx.beginPath(); ctx.moveTo(mx, my - 10 * u); ctx.lineTo(mx + 5 * u, my - 5 * u); ctx.lineTo(mx, my); ctx.lineTo(mx - 5 * u, my - 5 * u); ctx.closePath(); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,190,60,0.95)'; ctx.font = `700 ${Math.round(11 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
+        ctx.fillText(tg.role === 'aaa' ? 'AAA' : 'SAM', mx, my - 14 * u);
       }
+      if (tg === pick) {
+        const pad = 6 * u, bx = x - pad, by = v.groundY - h - pad, bw = w + pad * 2, bh = h + pad;
+        const c = 8 * u;
+        ctx.strokeStyle = 'rgba(255,235,90,0.95)'; ctx.lineWidth = 2 * u;
+        ctx.beginPath();
+        ctx.moveTo(bx, by + c); ctx.lineTo(bx, by); ctx.lineTo(bx + c, by);
+        ctx.moveTo(bx + bw - c, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + c);
+        ctx.moveTo(bx, by + bh - c); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + c, by + bh);
+        ctx.moveTo(bx + bw - c, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - c);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,235,90,0.95)'; ctx.font = `700 ${Math.round(11 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
+        ctx.fillText('TGT', bx + bw / 2, by + bh + 13 * u);
+      }
+    }
+  }
+
+  // Twin barrels on the AAA mount, pointing where the gunner aims (t.aim).
+  drawAaaBarrels(ctx, v, t) {
+    const S = v.S;
+    const px = v.sx(t.x), py = v.sy(t.h * 0.8);
+    const ang = t.alive ? (t.aim ?? Math.PI * 0.75) : Math.PI * 0.92;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(-ang);
+    ctx.fillStyle = t.alive ? '#2f3326' : '#1c1a18';
+    ctx.fillRect(-0.6 * S, -0.55 * S, 4.6 * S, 0.32 * S);
+    ctx.fillRect(-0.6 * S, 0.2 * S, 4.6 * S, 0.32 * S);
+    if (t.firing && Math.random() < 0.7) {
+      ctx.globalCompositeOperation = 'lighter';
+      const r = (1.2 + Math.random()) * S;
+      ctx.drawImage(SOFT.warm, 4 * S - r, -r, r * 2, r * 2);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.restore();
+  }
+
+  // Missiles still on the SAM's rails, pointing up toward the approach (left).
+  drawSamMissiles(ctx, v, t) {
+    const S = v.S;
+    const radar = t.kind === 'samRadar';
+    const base = { x: t.x + (radar ? 0.5 : -0.5), y: radar ? 3.6 : 3.2 };
+    const len = radar ? 5.5 : 3.6, thick = radar ? 0.5 : 0.42;
+    const ang = Math.PI - 0.6;
+    for (let i = 0; i < AIR_DEFENCE[t.kind].missiles; i++) {
+      const has = i < t.missiles;
+      ctx.save();
+      ctx.translate(v.sx(base.x + i * 0.9), v.sy(base.y + i * 0.55));
+      ctx.rotate(-ang);
+      ctx.fillStyle = '#3b3f33'; ctx.fillRect(-0.5 * S, thick * 0.6 * S, (len + 0.6) * S, 0.22 * S);
+      if (has) {
+        ctx.fillStyle = '#d6d8d0'; ctx.fillRect(0, -thick / 2 * S, len * S, thick * S);
+        ctx.fillStyle = '#b02a1f'; ctx.fillRect((len - 0.5) * S, -thick / 2 * S, 0.5 * S, thick * S);
+        ctx.fillStyle = '#7f817a'; ctx.fillRect(0, -thick * S, 0.6 * S, thick * 2 * S);
+      }
+      ctx.restore();
+    }
+  }
+
+  // Tracers, enemy missiles, flares and chaff.
+  drawCombat(ctx, v, flight) {
+    const cb = flight.cb;
+    const S = v.S;
+    const F = COMBAT_FX;
+    const lw = Math.max(F.tracerMinPx, 0.22 * S);
+    // Tracers: a coloured streak with a hot core (solid colours: additive blending
+    // washes them out to white against a bright sky).
+    ctx.lineCap = 'round';
+    const streaks = (list, col, core) => {
+      for (const [c, w] of [[col, lw * 1.8], [core, lw * 0.8]]) {
+        ctx.strokeStyle = c; ctx.lineWidth = w;
+        ctx.beginPath();
+        for (const r of list) {
+          if (!r.tracer) continue;
+          const x = v.sx(r.x), y = v.sy(r.y);
+          if (x < -200 || x > v.W + 200 || y < -200 || y > v.H + 200) continue;
+          ctx.moveTo(x, y); ctx.lineTo(v.sx(r.x - r.vx * F.tracerS), v.sy(r.y - r.vy * F.tracerS));
+        }
+        ctx.stroke();
+      }
+    };
+    streaks(cb.rounds, 'rgba(255,190,40,0.9)', 'rgba(255,250,210,1)');
+    streaks(cb.shells, 'rgba(235,40,25,0.9)', 'rgba(255,170,120,1)');
+    ctx.lineCap = 'butt';
+    ctx.globalCompositeOperation = 'lighter';
+    for (const d of cb.decoys) {
+      const x = v.sx(d.x), y = v.sy(d.y);
+      if (d.kind === 'flare') {
+        const r = (2.4 + Math.random() * 0.8) * Math.max(S, 3);
+        ctx.globalAlpha = 1 - (d.t / d.life) * 0.6;
+        ctx.drawImage(SOFT.glow, x - r, y - r, r * 2, r * 2);
+        ctx.drawImage(SOFT.warm, x - r * 2, y - r * 2, r * 4, r * 4);
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    for (const m of cb.threats) {
+      const len = Math.max(F.missileLenM * F.weaponScale * S, F.missileMinW * v.W);
+      ctx.save();
+      ctx.translate(v.sx(m.x), v.sy(m.y));
+      ctx.rotate(-Math.atan2(m.vy, m.vx));
+      const t = len * 0.09;
+      ctx.fillStyle = '#e4e6e0'; ctx.fillRect(-len / 2, -t, len, t * 2);
+      ctx.fillStyle = '#b02a1f'; ctx.fillRect(len / 2 - t * 2.2, -t, t * 2.2, t * 2);
+      ctx.fillStyle = '#8d8f88';
+      ctx.beginPath(); ctx.moveTo(-len / 2, -t); ctx.lineTo(-len / 2 - t, -t * 3); ctx.lineTo(-len / 2 + t * 2.5, -t); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-len / 2, t); ctx.lineTo(-len / 2 - t, t * 3); ctx.lineTo(-len / 2 + t * 2.5, t); ctx.fill();
+      if (m.motor) {
+        ctx.globalCompositeOperation = 'lighter';
+        const fl = len * (0.5 + 0.15 * Math.sin(this.time * 70));
+        ctx.fillStyle = 'rgba(255,200,90,0.95)';
+        ctx.beginPath(); ctx.moveTo(-len / 2, -t); ctx.lineTo(-len / 2 - fl, 0); ctx.lineTo(-len / 2, t); ctx.fill();
+        ctx.drawImage(SOFT.warm, -len / 2 - len * 0.4, -len * 0.4, len * 0.8, len * 0.8);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      ctx.restore();
+    }
+  }
+
+  // Muzzle flash at the gun port while firing.
+  drawMuzzle(ctx, v, flight, st) {
+    const g = flight.data.gun;
+    if (!g || !flight.cb.firing) return;
+    const d = flight.data;
+    const lx = (g.port[0] - d.pivot[0]) * d.texM, ly = -(g.port[1] - d.pivot[1]) * d.texM;
+    const c = Math.cos(st.pitch), s = Math.sin(st.pitch);
+    const x = v.sx(st.x + lx * c - ly * s), y = v.sy(st.y + lx * s + ly * c);
+    const r = Math.max(10, 1.6 * v.S) * (0.7 + Math.random() * 0.6);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(SOFT.warm, x - r, y - r, r * 2, r * 2);
+    ctx.drawImage(SOFT.glow, x - r * 0.4, y - r * 0.4, r * 0.8, r * 0.8);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  // Red arrows at the screen edge pointing at missiles chasing the jet, with range.
+  drawThreatArrows(ctx, v, flight) {
+    const inc = flight.cb.incoming();
+    if (!inc.length) return;
+    const u = Math.max(1, v.H / 720);
+    const m0 = COMBAT_FX.arrowMarginPx * u;
+    const a = flight.ac;
+    const blink = this.time % 0.3 < 0.2;
+    for (const m of inc) {
+      const x = v.sx(m.x), y = v.sy(m.y);
+      if (x > m0 && x < v.W - m0 && y > m0 && y < v.H - m0) continue;
+      const cx = v.W / 2, cy = v.H / 2;
+      const ang = Math.atan2(y - cy, x - cx);
+      const k = Math.min((v.W / 2 - m0) / Math.max(Math.abs(Math.cos(ang)), 1e-3), (v.H / 2 - m0) / Math.max(Math.abs(Math.sin(ang)), 1e-3));
+      const ax = cx + Math.cos(ang) * k, ay = cy + Math.sin(ang) * k;
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(ang);
+      ctx.fillStyle = blink ? 'rgba(255,60,50,0.95)' : 'rgba(255,60,50,0.55)';
+      ctx.beginPath(); ctx.moveTo(14 * u, 0); ctx.lineTo(-8 * u, -10 * u); ctx.lineTo(-4 * u, 0); ctx.lineTo(-8 * u, 10 * u); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,90,80,0.95)'; ctx.font = `700 ${Math.round(12 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
+      const dist = Math.hypot(m.x - a.pos.x, m.y - a.pos.y);
+      ctx.fillText(`${m.seeker === 'ir' ? 'IR' : 'RDR'} ${(dist / 1000).toFixed(1)}`, ax - Math.cos(ang) * 26 * u, ay - Math.sin(ang) * 22 * u + 4 * u);
     }
   }
 
@@ -499,6 +681,19 @@ export class Renderer {
         ctx.fillRect(x - 0.5 * u, y - (12 + k * 6) * u - 3 * u, u, 3 * u);
       }
       ctx.globalAlpha = 1;
+    }
+    // Gun pipper: where rounds fired now would hit the ground (they keep the jet's
+    // velocity and follow real ballistics), shown within 3 s of flight.
+    const gi = flight.cb.gunImpact();
+    if (gi && gi.rangeM < 2500) {
+      const u = Math.max(1, v.H / 360);
+      const x = v.sx(gi.x), y = v.groundY;
+      ctx.strokeStyle = flight.cb.firing ? 'rgba(255,240,160,0.95)' : 'rgba(150,255,170,0.85)';
+      ctx.lineWidth = 1.2 * u;
+      ctx.beginPath(); ctx.arc(x, y - 6 * u, 5 * u, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = ctx.strokeStyle; ctx.fillRect(x - 0.6 * u, y - 6.6 * u, 1.2 * u, 1.2 * u);
+      ctx.font = `600 ${Math.round(5 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
+      ctx.fillText(`${(gi.rangeM / 1000).toFixed(1)}`, x, y - 13 * u);
     }
     if (flight.data.weaponIsMissile && flight.ac.bombsLeft > 0) {
       const tg = flight.missileTarget();
@@ -678,6 +873,48 @@ export class Renderer {
       else if (e.type === 'explosion') this.explode(e.x, 0.5, e.big ? 1.4 : 0.8, e.kind === 'fuel');
       else if (e.type === 'crash') this.crashFx(e, flight);
       else if (e.type === 'missileLaunch') this.puffs(e.x, e.y, 6, 'smoke', 2);
+      else if (e.type === 'roundHit') this.sparks(e.x, e.y, e.hard ? 5 : 3, e.hard);
+      else if (e.type === 'roundGround') {
+        if (Math.random() < 0.6) this.particles.spawn('dust', e.x, 0.3, (Math.random() - 0.5) * 6, 3 + Math.random() * 4, 1.6 + Math.random(), 0.9 + Math.random() * 0.6, { grow: 2.2, alpha: 0.6, drag: 1.5 });
+      } else if (e.type === 'acHit') this.sparks(e.x, e.y, 4, true);
+      else if (e.type === 'flakPuff') this.particles.spawn('dark', e.x, e.y, 0, 0, 3, 2.5, { grow: 2.5, alpha: 0.7, drag: 1, ground: false });
+      else if (e.type === 'airBurst') this.airBurst(e.x, e.y, e.power);
+      else if (e.type === 'samLaunch') {
+        this.puffs(e.x, e.y + 1, 10, 'smoke', 3);
+        this.particles.spawn('glow', e.x, e.y + 1, 0, 0, 10, 0.3, { grow: 1.5, ground: false });
+      } else if (e.type === 'chaff') {
+        for (let i = 0; i < 14; i++) this.particles.spawn('white', e.x + (Math.random() - 0.5) * 4, e.y + (Math.random() - 0.5) * 4, flight.ac.vel.x * 0.2 + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, 1.2, 3 + Math.random() * 2, { grow: 3, alpha: 0.35, drag: 2.5, ground: false });
+      } else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
+    }
+  }
+
+  // Hits: short bright sparks (hard = metal on armour / airframe).
+  sparks(x, y, n, hard) {
+    const P = this.particles;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = 10 + Math.random() * 25;
+      P.spawn('spark', x, y, Math.cos(a) * s, Math.sin(a) * s, hard ? 0.9 : 0.6, 0.25 + Math.random() * 0.3, { grow: 0.5, drag: 1, ground: true });
+    }
+    P.spawn('glow', x, y, 0, 0, hard ? 3 : 2, 0.12, { grow: 1.2, ground: false });
+  }
+
+  // Explosion in the air (missile warhead, flak, a jet blown apart): no ground dust.
+  airBurst(x, y, power = 1) {
+    const P = this.particles;
+    this.flash = Math.max(this.flash, 0.25 * power);
+    this.cam.shake = Math.min(1.2, this.cam.shake + 0.3 * power);
+    P.spawn('glow', x, y, 0, 0, 30 * power, 0.3, { grow: 1.4, ground: false });
+    for (let i = 0; i < 18 * power; i++) {
+      const a = Math.random() * Math.PI * 2, s = (8 + Math.random() * 22) * power;
+      P.spawn('fire', x, y, Math.cos(a) * s, Math.sin(a) * s, (4 + Math.random() * 6) * power, 0.4 + Math.random() * 0.5, { grow: 2, drag: 2.5, ground: false });
+    }
+    for (let i = 0; i < 14 * power; i++) {
+      const a = Math.random() * Math.PI * 2;
+      P.spawn('dark', x + Math.cos(a) * 3, y + Math.sin(a) * 3, Math.cos(a) * 6, Math.sin(a) * 6, (5 + Math.random() * 6) * power, 2.5 + Math.random() * 2, { grow: 2.5, drag: 1, alpha: 0.75, ground: false });
+    }
+    for (let i = 0; i < 20 * power; i++) {
+      const a = Math.random() * Math.PI * 2, s = 20 + Math.random() * 50;
+      P.spawn('spark', x, y, Math.cos(a) * s, Math.sin(a) * s, 1, 0.6 + Math.random() * 0.6, { grow: 0.5, drag: 0.4 });
     }
   }
 
@@ -994,6 +1231,32 @@ export class Renderer {
     }
     for (const w of flight.weapons) {
       if (w.motor) P.spawn('smoke', w.pos.x, w.pos.y, w.vel.x * 0.05, 0, 1.2, 2.5, { grow: 4, alpha: 0.55 * (d.missile.trail ?? 1), ground: false, drag: 0.3 });
+    }
+    if (flight.mode === 'strike') {
+      const cb = flight.cb;
+      // Enemy missiles: thick white smoke while the motor burns, thin after.
+      for (const m of cb.threats) {
+        const n = m.motor ? 2 : 1;
+        for (let i = 0; i < n; i++) {
+          const f = Math.random();
+          P.spawn('smoke', m.x - m.vx * dt * f, m.y - m.vy * dt * f, 0, 0.5, m.motor ? 3.5 : 2, m.motor ? 4 : 2, { grow: 3, alpha: m.motor ? 0.6 : 0.25, ground: false, drag: 0.5 });
+        }
+      }
+      for (const dc of cb.decoys) {
+        if (dc.kind === 'flare' && Math.random() < 0.8) P.spawn('smoke', dc.x, dc.y, 0, 0.5, 2.5, 1.8, { grow: 3, alpha: 0.4, ground: false, drag: 0.6 });
+        if (dc.kind === 'chaff' && Math.random() < 0.3) P.spawn('white', dc.x + (Math.random() - 0.5) * 6, dc.y + (Math.random() - 0.5) * 6, 0, -1, 0.8, 1.5, { grow: 2, alpha: 0.3, ground: false, drag: 2 });
+      }
+      // Battle damage on the jet: smoke, then fire.
+      if (!a.crashed && (cb.hp < DAMAGE.smokeBelow || a.shotDown)) {
+        const p = a.pointM(d.pivot[0] - 20, d.pivot[1] - 40);
+        const hot = cb.hp < DAMAGE.fireBelow || a.shotDown;
+        // Several puffs along this frame's path, so the trail is continuous at speed.
+        for (let i = 0; i < 3; i++) {
+          const f = i / 3;
+          P.spawn('dark', p.x - a.vel.x * dt * f, p.y - a.vel.y * dt * f, a.vel.x * 0.1, 1, hot ? 5 : 3.5, hot ? 3 : 2.2, { grow: 3, alpha: hot ? 0.55 : 0.32, ground: false, drag: 0.4 });
+        }
+        if (hot && Math.random() < 0.8) P.spawn('fire', p.x, p.y, a.vel.x * 0.3, 0, 3.5, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
+      }
     }
     // Burning targets and wreck.
     for (const t of flight.targets) {

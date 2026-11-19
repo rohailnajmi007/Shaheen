@@ -109,6 +109,12 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .wname { font-size: 11px; letter-spacing: 0.15em; color: var(--dim); }
 .wstate { font-size: 17px; margin-top: 3px; }
 .weapon.hot { border-color: rgba(255,80,72,0.8); }
+.wsub { font-size: 11px; letter-spacing: 0.1em; color: var(--dim); margin-top: 4px; }
+.whp { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1); margin-top: 6px; overflow: hidden; }
+.whp i { display: block; height: 100%; width: 100%; background: var(--green); transition: width 0.2s, background 0.3s; }
+.weapon.dmg .whp i { background: var(--amber); }
+.weapon.crit .whp i { background: var(--red); }
+.touch:not(.strike) .strike-only { display: none; }
 .weapon.hot .wstate { color: var(--red); animation: blink 0.4s steps(2) infinite; }
 
 .refuel { position: absolute; left: 50%; top: 45%; transform: translateX(-50%); padding: 12px 16px; min-width: 260px; display: none; }

@@ -33,7 +33,7 @@ const STEPS = [
 ];
 const MODES = [
   { id: 'ferry', label: 'Ferry flight', note: 'Take off from your home base, fly to the base you pick, land and stop on the runway.' },
-  { id: 'strike', label: 'Air to ground', note: 'Jets only. Destroy 2-3 ground targets, then land at the base that appears.' },
+  { id: 'strike', label: 'Air to ground', note: 'Jets only. Destroy 4-5 ground targets past AAA guns and SAMs, then land at the base that appears.' },
 ];
 
 export class Menu {
@@ -269,9 +269,10 @@ export class Result {
     const mm = Math.floor(r.timeS / 60), ss = Math.floor(r.timeS % 60);
     // Headline stamp: what happened to the mission (strike) or the delivery (ferry).
     let head, sub = '', tone;
+    const shot = crash && r.reasons.some((x) => x.startsWith('Shot down'));
     if (strike) {
       const { hit, total } = r.targets;
-      if (crash) { head = 'MISSION FAILED'; sub = 'AIRCRAFT LOST'; tone = 'bad'; }
+      if (crash) { head = 'MISSION FAILED'; sub = shot ? 'SHOT DOWN' : 'AIRCRAFT LOST'; tone = 'bad'; }
       else if (hit === total) { head = 'MISSION SUCCESSFUL'; sub = 'ALL TARGETS DESTROYED'; tone = 'ok'; }
       else if (hit > 0) { head = 'PARTIAL SUCCESS'; sub = `${total - hit} TARGET${total - hit > 1 ? 'S' : ''} SURVIVED`; tone = 'warn'; }
       else { head = 'MISSION FAILED'; sub = 'NO TARGETS DESTROYED'; tone = 'bad'; }
@@ -283,6 +284,10 @@ export class Result {
     const rows = [
       strike && row('TARGETS DESTROYED', `${r.targets.hit} / ${r.targets.total}`, r.targets.hit === r.targets.total ? 'ok' : r.targets.hit ? 'warn' : 'bad'),
       strike && row('WEAPONS DEPLOYED', `${r.weapons.used} / ${r.weapons.total} ${r.weapons.name}`),
+      strike && row('AIR DEFENCES DESTROYED', `${r.defences.hit} / ${r.defences.total}`, r.defences.hit ? 'ok' : ''),
+      strike && r.gun && row('GUN ROUNDS FIRED', `${r.gun.fired} / ${r.gun.total}`),
+      strike && row('MISSILES EVADED', `${r.countermeasures.evaded} · ${r.countermeasures.flares} FLARES · ${r.countermeasures.chaff} CHAFF`),
+      strike && row('BATTLE DAMAGE', `${r.damage}%`, r.damage >= 100 ? 'bad' : r.damage >= 50 ? 'warn' : r.damage > 0 ? '' : 'ok'),
       !strike && row('ROUTE', `${r.from} > ${r.dest}`.toUpperCase()),
       row(strike ? 'RECOVERY' : 'LANDING', strike && !crash ? `${r.dest.toUpperCase()} · ${landing}` : landing, crash ? 'bad' : ''),
       row('FLIGHT TIME', `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`),

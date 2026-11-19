@@ -6,16 +6,19 @@ const HOLD = {
   pitchUp: ['ArrowLeft', 'KeyA'],
   pitchDown: ['ArrowRight', 'KeyD'],
   brake: ['KeyB'],
+  gun: ['KeyV'],
 };
 const PRESS = {
   engine: ['KeyE'], flaps: ['KeyF'], gear: ['KeyG'], drop: ['Space'], refuel: ['KeyT'],
+  flare: ['KeyX'], chaff: ['KeyC'], target: ['KeyQ'],
   pause: ['Escape', 'KeyP'], restart: ['KeyR'], zoom: ['KeyZ'], hud: ['KeyH'], mute: ['KeyM'],
 };
 
 export const KEY_HELP = [
   ['↑ / ↓', 'Throttle (hold)'], ['← / →', 'Nose up / down'], ['E', 'Engine on / off'],
   ['F', 'Flaps UP → TO → LDG'], ['G', 'Gear up / down'], ['B', 'Brakes / air brake (hold)'],
-  ['Space', 'Drop weapon'], ['T', 'Refuel (stopped, engine off)'], ['Z', 'Camera zoom'],
+  ['Space', 'Drop weapon'], ['V', 'Gun (hold)'], ['Q', 'Next target'], ['X', 'Flares'], ['C', 'Chaff'],
+  ['T', 'Refuel (stopped, engine off)'], ['Z', 'Camera zoom'],
   ['H', 'Hide help'], ['M', 'Mute'], ['Esc', 'Pause'], ['R', 'Restart'],
 ];
 
@@ -23,7 +26,7 @@ export class Input {
   constructor() {
     this.down = new Set();
     this.queue = [];
-    this.touch = { pitch: 0, brake: false, throttleSet: null };
+    this.touch = { pitch: 0, brake: false, gun: false, throttleSet: null };
     this.padPrev = [];
     this.usedTouch = false;
     this.enabled = true;
@@ -74,6 +77,7 @@ export class Input {
     let throttle = k('throttleUp') - k('throttleDown');
     let pitch = k('pitchUp') - k('pitchDown');
     let brake = this.held('brake');
+    const gun = this.held('gun') || this.touch.gun; // gamepad buttons for the new controls: next chunk
     if (this.pad) {
       throttle += this.pad.throttle;
       pitch += this.pad.pitch;
@@ -81,7 +85,7 @@ export class Input {
     }
     pitch += this.touch.pitch;
     brake = brake || this.touch.brake;
-    const st = { throttle: Math.max(-1, Math.min(1, throttle)), pitch: Math.max(-1, Math.min(1, pitch)), brake, throttleSet: null };
+    const st = { throttle: Math.max(-1, Math.min(1, throttle)), pitch: Math.max(-1, Math.min(1, pitch)), brake, gun, throttleSet: null };
     if (this.touch.throttleSet != null) { st.throttleSet = this.touch.throttleSet; this.touch.throttleSet = null; }
     return st;
   }

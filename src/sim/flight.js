@@ -2,10 +2,23 @@
 import { Aircraft, KT, FT, G } from './aircraft.js';
 import { aircraftById } from '../data/aircraft.js';
 import { BASES, ferryLayout, ROUTES_FROM } from '../data/world.js';
+import { GROUND_UNITS, STRIKE, AIR_DEFENCE } from '../data/combat.js';
+import { Combat } from './combat.js';
 
 const GRADES = ['PERFECT', 'GOOD', 'FIRM', 'HARD'];
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rand = (a, b) => a + Math.random() * (b - a);
+const lerpX = (a, b, t) => a + (b - a) * t;
+const randInt = ([a, b]) => a + Math.floor(Math.random() * (b - a + 1));
+const shuffle = (arr) => arr.map((v) => [Math.random(), v]).sort((p, q) => p[0] - q[0]).map((p) => p[1]);
+
+// A ground unit (mission target or air defence) at x.
+function makeUnit(kind, x) {
+  const u = GROUND_UNITS[kind];
+  const unit = { x, kind, role: u.role, objective: u.role === 'objective', alive: true, w: u.w, h: u.h, hp: u.hp, armour: u.armour, deadAt: 0 };
+  if (u.role === 'sam') unit.missiles = AIR_DEFENCE[kind].missiles;
+  return unit;
+}
 
 // Bomb ballistics (same as the Godot Bomb class).
 export function bombStep(v, k, dt) {
@@ -55,6 +68,8 @@ export class Flight {
     this.extraFuel = 0;
     this.revealed = true;
     this.seeker = { target: null, t: 0 }; // missile seeker: candidate target and time on it
+    this.designated = null; // target picked by the pilot (Q), or null = automatic
+    this.cb = new Combat(this);
     this.buildWorld();
     this.say(`${this.callsign()}! Engine start: E. Then throttle up. Move it!`);
   }
@@ -75,20 +90,35 @@ export class Flight {
       for (const b of this.bases) this.themeStops.push({ x: b.x - 900, theme: b.theme }, { x: b.x + b.runwayM + 900, theme: b.theme });
     } else {
       this.ac.bombsLeft = this.data.bombCount;
-      const kinds = ['sam', 'radar', 'fuel', 'bunker'].sort(() => Math.random() - 0.5);
-      const n = Math.random() < 0.5 ? 2 : 3;
+      // Mission targets (4-5), AAA guns next to some of them, SAM sites around them.
+      const kinds = shuffle(STRIKE.objectiveKinds);
+      const n = randInt(STRIKE.objectives);
       let x = this.data.strikeAreaStartM;
+      const objs = [];
       for (let i = 0; i < n; i++) {
-        this.targets.push({ x, kind: kinds[i], alive: true, w: kinds[i] === 'fuel' ? 26 : 18, deadAt: 0 });
-        x += rand(700, 1300);
+        objs.push(makeUnit(kinds[i % kinds.length], x));
+        x += rand(STRIKE.gapM[0], STRIKE.gapM[1]);
       }
-      const lastT = this.targets[this.targets.length - 1].x;
+      const units = [...objs];
+      for (const o of shuffle(objs).slice(0, randInt(STRIKE.aaa))) {
+        const off = Math.random() < 0.5 ? STRIKE.aaaOffsetM[0] : STRIKE.aaaOffsetM[1];
+        units.push(makeUnit('aaa', o.x + off * rand(0.7, 1)));
+      }
+      const first = objs[0].x, last = objs[objs.length - 1].x;
+      const samKinds = randInt(STRIKE.sams) > 1 ? ['samRadar', 'samIr'] : [Math.random() < 0.5 ? 'samRadar' : 'samIr'];
+      samKinds.forEach((k, i) => {
+        const sx = i === 0 ? first - rand(STRIKE.samBeforeM * 0.5, STRIKE.samBeforeM) : lerpX(first, last, rand(0.4, 0.8));
+        units.push(makeUnit(k, sx));
+      });
+      units.sort((p, q) => p.x - q.x);
+      this.targets = units;
+      const lastT = last;
       // Landing base: one of the other two bases, at random.
       const others = ROUTES_FROM[home];
       const recId = others[Math.random() < 0.5 ? 0 : 1];
       this.bases = [
         { ...BASES[home], x: 0, visible: true },
-        { ...BASES[recId], x: lastT + 3000, visible: false },
+        { ...BASES[recId], x: lastT + STRIKE.recoveryGapM, visible: false },
       ];
       this.dest = this.bases[1];
       this.revealed = false;
@@ -151,6 +181,9 @@ export class Flight {
       case 'gear': a.toggleGear(); break;
       case 'drop': this.dropStore(); break;
       case 'refuel': this.requestRefuel(); break;
+      case 'flare': if (this.mode === 'strike') this.cb.dispense('flare'); break;
+      case 'chaff': if (this.mode === 'strike') this.cb.dispense('chaff'); break;
+      case 'target': this.designateNext(); break;
     }
   }
 
@@ -182,6 +215,27 @@ export class Flight {
 
   // --- targeting (ported from the Godot strike_mission.gd) ---
 
+  // Q: pick the next live ground unit ahead (mission targets and air defences), in
+  // order of distance, wrapping round. Weapons and aids then use it while it lives,
+  // is ahead and nothing in the air is already going for it; otherwise automatic.
+  designateNext() {
+    if (this.mode !== 'strike' || this.state !== 'flying') return;
+    const a = this.ac;
+    const list = this.targets.filter((t) => t.alive && t.x > a.pos.x + 30 && !this.claimed(t));
+    if (!list.length) { this.designated = null; return; }
+    const i = list.indexOf(this.designated);
+    this.designated = list[(i + 1) % list.length];
+    this.seeker = { target: null, t: 0 };
+    this.emit('designate');
+  }
+
+  // The pilot's pick, if still valid.
+  manualTarget() {
+    const t = this.designated;
+    if (t && (!t.alive || t.x < this.ac.pos.x - 30 || this.claimed(t))) this.designated = null;
+    return this.designated;
+  }
+
   // True if a weapon already in the air will take this target out (guided onto it,
   // or an unguided bomb predicted to land on it), so the aids move on to the next.
   claimed(t) {
@@ -200,10 +254,12 @@ export class Flight {
     if (!this.missileArmed()) return null;
     const a = this.ac;
     const m = this.data.missile;
+    const inRange = (t) => t.x - a.pos.x >= m.rangeMin && t.x - a.pos.x <= m.rangeMax;
+    const pick = this.manualTarget();
+    if (pick) return inRange(pick) ? pick : null;
     let best = null;
     for (const t of this.targets) {
-      const dx = t.x - a.pos.x;
-      if (t.alive && dx >= m.rangeMin && dx <= m.rangeMax && !this.claimed(t) && (!best || t.x < best.x)) best = t;
+      if (t.alive && inRange(t) && !this.claimed(t) && (!best || t.x < best.x)) best = t;
     }
     return best;
   }
@@ -233,6 +289,8 @@ export class Flight {
   // Guided bombs: the live, unclaimed target nearest x within the guidance reach.
   guidedTargetNear(x) {
     const reach = this.data.guidanceReachM;
+    const pick = this.manualTarget();
+    if (pick && Math.abs(pick.x - x) <= reach) return pick;
     let best = null;
     for (const t of this.targets) {
       if (t.alive && Math.abs(t.x - x) <= reach && !this.claimed(t) && (!best || Math.abs(t.x - x) < Math.abs(best.x - x))) best = t;
@@ -246,13 +304,16 @@ export class Flight {
     return this.targets.find((t) => t.alive && Math.abs(x - t.x) <= r + t.w / 2) || null;
   }
 
-  // Metres to the next live target ahead (Infinity if none).
+  // Metres to the next live mission target ahead (Infinity if none).
   distanceToNextTarget() {
     const a = this.ac;
     let best = Infinity;
-    for (const t of this.targets) if (t.alive && t.x > a.pos.x - 50) best = Math.min(best, t.x - a.pos.x);
+    for (const t of this.targets) if (t.objective && t.alive && t.x > a.pos.x - 50) best = Math.min(best, t.x - a.pos.x);
     return best;
   }
+
+  get objectives() { return this.targets.filter((t) => t.objective); }
+  get defences() { return this.targets.filter((t) => !t.objective); }
 
   // Where the weapons already in the air will hit (bomb sight white bars).
   fallingImpacts() {
@@ -278,8 +339,9 @@ export class Flight {
     const aim = this.bombImpact();
     if (!aim || a.vel.x < 1) return null;
     let out = null;
+    const pick = this.manualTarget();
     for (const t of this.targets) {
-      if (!t.alive || this.claimed(t)) continue;
+      if (!t.alive || this.claimed(t) || (pick && t !== pick)) continue;
       const window = (this.data.blastRadiusM + t.w / 2) / a.vel.x;
       const s = (t.x - aim.x) / a.vel.x;
       if (s > -window - 1.5 && (!out || s < out.seconds)) out = { seconds: s, window, target: t };
@@ -327,6 +389,7 @@ export class Flight {
     for (const e of a.events) this.onAircraftEvent(e);
     a.events.length = 0;
     this.stepWeapons(dt);
+    if (this.mode === 'strike') this.cb.step(dt, input);
     for (const t of this.targets) if (!t.alive) t.deadAt += dt;
     if (this.state === 'done') return;
 
@@ -369,6 +432,7 @@ export class Flight {
     const fpm = Math.abs(vy) * FT * 60;
     this.emit('touchdown', { fpm, x: a.pos.x });
     if (this.state !== 'flying') return;
+    if (a.shotDown) { this.crash(`Shot down by ${this.cb.killer}.`, fpm); return; }
     this.worstFpm = Math.max(this.worstFpm, fpm);
     const where = this.runwayAt(a.pos.x);
     const p = a.touchdownPitch * 180 / Math.PI;
@@ -427,7 +491,7 @@ export class Flight {
   stepStrike() {
     const a = this.ac;
     const d = this.data;
-    const live = this.targets.filter((t) => t.alive);
+    const live = this.objectives.filter((t) => t.alive);
     const dist = this.distanceToNextTarget();
     if (!this.revealed && !a.onGround && !a.crashed && dist < 3000) {
       const km = (dist / 1000).toFixed(1);
@@ -440,13 +504,15 @@ export class Flight {
       this.say(`Gear UP! The ${d.weaponName} stays SAFE with the wheels hanging out!`, true, 'armgear');
     }
     if (!this.revealed) {
-      const last = this.targets[this.targets.length - 1].x;
-      const over = live.length === 0 || (a.bombsLeft === 0 && this.weapons.length === 0) || a.pos.x > last + 300;
+      const objs = this.objectives;
+      const last = objs[objs.length - 1].x;
+      // The gun can still finish targets, so only all targets down or flying past ends the run.
+      const over = live.length === 0 || a.pos.x > last + 300;
       if (over && this.weapons.length === 0) {
         this.revealed = true;
         this.dest.visible = true;
-        const hit = this.targets.length - live.length;
-        this.say(`${hit}/${this.targets.length} targets down. Recover at ${this.dest.short}. Go!`, true);
+        const hit = objs.length - live.length;
+        this.say(`${hit}/${objs.length} targets down. Recover at ${this.dest.short}. Go!`, true);
         this.emit('revealed');
       }
     }
@@ -502,11 +568,38 @@ export class Flight {
     const r = this.data.blastRadiusM;
     let hit = null;
     for (const t of this.targets) {
-      if (t.alive && Math.abs(t.x - x) <= r + t.w * 0.5) { t.alive = false; hit = t; }
+      if (t.alive && Math.abs(t.x - x) <= r + t.w * 0.5) { this.kill(t); hit = t; }
     }
     this.emit('explosion', { x, y: 0, big: !!hit, kind: hit?.kind });
-    if (hit) this.say(['SHACK! Direct hit!', 'Target destroyed! Good drop!', 'That one is gone. Next!'][Math.floor(Math.random() * 3)], true);
+    if (hit && !hit.objective) this.say(`${GROUND_UNITS[hit.kind].label} destroyed! One less gun on you.`, true);
+    else if (hit) this.say(['SHACK! Direct hit!', 'Target destroyed! Good drop!', 'That one is gone. Next!'][Math.floor(Math.random() * 3)], true);
     else this.say(`Missed by ${Math.round(Math.min(...this.targets.map((t) => Math.abs(t.x - x))))} m. Wake up!`, true);
+  }
+
+  kill(t) {
+    t.alive = false;
+    t.hp = 0;
+    t.firing = false;
+    if (this.designated === t) this.designated = null;
+  }
+
+  // A unit destroyed by gunfire (bombs and missiles go through impact()).
+  destroyUnit(t) {
+    this.kill(t);
+    this.emit('explosion', { x: t.x, y: 0, big: true, kind: t.kind });
+    const what = GROUND_UNITS[t.kind].label;
+    this.say(t.objective ? `Guns kill! ${what} destroyed! Shabash!` : `${what} down with the gun! Good shooting!`, true);
+  }
+
+  // Airframe destroyed in the air: no control, it falls until it hits the ground.
+  shootDown(cause) {
+    const a = this.ac;
+    a.shotDown = true;
+    a.controls = false;
+    a.engineOn = false;
+    this.emit('airBurst', { x: a.pos.x, y: a.pos.y, power: 1.2 });
+    this.emit('shotDown', { x: a.pos.x, y: a.pos.y });
+    this.say(`You're going DOWN! Shot down by ${cause}! EJECT! EJECT!`, true);
   }
 
   // Where a bomb released now would land, from the hardpoint the next bomb leaves
@@ -571,7 +664,11 @@ export class Flight {
       fuelUsedKg: this.fuelStart + this.extraFuel - this.ac.fuel,
       fuelCapKg: this.data.fuelKg,
       fpm: this.worstFpm,
-      targets: this.mode === 'strike' ? { hit: this.targets.filter((t) => !t.alive).length, total: this.targets.length } : null,
+      targets: this.mode === 'strike' ? { hit: this.objectives.filter((t) => !t.alive).length, total: this.objectives.length } : null,
+      defences: this.mode === 'strike' ? { hit: this.defences.filter((t) => !t.alive).length, total: this.defences.length } : null,
+      gun: this.mode === 'strike' && this.data.gun ? { fired: this.cb.stats.roundsFired, total: this.data.gun.rounds } : null,
+      damage: this.mode === 'strike' ? Math.round(100 - this.cb.hp) : 0,
+      countermeasures: this.mode === 'strike' ? { flares: this.cb.stats.flaresUsed, chaff: this.cb.stats.chaffUsed, evaded: this.cb.stats.evaded } : null,
       weapons: this.mode === 'strike' ? { used: this.data.bombCount - this.ac.bombsLeft, total: this.data.bombCount, name: this.data.weaponName } : null,
       mode: this.mode,
       from: this.bases[0].short,
@@ -606,7 +703,8 @@ export class Flight {
     const base = { PERFECT: 1000, GOOD: 800, FIRM: 550, HARD: 300, 'WRONG BASE': 150 }[r.grade] || 0;
     const fuel = Math.round(300 * clamp(1 - r.fuelUsedKg / r.fuelCapKg, 0, 1));
     const tgt = r.targets ? r.targets.hit * 400 : 0;
-    return base + fuel + tgt;
+    const def = r.defences ? r.defences.hit * 150 : 0;
+    return base + fuel + tgt + def;
   }
 
   crash(reason, fpm = -1) {

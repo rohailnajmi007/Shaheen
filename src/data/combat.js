@@ -1,0 +1,82 @@
+// Air-to-ground mission: ground units, air defences, countermeasures (owner, 2026-11-19).
+// All tunable numbers for src/sim/combat.js live here. Distances in m, times in s.
+
+// Ground units. w/h = drawn size in m (src/render/scenery.js draws them this size and
+// rounds hit this box). hp = damage points against gun rounds; armour = share of gun
+// damage that gets through (bombs and missiles destroy anything in their blast).
+// role: 'objective' (mission target) or 'aaa' / 'sam' (air defence, shoots back).
+export const GROUND_UNITS = {
+  satcom: { label: 'SATCOM STATION', role: 'objective', w: 18, h: 14, hp: 60, armour: 1 },
+  radar: { label: 'RADAR', role: 'objective', w: 14, h: 12, hp: 40, armour: 1 },
+  fuel: { label: 'FUEL DEPOT', role: 'objective', w: 26, h: 9, hp: 60, armour: 1 },
+  bunker: { label: 'BUNKER', role: 'objective', w: 16, h: 6, hp: 250, armour: 0.08 },
+  launcher: { label: 'MISSILE LAUNCHER', role: 'objective', w: 16, h: 7, hp: 70, armour: 0.8 },
+  tank: { label: 'TANK', role: 'objective', w: 11, h: 5, hp: 140, armour: 0.2 },
+  apc: { label: 'APC', role: 'objective', w: 10, h: 4.5, hp: 80, armour: 0.55 },
+  aaa: { label: 'AAA', role: 'aaa', w: 8, h: 3.5, hp: 35, armour: 0.8 },
+  samRadar: { label: 'SAM (RADAR)', role: 'sam', w: 14, h: 7, hp: 50, armour: 0.8 },
+  samIr: { label: 'SAM (IR)', role: 'sam', w: 10, h: 5, hp: 40, armour: 0.7 },
+};
+
+// Mission layout.
+export const STRIKE = {
+  objectives: [4, 5],                 // mission targets: random count in this range
+  objectiveKinds: ['satcom', 'radar', 'fuel', 'bunker', 'launcher', 'tank', 'apc'],
+  gapM: [450, 850],                   // between mission targets
+  aaa: [2, 3],                        // AAA guns, each near a mission target
+  aaaOffsetM: [-260, 220],            // ... this far from it
+  sams: [1, 2],                       // SAM sites (one radar, one IR when two)
+  samBeforeM: 1200,                   // first SAM this far before the first target
+  recoveryGapM: 4500,                 // landing base this far past the last target
+};
+
+// Air defences.
+export const AIR_DEFENCE = {
+  pastM: 1200,      // they stop engaging once the jet is this far past them
+  // Twin 23 mm gun. Shells fly real ballistics (gravity + air drag); the gunner leads
+  // the jet (time of flight, gravity drop) and gets more accurate the longer he tracks
+  // a steady target: his lead error per burst (1 sigma) shrinks from errStartMrad to
+  // errMinMrad over settleS. spreadMrad = shell dispersion (1 sigma).
+  // Changing pitch spoils his solution (it assumes the jet keeps its velocity).
+  aaa: {
+    rangeM: 2300, maxAltM: 1500, muzzleMs: 970, dragK: 0.0007, rps: 24,
+    burstS: 1.5, pauseS: 1.8, spreadMrad: 5, errStartMrad: 60, errMinMrad: 30, settleS: 6,
+    wanderS: 1.2,   // how fast the aim error drifts
+    slewDegS: 35,   // barrel traverse (hand-cranked)
+    fireWithinMrad: 40, // fires only with the barrel this close to his lead point
+    shellLifeS: 5,  // self-destruct (small black flak puff)
+    tracerEvery: 3, dmg: 2,
+  },
+  // Radar-guided SAM: locks on first (SAM LOCK warning), blind below minAltM (ground
+  // clutter). Decoyed by chaff.
+  samRadar: {
+    seeker: 'radar', rangeM: 6500, minAltM: 45, maxAltM: 5500, lockS: 3, reloadS: 9, missiles: 2,
+    missile: { boostS: 3, boostAcc: 240, maxSpeed: 780, dragK: 0.00022, navN: 4, maxG: 28, lifeS: 16,
+      gimbalDeg: 65, fuseM: 15, dmgMax: 75, dmgMin: 30, decoyChance: 0.55 },
+  },
+  // Infrared SAM: no lock warning (passive seeker), only the launch is seen. Decoyed by flares.
+  samIr: {
+    seeker: 'ir', rangeM: 4200, minAltM: 8, maxAltM: 3000, lockS: 1.8, reloadS: 7, missiles: 2,
+    missile: { boostS: 2.2, boostAcc: 290, maxSpeed: 680, dragK: 0.0003, navN: 4, maxG: 22, lifeS: 11,
+      gimbalDeg: 55, fuseM: 10, dmgMax: 70, dmgMin: 25, decoyChance: 0.7 },
+  },
+};
+
+// Flares and chaff (aircraft carry counts in src/data/aircraft.js: flares, chaff).
+export const COUNTERMEASURES = {
+  perPress: 2,      // cartridges per press (a salvo)
+  rangeM: 3500,     // a missile further than this from the jet ignores them (too early)
+  minRangeM: 120,   // ... closer than this it is too late
+  flareLifeS: 3.5, flareDrag: 0.9,
+  chaffLifeS: 4.5, chaffDrag: 4,
+  chaffBreaksLock: 0.5, // chance chaff breaks a radar SAM's lock before launch
+};
+
+// The jet: damage and how hits show.
+export const DAMAGE = {
+  smokeBelow: 60,     // hp: trails smoke
+  fireBelow: 30,      // hp: on fire
+  engineBelow: 45,    // hp: engine damaged, thrust x engineThrust
+  engineThrust: 0.7,
+  shotDownCrashS: 20, // a shot-down jet that keeps gliding hits the ground after this
+};
