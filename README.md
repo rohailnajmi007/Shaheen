@@ -18,8 +18,7 @@ npm run build    # static site in dist/
 - Full-resolution graphics (no 640x360 pixel scaling), sharp on any screen.
 - Four times of day: dawn, day, dusk, night.
 - Camera zooms out with speed; the bomb run zooms out to show the ground.
-- Landing guide on final approach: glide path, sink rate against this
-  aircraft's limits, speed check, and height callouts (100 ... 10 FLARE).
+- Height callouts on final (100 ... 10 FLARE).
 - Glide-path lights (PAPI) at the destination runway.
 - One-page start menu, score and best score per aircraft and route.
 - Touch controls on phones, gamepad support.

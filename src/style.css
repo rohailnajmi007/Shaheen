@@ -83,26 +83,6 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .callout.pop { animation: pop 0.9s ease-out; }
 @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -40%) scale(0.8); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -60%); } }
 
-.guide { position: absolute; bottom: 18px; left: 50%; transform: translate(-50%, 20px); padding: 10px 14px; opacity: 0; transition: all 0.3s ease; }
-.guide.show { opacity: 1; transform: translate(-50%, 0); }
-.gtitle { font-size: 10px; letter-spacing: 0.2em; color: var(--dim); margin-bottom: 6px; }
-.grow2 { display: flex; gap: 16px; align-items: center; }
-.gs, .sink { position: relative; width: 26px; height: 84px; display: grid; justify-items: center; }
-.gs label, .sink label { position: absolute; bottom: -15px; font-size: 9px; color: var(--dim); }
-.gs-scale { position: absolute; inset: 0; display: grid; align-content: space-between; justify-items: center; }
-.gs-scale i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.6); }
-.gs-scale i.mid { width: 22px; height: 2px; border: 0; border-radius: 1px; background: rgba(255,255,255,0.8); }
-.gs-dia { position: absolute; left: 50%; width: 14px; height: 14px; background: #ff57e6; transform: translate(-50%, -50%) rotate(45deg); box-shadow: 0 0 10px #ff57e6; transition: top 0.1s linear; }
-.sink-scale { position: absolute; inset: 0 8px; border-radius: 4px; overflow: hidden; }
-.sink-scale i { position: absolute; left: 0; right: 0; }
-.sink-scale .ok { background: rgba(93,252,160,0.7); }
-.sink-scale .firm { background: rgba(255,194,74,0.8); }
-.sink-scale .hard { background: rgba(255,120,60,0.85); }
-.sink-scale .bad { background: rgba(255,50,40,0.9); }
-.sink-ptr { position: absolute; left: -2px; right: -2px; height: 3px; background: #fff; box-shadow: 0 0 6px #fff; transform: translateY(50%); transition: bottom 0.1s linear; }
-.gtext { min-width: 150px; }
-.gl1 { font-size: 18px; color: var(--green); letter-spacing: 0.06em; }
-.gl2 { font-size: 13px; color: var(--dim); margin-top: 4px; }
 
 .weapon { padding: 10px 14px; display: none; min-width: 200px; }
 .weapon.show { display: block; }
@@ -152,7 +132,6 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .nameplate .tagname { font-size: 20px; letter-spacing: 0.22em; line-height: 1.05; padding-left: 0.22em; max-width: 100%; overflow: hidden; white-space: nowrap; }
 .keys { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; max-width: 70vw; font-size: 12px; color: #dbe7f0; text-shadow: 0 1px 3px rgba(0,0,0,0.8); transition: opacity 0.4s; }
 .keys.hide { opacity: 0; }
-.guide.show ~ .keys { opacity: 0; }
 
 /* Touch controls (src/ui/touch.js): pitch slider left, round phase buttons right. */
 .touch { display: none; position: absolute; inset: 0; pointer-events: none; --big: clamp(78px, 21vh, 108px); --sm: clamp(52px, 13.5vh, 68px); }
@@ -344,9 +323,6 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
   .panel { max-width: 300px; }
   .warnings { top: 92px; }
   .w { font-size: 14px; padding: 4px 10px; }
-  .guide { bottom: 8px; padding: 6px 10px; }
-  .gs, .sink { height: 56px; }
-  .gl1 { font-size: 14px; }
   .weapon { position: absolute; top: auto; bottom: 10px; right: 50%; transform: translateX(50%); }
   .menu-wrap { padding: 16px 20px; gap: 12px; }
   .logo span { font-size: 34px; }
@@ -380,20 +356,9 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
   #hud:has(.touch.on) .radar-cv { height: 72px; }
   #hud:has(.touch.on) .warnings { top: 118px; }
 }
-/* Pre-flight guide pages (fighters). */
-.pnotes .gdots { display: flex; gap: 6px; justify-content: center; margin-top: 16px; }
-.pnotes .gdots i { width: 22px; height: 4px; border-radius: 2px; background: #3a3a2a; }
-.pnotes .gdots i.done { background: #6b6a4f; }
-.pnotes .gdots i.on { background: var(--tone); }
-.gstep { text-align: center; font-size: 11px; letter-spacing: 0.3em; color: var(--ink-dim); }
-.gtitle2 { text-align: center; font-size: clamp(22px, 5vw, 30px); font-weight: 700; letter-spacing: 0.08em; color: var(--tone); }
-.glines { margin: 0; padding: 0 28px; list-style: none; display: grid; gap: 10px; font-size: 16px; line-height: 1.35; color: var(--ink); }
-.glines li::before { content: '> '; color: var(--tone); }
-.glines kbd { font-family: 'Chakra Petch', sans-serif; font-size: 13px; padding: 1px 7px; border: 1px solid #6b6a4f; border-radius: 3px; background: #24261a; color: #fff; white-space: nowrap; }
-.glines b { color: var(--tone); }
 #hud:has(.touch.on) .pslider { top: max(30%, 138px); } /* below the sight card */
 
-/* Short screens (phones sideways): compact briefing / notes so the buttons show. */
+/* Short screens (phones sideways): compact briefing so the buttons show. */
 @media (max-height: 520px) {
   .debrief { gap: 7px; padding-bottom: 10px; }
   .debrief .dhead { padding: 6px 16px; font-size: 10px; }
@@ -403,7 +368,4 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
   .debrief .drows { gap: 3px; font-size: 12px; padding: 0 16px; }
   .debrief .dmeta, .debrief .bnotes { padding: 0 16px; }
   .debrief .mbtns button { padding: 7px 12px; font-size: 12px; }
-  .pnotes .gdots { margin-top: 10px; }
-  .gtitle2 { font-size: 22px; }
-  .glines { gap: 6px; font-size: 14px; padding: 0 18px; }
 }

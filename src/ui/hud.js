@@ -49,14 +49,6 @@ export class Hud {
       </div>
       <div class="warnings"></div>
       <div class="callout"></div>
-      <div class="card guide">
-        <div class="gtitle">LANDING GUIDE</div>
-        <div class="grow2">
-          <div class="gs"><div class="gs-scale"><i></i><i></i><i class="mid"></i><i></i><i></i></div><div class="gs-dia"></div><label>PATH</label></div>
-          <div class="sink"><div class="sink-scale"></div><div class="sink-ptr"></div><label>SINK</label></div>
-          <div class="gtext"><div class="gl1"></div><div class="gl2"></div></div>
-        </div>
-      </div>
       <canvas class="cue-cv"></canvas>
       <button class="ejectcue">EJECT<small>PRESS E</small></button>
       <div class="card refuel"><label>FUEL TRUCK</label><div class="rbar"><i></i></div></div>
@@ -64,12 +56,11 @@ export class Hud {
       <div class="keys"></div>
       <div class="touch"></div>`;
     this.el = {};
-    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'ejectcue', 'tejectbtn', 'instructor', 'wname', 'wstate', 'wsub', 'gl1', 'gl2'])
+    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'weapon', 'refuel', 'keys', 'touch', 'ejectcue', 'tejectbtn', 'instructor', 'wname', 'wstate', 'wsub'])
       this.el[k] = $(`.${k}`, root);
     this.cockpit = new Cockpit($('.cockpit-cv', root));
     this.cue = new ReleaseCue($('.cue-cv', root));
     this.time = 0;
-    this.el.gsDia = $('.gs-dia', root); this.el.sinkPtr = $('.sink-ptr', root); this.el.sinkScale = $('.sink-scale', root);
     this.el.rfill = $('.rbar i', root);
     this.el.whp = $('.whp i', root);
     this.radar = $('.radar-cv', root);
@@ -117,11 +108,6 @@ export class Hud {
     this.el.wname.textContent = d.weaponName || '';
     const strike = flight.mode === 'strike';
     this.el.keys.innerHTML = KEY_HELP.filter((k) => strike || !k[2]).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
-    // Sink-rate scale zones from this aircraft's landing limits.
-    const max = d.hardFpm * 1.2;
-    const z = (a, b, c) => `<i style="bottom:${(a / max) * 100}%;height:${((b - a) / max) * 100}%" class="${c}"></i>`;
-    this.el.sinkScale.innerHTML = z(0, d.goodFpm, 'ok') + z(d.goodFpm, d.firmFpm, 'firm') + z(d.firmFpm, d.hardFpm, 'hard') + z(d.hardFpm, max, 'bad');
-    this.sinkMax = max;
     this.msgQueue = []; this.msgT = 0; this.trail = [];
     this.el.itext.textContent = '';
     this.el.keys.classList.remove('hide');
@@ -230,24 +216,6 @@ export class Hud {
     const togo = tgt ? `TARGET ${((tgt.x - a.pos.x) / 1000).toFixed(1)} KM` : f.revealed ? `${f.dest.short} ${toGo > 0 ? (toGo / 1000).toFixed(1) + ' KM' : 'BEHIND'}` : 'LANDING BASE: AFTER ATTACK';
     this.set('togo', this.el.togo, togo);
 
-    // Landing guide on short final.
-    const glide = f.glide();
-    const showGuide = !!glide && f.state === 'flying' && glide.dist < 4500 && a.altFt < 2500 && a.vel.x > 0;
-    this.cls('guide', this.el.guide, 'show', showGuide || f.state === 'rollout');
-    if (showGuide) {
-      this.set('gs', this.el.gsDia, `${50 - clamp(glide.dev / 1.5, -1, 1) * 45}%`, 'top');
-      const sink = Math.max(0, -a.vsFpm);
-      this.set('sink', this.el.sinkPtr, `${clamp(sink / this.sinkMax, 0, 1) * 100}%`, 'bottom');
-      const appKt = f.approachKt();
-      const dv = a.speedKt - appKt;
-      const l1 = Math.abs(glide.dev) < 0.5 ? 'ON PATH' : glide.dev > 0 ? 'HIGH · DESCEND' : 'LOW · CLIMB';
-      const l2 = dv > 15 ? `FAST +${Math.round(dv)} KT` : dv < -10 ? `SLOW ${Math.round(dv)} KT` : `SPEED OK ${appKt} KT`;
-      this.set('gl1', this.el.gl1, a.gearPos < 1 ? 'GEAR UP!' : l1);
-      this.set('gl2', this.el.gl2, l2);
-    } else if (f.state === 'rollout') {
-      this.set('gl1', this.el.gl1, 'BRAKE · HOLD B');
-      this.set('gl2', this.el.gl2, `${Math.round(a.speedKt)} KT`);
-    }
     // Height callouts near the ground.
     if (!a.onGround && a.vsFpm < -100 && f.revealed && toGo < 600 && toGo > -f.dest.runwayM) {
       const ft = a.altFt;

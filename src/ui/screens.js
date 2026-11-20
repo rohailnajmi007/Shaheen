@@ -3,7 +3,6 @@ import { AIRCRAFT } from '../data/aircraft.js';
 import { BASES, routesFrom, TIMES } from '../data/world.js';
 import { KEY_HELP } from '../input.js';
 import { GROUND_UNITS } from '../data/combat.js';
-import { isTouch } from './touch.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -256,9 +255,8 @@ export class Pause {
   get open() { return this.root.classList.contains('show'); }
 }
 
-// Pre-flight pop-up in the debrief's style. Strike missions in a fighter first get
-// three short pages of pilot's notes, then the briefing; everything else goes
-// straight to the briefing. Enter = next / start, Esc = back to the menu. The flight waits.
+// Pre-flight pop-up in the debrief's style: the briefing. Enter = start, Esc = back
+// to the menu. The flight waits. (Owner 2026-11-20: no pilot's-notes pages before it.)
 export class Briefing {
   constructor(root, { onStart, onMenu }) {
     this.root = root;
@@ -270,47 +268,12 @@ export class Briefing {
   show(f, opts) {
     this.f = f;
     this.opts = opts;
-    this.steps = f.mode === 'strike' && f.data.instructorLines !== 'full' ? guideSteps(f, isTouch()) : [];
-    this.page = 0;
-    this.render();
+    this.renderBrief();
+    this.shownAt = performance.now();
     this.root.classList.add('show');
   }
 
-  // Enter / the main button: next guide page, then the briefing, then start.
-  next() {
-    if (this.page < this.steps.length) { this.page++; this.render(); } else this.onStart();
-  }
-  back() { if (this.page > 0) { this.page--; this.render(); } }
-  skip() { this.page = this.steps.length; this.render(); }
-
-  render() {
-    if (this.page < this.steps.length) this.renderStep(); else this.renderBrief();
-    this.shownAt = performance.now();
-  }
-
-  renderStep() {
-    const s = this.steps[this.page];
-    const n = this.steps.length;
-    const last = this.page === n - 1;
-    this.root.innerHTML = `
-      <div class="modal debrief brief pnotes ok">
-        <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>PILOT'S NOTES</span></div>
-        <div class="gdots">${this.steps.map((_, i) => `<i class="${i === this.page ? 'on' : i < this.page ? 'done' : ''}"></i>`).join('')}</div>
-        <div class="gstep">STEP ${this.page + 1} OF ${n}</div>
-        <div class="gtitle2">${esc(s.title)}</div>
-        <ul class="glines">${s.lines.map((l) => `<li>${l}</li>`).join('')}</ul>
-        <div class="dfoot">
-          <div class="mbtns">
-            <button class="go">${last ? 'Mission briefing' : 'Next'} <kbd>Enter</kbd></button>
-            ${this.page > 0 ? '<button class="gback ghost">Back</button>' : ''}
-            <button class="gskip ghost">Skip</button>
-          </div>
-        </div>
-      </div>`;
-    $('.go', this.root).onclick = () => this.next();
-    const b = $('.gback', this.root); if (b) b.onclick = () => this.back();
-    $('.gskip', this.root).onclick = () => this.skip();
-  }
+  next() { this.onStart(); }
 
   // The briefing: short rows in the official format, one line of orders.
   renderBrief() {
@@ -357,13 +320,11 @@ export class Briefing {
         <div class="dfoot">
           <div class="mbtns">
             <button class="go">Start mission <kbd>Enter</kbd></button>
-            ${this.steps.length ? '<button class="gback ghost">How to</button>' : ''}
             <button class="tomenu ghost">Main menu <kbd>Esc</kbd></button>
           </div>
         </div>
       </div>`;
     $('.go', this.root).onclick = () => this.onStart();
-    const b = $('.gback', this.root); if (b) b.onclick = () => { this.page = 0; this.render(); };
     $('.tomenu', this.root).onclick = () => this.onMenu();
   }
 
@@ -371,30 +332,6 @@ export class Briefing {
   get fresh() { return performance.now() - this.shownAt < 300; }
   hide() { this.root.classList.remove('show'); }
   get open() { return this.root.classList.contains('show'); }
-}
-
-// Pilot's notes: three short pages, strike missions in a fighter only (owner
-// 2026-11-20: "not 7 pages"). Keyboard or touch wording.
-function guideSteps(f, touch) {
-  const d = f.data;
-  const K = (kb, tc) => `<kbd>${touch ? tc : kb}</kbd>`;
-  const find = d.weaponIsMissile ? 'Fly at the targets until a red <b>LOCK</b> box appears on one.'
-    : d.bombGuided ? 'Fly at about 300 ft until the target sits in the bracket on the sight.'
-    : 'Fly level at about 300 ft and watch the RELEASE CUE.';
-  return [
-    { title: 'TAKE OFF', lines: [
-      `Engine ${K('E', 'ENGINE')}, full throttle ${K('hold ↑', 'slider up')}, nose up at ${d.rotateKt} kt ${K('hold ←', 'pitch up')}.`,
-      `Gear up ${K('G', 'GEAR UP')}: weapons stay SAFE until it is.`,
-    ] },
-    { title: 'ATTACK', lines: [
-      find,
-      `When it says <b>FIRE</b>: ${K('Space', 'tap FIRE')}. Extra targets: gun ${K('hold V', 'hold GUN')}.`,
-    ] },
-    { title: 'SURVIVE AND LAND', lines: [
-      `<b>MISSILE</b>: flares ${K('X', 'FLARES')} AND turn hard. Shot down: eject ${K('E', 'EJECT')}.`,
-      'Then land at the base that appears: gear down, slow, brake.',
-    ] },
-  ];
 }
 
 export class Result {

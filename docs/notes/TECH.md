@@ -52,7 +52,7 @@ src/
   render/scenery.js   builds scenery tiles (mountains, hills, trees, ground, city, sea)
   render/renderer.js  camera, world, bases, aircraft layers, lights, weapons, effects
   render/particles.js smoke, dust, sparks
-  ui/hud.js           HUD: radar, instructor box, weapon card, landing guide, touch controls
+  ui/hud.js           HUD: radar, instructor box, weapon card, height callouts, touch controls
   ui/cockpit.js       instrument panel, one look per aircraft (cockpitStyle)
   ui/weapon_aids.js   bomb sight (guided) and release cue (unguided)
   ui/screens.js       start menu, pause, result screen, settings/best-score storage
