@@ -13,6 +13,8 @@ const NAMETAG_FONT_PX = 20;
 const NAMETAG_TEXT_W = 148;
 // Touch EJECT button: second tap must come within this many seconds.
 const EJECT_ARM_S = 2.5;
+// Touch screens: the instructor's line shows this long, then hides (the sight keeps his spot).
+const INSTRUCTOR_LIVE_S = 4;
 
 const HELMET = `<svg viewBox="0 0 64 64" aria-hidden="true">
   <defs><linearGradient id="hv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5d7da8"/><stop offset="1" stop-color="#0d1626"/></linearGradient></defs>
@@ -154,6 +156,7 @@ export class Hud {
     }
     f.messages.length = 0;
     this.msgT += dt;
+    this.cls('live', this.el.instructor, 'live', this.msgQueue.length > 0 && this.msgT < INSTRUCTOR_LIVE_S);
     if (this.msgQueue.length > 1 && this.msgT > 3.2) { this.msgQueue.shift(); this.msgT = 0; this.showMsg(this.msgQueue[0]); }
 
     this.time += dt;

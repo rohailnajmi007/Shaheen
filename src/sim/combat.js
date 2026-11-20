@@ -7,7 +7,7 @@
 // dispersion) with the jet's own velocity added, so where they go depends on the
 // jet's position, attitude and speed, nothing else.
 import { G } from './aircraft.js';
-import { AIR_DEFENCE, COUNTERMEASURES, DAMAGE, GROUND_UNITS } from '../data/combat.js';
+import { AIR_DEFENCE, COUNTERMEASURES, DAMAGE, GROUND_UNITS, STRIKE } from '../data/combat.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -270,7 +270,8 @@ export class Combat {
     const P = AIR_DEFENCE[t.kind];
     t.reload = Math.max(0, (t.reload ?? 0) - dt);
     const inFlight = this.threats.some((m) => m.src === t && m.alive);
-    const on = this.canEngage(t, P, dist) && t.missiles > 0 && t.reload <= 0 && !inFlight;
+    const on = this.canEngage(t, P, dist) && t.missiles > 0 && t.reload <= 0 && !inFlight
+      && (this.samLaunches || 0) < STRIKE.maxSamLaunches;
     t.lockT = on ? (t.lockT ?? 0) + dt : 0;
     if (on) this.radarLock = true;
     if (on) this.f.say('SAM LOCK! Get LOW under its radar, or flares and BREAK!', true, `samlock${t.x}`);
@@ -282,6 +283,7 @@ export class Combat {
       M: P.missile, src: t, target: 'ac', alive: true, closest: Infinity,
     });
     t.missiles -= 1;
+    this.samLaunches = (this.samLaunches || 0) + 1;
     t.reload = P.reloadS;
     t.lockT = 0;
     this.f.emit('samLaunch', { x: t.x, y: t.h });
@@ -337,7 +339,9 @@ export class Combat {
       m.motor = m.t < M.boostS;
       // Fuse: proximity to the jet (whatever it is chasing), or to its decoy.
       let boom = null;
-      if (this.airborne()) {
+      // A missile chasing a decoy fuses on the decoy only (flares leave right next to
+      // the jet: fusing on the jet too made decoys useless, owner 2026-11-20).
+      if (this.airborne() && (m.target === 'ac' || m.target === null)) {
         const dJet = segDist(m.px, m.py, m.x, m.y, c.x, c.y);
         m.closest = Math.min(m.closest, dJet);
         if (dJet <= M.fuseM) boom = { hit: true, d: dJet };

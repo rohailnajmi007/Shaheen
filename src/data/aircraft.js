@@ -59,6 +59,9 @@ const COMMON = {
   blackoutFullG: 9,
   redoutStartG: -1.5,
   redoutFullG: -4,
+  // Instructor lines (owner 2026-11-20): 'full' coaching (trainer) or 'minimal'
+  // (fighters: urgent lines only: stall, pull up, gear, SAM, hits, results).
+  instructorLines: 'minimal',
   // Weapons
   strikeCapable: false,
   bombCount: 0,
@@ -102,6 +105,7 @@ export const AIRCRAFT = [
     name: 'Super Mushshak',
     role: 'Trainer',
     rank: 'AVN CDT', rankCall: 'Cadet', rankFull: 'Aviation Cadet', rankBadge: 'white', homeBase: 'risalpur',
+    instructorLines: 'full',
     stats: { speed: 0.25, agility: 0.55, difficulty: 0.15 },
     massKg: 1100, maxThrustN: 8400, thrustZeroSpeedKt: 215, speedResponse: 1.4,
     engineSpoolS: 1.5, hasPropeller: true, sound: 'prop',

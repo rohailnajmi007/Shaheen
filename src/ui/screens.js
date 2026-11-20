@@ -3,6 +3,7 @@ import { AIRCRAFT } from '../data/aircraft.js';
 import { BASES, routesFrom, TIMES } from '../data/world.js';
 import { KEY_HELP } from '../input.js';
 import { GROUND_UNITS } from '../data/combat.js';
+import { isTouch } from './touch.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -255,8 +256,9 @@ export class Pause {
   get open() { return this.root.classList.contains('show'); }
 }
 
-// Pre-flight briefing in the debrief's style (owner, 2026-11-19): shown before every
-// take-off; Enter starts, Esc back to the menu. The flight waits until it closes.
+// Pre-flight pop-up in the debrief's style. Strike missions in a fighter first get
+// three short pages of pilot's notes, then the briefing; everything else goes
+// straight to the briefing. Enter = next / start, Esc = back to the menu. The flight waits.
 export class Briefing {
   constructor(root, { onStart, onMenu }) {
     this.root = root;
@@ -264,81 +266,135 @@ export class Briefing {
     this.onMenu = onMenu;
     this.shownAt = 0;
   }
+
   show(f, opts) {
-    const d = f.data;
+    this.f = f;
+    this.opts = opts;
+    this.steps = f.mode === 'strike' && f.data.instructorLines !== 'full' ? guideSteps(f, isTouch()) : [];
+    this.page = 0;
+    this.render();
+    this.root.classList.add('show');
+  }
+
+  // Enter / the main button: next guide page, then the briefing, then start.
+  next() {
+    if (this.page < this.steps.length) { this.page++; this.render(); } else this.onStart();
+  }
+  back() { if (this.page > 0) { this.page--; this.render(); } }
+  skip() { this.page = this.steps.length; this.render(); }
+
+  render() {
+    if (this.page < this.steps.length) this.renderStep(); else this.renderBrief();
+    this.shownAt = performance.now();
+  }
+
+  renderStep() {
+    const s = this.steps[this.page];
+    const n = this.steps.length;
+    const last = this.page === n - 1;
+    this.root.innerHTML = `
+      <div class="modal debrief brief pnotes ok">
+        <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>PILOT'S NOTES</span></div>
+        <div class="gdots">${this.steps.map((_, i) => `<i class="${i === this.page ? 'on' : i < this.page ? 'done' : ''}"></i>`).join('')}</div>
+        <div class="gstep">STEP ${this.page + 1} OF ${n}</div>
+        <div class="gtitle2">${esc(s.title)}</div>
+        <ul class="glines">${s.lines.map((l) => `<li>${l}</li>`).join('')}</ul>
+        <div class="dfoot">
+          <div class="mbtns">
+            <button class="go">${last ? 'Mission briefing' : 'Next'} <kbd>Enter</kbd></button>
+            ${this.page > 0 ? '<button class="gback ghost">Back</button>' : ''}
+            <button class="gskip ghost">Skip</button>
+          </div>
+        </div>
+      </div>`;
+    $('.go', this.root).onclick = () => this.next();
+    const b = $('.gback', this.root); if (b) b.onclick = () => this.back();
+    $('.gskip', this.root).onclick = () => this.skip();
+  }
+
+  // The briefing: short rows in the official format, one line of orders.
+  renderBrief() {
+    const f = this.f, opts = this.opts, d = f.data;
     const strike = f.mode === 'strike';
     const pilot = `${d.rank} ${(opts.name || 'Shaheen').toUpperCase()}`;
-    const time = (TIMES[opts.time]?.label || 'Day').toUpperCase();
     const row = (k, v) => `<div class="drow"><span>${k}</span><i></i><b>${esc(v)}</b></div>`;
-    const count = (list) => {
-      const m = new Map();
-      for (const t of list) { const l = GROUND_UNITS[t.kind].label; m.set(l, (m.get(l) || 0) + 1); }
-      return [...m].map(([l, n]) => (n > 1 ? `${n} x ${l}` : l)).join(', ');
-    };
     const dep = f.bases[0];
-    let rows, notes, head, sub;
+    let rows, order, head, sub;
     if (strike) {
-      const objs = f.objectives, defs = f.defences;
+      const objs = f.objectives;
+      const sams = f.defences.filter((t) => t.role === 'sam').length;
+      const kinds = [...new Set(objs.map((t) => GROUND_UNITS[t.kind].label))].join(', ');
       head = 'STRIKE MISSION';
-      sub = `${objs.length} GROUND TARGETS · CLEARED HOT`;
+      sub = `${objs.length} GROUND TARGETS`;
       rows = [
-        row('DEPARTURE', `${dep.short} · TAKE OFF`),
-        row('TARGET AREA', `${(objs[0].x / 1000).toFixed(1)} KM DOWNRANGE`),
-        row('TARGETS', count(objs)),
-        row('KNOWN THREATS', count(defs)),
-        row('LOADOUT', `${d.bombCount} x ${d.weaponName}`),
-        d.gun && row('GUN', `${d.gun.name} · ${d.gun.rounds} RDS`),
-        row('COUNTERMEASURES', `${d.countermeasures} FLARES / CHAFF`),
-        row('RECOVERY', 'BASE ASSIGNED AFTER THE ATTACK · LAND'),
-        row('TIME', time),
+        row('TAKE OFF FROM', dep.short),
+        row('TARGETS', `${objs.length}: ${kinds}`),
+        row('DISTANCE', `${Math.round(objs[0].x / 1000)} KM AHEAD`),
+        row('THREATS', sams ? `${sams} SAM SITE${sams > 1 ? 'S' : ''}` : 'NONE KNOWN'),
+        row('WEAPONS', `${d.bombCount} x ${d.weaponName}${d.gun ? ' + GUN' : ''}`),
+        row('LAND AT', 'SHOWN AFTER THE ATTACK'),
       ];
-      notes = [
-        d.bombCount < objs.length ? `${d.bombCount} weapons for ${objs.length} targets: finish the rest with the gun (V).` : `One weapon per target. The gun (V) is your back-up for misses.`,
-        'Your weapon picks the nearest target ahead. Air defences are targets too.',
-        'Each SAM battery has one missile. Make it miss and the sky is yours.',
-        'SAMs cannot see you below 150 ft. Each battery has 2 missiles.',
-        'Flares alone will not save you: drop them (X) AND break hard across the missile.',
-        'If she is shot to pieces, E ejects you.',
-      ];
+      order = 'Take off, destroy the targets, land at the base that appears.';
     } else {
       const far = f.dest !== f.bases[1] && f.bases.length > 2;
       head = 'FERRY FLIGHT';
-      sub = `CLEARED ${dep.short} TO ${f.dest.short}`;
+      sub = `${dep.short} TO ${f.dest.short}`;
       rows = [
-        row('DEPARTURE', `${dep.short} · TAKE OFF`),
-        row('DESTINATION', `${f.dest.short} · LAND AND STOP`),
-        row('DISTANCE', `${(f.dest.x / 1000).toFixed(1)} KM`),
-        far && row('REFUEL STOP', `${f.bases[1].short} IF NEEDED`),
-        row('FUEL', `${d.fuelKg} KG`),
-        row('APPROACH SPEED', `${f.approachKt()} KT`),
-        row('TIME', time),
+        row('TAKE OFF FROM', dep.short),
+        row('LAND AT', f.dest.short),
+        row('DISTANCE', `${Math.round(f.dest.x / 1000)} KM`),
+        far && row('FUEL STOP', `${f.bases[1].short} (IF LOW)`),
       ];
-      notes = [`Deliver the ${d.name} to ${f.dest.short} in one piece: land and stop on the runway.`];
+      order = `Take off, fly to ${f.dest.short}, land and stop on the runway.`;
     }
     this.root.innerHTML = `
       <div class="modal debrief brief ${strike ? 'warn' : 'ok'}">
         <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>${strike ? 'MISSION BRIEFING' : 'FLIGHT ORDERS'}</span></div>
-        <div class="dmeta">${esc(`${pilot} · ${d.name} · ${strike ? 'AIR TO GROUND' : 'FERRY'}`.toUpperCase())}</div>
+        <div class="dmeta">${esc(`${pilot} · ${d.name}`.toUpperCase())}</div>
         <div class="stamp"><div class="shead">${head}</div><div class="ssub">${esc(sub)}</div></div>
         <div class="drows">${rows.filter(Boolean).join('')}</div>
-        <ul class="bnotes">${notes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+        <ul class="bnotes"><li>${esc(order)}</li></ul>
         <div class="dfoot">
-          <div class="rscore">ENGINE START: <b>E</b></div>
           <div class="mbtns">
-            <button class="go">${strike ? 'Start mission' : 'Start flight'} <kbd>Enter</kbd></button>
+            <button class="go">Start mission <kbd>Enter</kbd></button>
+            ${this.steps.length ? '<button class="gback ghost">How to</button>' : ''}
             <button class="tomenu ghost">Main menu <kbd>Esc</kbd></button>
           </div>
         </div>
       </div>`;
     $('.go', this.root).onclick = () => this.onStart();
+    const b = $('.gback', this.root); if (b) b.onclick = () => { this.page = 0; this.render(); };
     $('.tomenu', this.root).onclick = () => this.onMenu();
-    this.shownAt = performance.now();
-    this.root.classList.add('show');
   }
+
   // Ignore the Enter that opened it (menu FLY / Fly again fire on the same key press).
   get fresh() { return performance.now() - this.shownAt < 300; }
   hide() { this.root.classList.remove('show'); }
   get open() { return this.root.classList.contains('show'); }
+}
+
+// Pilot's notes: three short pages, strike missions in a fighter only (owner
+// 2026-11-20: "not 7 pages"). Keyboard or touch wording.
+function guideSteps(f, touch) {
+  const d = f.data;
+  const K = (kb, tc) => `<kbd>${touch ? tc : kb}</kbd>`;
+  const find = d.weaponIsMissile ? 'Fly at the targets until a red <b>LOCK</b> box appears on one.'
+    : d.bombGuided ? 'Fly at about 300 ft until the target sits in the bracket on the sight.'
+    : 'Fly level at about 300 ft and watch the RELEASE CUE.';
+  return [
+    { title: 'TAKE OFF', lines: [
+      `Engine ${K('E', 'ENGINE')}, full throttle ${K('hold ↑', 'slider up')}, nose up at ${d.rotateKt} kt ${K('hold ←', 'pitch up')}.`,
+      `Gear up ${K('G', 'GEAR UP')}: weapons stay SAFE until it is.`,
+    ] },
+    { title: 'ATTACK', lines: [
+      find,
+      `When it says <b>FIRE</b>: ${K('Space', 'tap FIRE')}. Extra targets: gun ${K('hold V', 'hold GUN')}.`,
+    ] },
+    { title: 'SURVIVE AND LAND', lines: [
+      `<b>MISSILE</b>: flares ${K('X', 'FLARES')} AND turn hard. Shot down: eject ${K('E', 'EJECT')}.`,
+      'Then land at the base that appears: gear down, slow, brake.',
+    ] },
+  ];
 }
 
 export class Result {

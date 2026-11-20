@@ -146,7 +146,7 @@ function handleActions() {
 
 addEventListener('keydown', (e) => {
   sound.unlock();
-  if (briefing.open && e.code === 'Enter' && !briefing.fresh) { e.preventDefault(); briefing.hide(); last = performance.now(); return; }
+  if (briefing.open && e.code === 'Enter' && !briefing.fresh) { e.preventDefault(); briefing.next(); return; }
   if (result.open && e.code === 'Enter') { e.preventDefault(); startFlight(flightOpts); }
   if (e.code === 'F3') { e.preventDefault(); fpsEl.classList.toggle('show'); }
 });

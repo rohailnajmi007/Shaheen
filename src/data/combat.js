@@ -26,6 +26,7 @@ export const STRIKE = {
   aaaOffsetM: [-260, 220],            // ... this far from it
   sams: [1, 2],                       // SAM batteries (one type, owner 2026-11-20)
   samBeforeM: 1200,                   // first SAM this far before the first target
+  maxSamLaunches: 1,                  // SAM missiles fired at the jet in the whole run, all sites (owner 2026-11-20)
   recoveryGapM: 4500,                 // landing base this far past the last target
 };
 
@@ -64,8 +65,8 @@ export const AIR_DEFENCE = {
 // sees the jet within reacquireDeg of the decoy (jet flying on in line with it)
 // re-acquires the jet at reacquirePerS. So: decoys AND break across the missile.
 export const COUNTERMEASURES = {
-  geomBase: 0.12, beamWeight: 0.6, gWeight: 0.35, gFull: 5,
-  reacquireDeg: 2.5, reacquirePerS: 2.5, reacquireAfterS: 0.6, // ... checked once the decoy is this old
+  geomBase: 0.35, beamWeight: 0.5, gWeight: 0.35, gFull: 5, // owner 2026-11-20: was 0.12/0.6, SAMs near impossible
+  reacquireDeg: 2.5, reacquirePerS: 1, // was 2.5 reacquireAfterS: 0.6, // ... checked once the decoy is this old
   perPress: 2,      // cartridges per press (a salvo)
   rangeM: 3500,     // a missile further than this from the jet ignores them (too early)
   minRangeM: 120,   // ... closer than this it is too late

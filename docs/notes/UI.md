@@ -81,3 +81,9 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 - **Pitch slider (left):** the finger sets where the handle should go; the handle follows on a damped spring (`PITCH_SLIDER`: stiffness 75, damping 17; owner found 30/11 too slow), so it has some weight. Pitch = handle offset from the middle (up = nose up), proportional. Let go: it settles back to the middle (softer spring).
 - **Round buttons (right), by phase:** ground: ENGINE (big), BRAKE; airborne with gear down or landing (destination revealed, within `LANDING_PHASE_M` 6 km): GEAR, BRAKE; attack (strike, targets not done, gear up): FIRE (big; lights up red, steady, once locked / on target), GUN (hold, three-rounds icon), FLARES, nothing else (owner); cruise: GEAR, BRAKE (+ FLARES, GUN in a strike). ENGINE joins any airborne set if the engine is off. Icons + short text (GEAR UP / GEAR DN, ENG ON / ENG OFF).
 - Throttle slider at the right edge, small pause button bottom left; weapon card moves to the bottom left. Shot down: tap the big EJECT cue.
+
+## Instructor, pilot's notes, briefing (owner 2026-11-20)
+- Instructor for every aircraft. `instructorLines` (`src/data/aircraft.js`): 'full' coaching for the Mushshak; 'minimal' for fighters = urgent lines only (stall, pull up, gear, SAM, hits, results, eject); `Flight.say` drops the rest.
+- Touch screens: the radar / targeting sight sits top left (it was hidden on phones); the instructor's line pops up as a slim strip under the warnings for `INSTRUCTOR_LIVE_S` (4 s) when he speaks.
+- Pilot's notes before the briefing, strike missions in fighters only: 3 pages (TAKE OFF, ATTACK, SURVIVE AND LAND), keyboard or touch wording, Skip.
+- Briefing simplified: strike rows TAKE OFF FROM, TARGETS, DISTANCE, THREATS, WEAPONS, LAND AT + one line of orders; ferry rows TAKE OFF FROM, LAND AT, DISTANCE, FUEL STOP. Supersedes the longer row list above.

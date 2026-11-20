@@ -19,7 +19,7 @@ const svg = (body, w = 2) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="
 const ICONS = {
   engine: svg('<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>'),
   gear: svg('<path d="M12 3v7M8 3h8"/><circle cx="12" cy="15.5" r="5.5"/><circle cx="12" cy="15.5" r="1.6" fill="currentColor"/>'),
-  brake: svg('<rect x="4.5" y="5" width="5" height="14" rx="1.5"/><rect x="14.5" y="5" width="5" height="14" rx="1.5"/>'),
+  brake: svg('<circle cx="12" cy="12" r="5.5"/><path d="M5.5 5.5a9.2 9.2 0 0 0 0 13M18.5 5.5a9.2 9.2 0 0 1 0 13"/>'), // brake warning symbol
   fire: svg('<circle cx="12" cy="12" r="7"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>'),
   gun: svg('<path d="M3 21V11Q3 6 5 3Q7 6 7 11V21Z"/><path d="M3 12h4"/><path d="M10 21V11Q10 6 12 3Q14 6 14 11V21Z"/><path d="M10 12h4"/><path d="M17 21V11Q17 6 19 3Q21 6 21 11V21Z"/><path d="M17 12h4"/>', 1.6), // three rounds
   flares: svg('<circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.8 2.8M16.2 16.2 19 19M5 19l2.8-2.8M16.2 7.8 19 5"/>'),
@@ -35,6 +35,7 @@ const BUTTONS = {
   brake: ['BRAKE', 'brake', 'hold', 'brake'],
 };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+export const isTouch = () => /[?&]touch=1/.test(location.search) || matchMedia('(pointer: coarse)').matches;
 
 export class TouchControls {
   constructor(root, input) {
@@ -62,8 +63,7 @@ export class TouchControls {
     this.pos = 0; this.vel = 0; this.target = 0; this.held = false; this.halfH = 1;
     this.phase = '';
     this.shown = '';
-    const forced = /[?&]touch=1/.test(location.search);
-    this.on = forced || matchMedia('(pointer: coarse)').matches;
+    this.on = isTouch();
     root.classList.toggle('on', this.on);
     new ResizeObserver(() => { this.halfH = Math.max(1, (this.track.clientHeight - this.thumb.clientHeight) / 2); }).observe(this.track);
     this.setupSlider();

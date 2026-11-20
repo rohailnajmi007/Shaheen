@@ -137,6 +137,7 @@ export class Flight {
 
   // Instructor line. urgent lines replace the current one at once.
   say(text, urgent = false, key = null) {
+    if (!urgent && this.data.instructorLines !== 'full') return; // fighters: the minimum
     if (key) {
       if (this.said.has(key)) return;
       this.said.add(key);

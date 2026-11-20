@@ -366,3 +366,44 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .tejectbtn svg { width: 40%; height: 40%; }
 .tejectbtn.show { display: flex; margin-right: 58px; } /* clear of the throttle slider */
 .tejectbtn.armed { background: #ff3b30; color: #fff; font-size: 8px; animation: blink 0.4s steps(2) infinite; }
+
+/* Touch screens (owner 2026-11-20): the radar / targeting sight sits top left; the
+   instructor's line pops up as a slim strip under the warnings while he talks. */
+#hud:has(.touch.on) .radar { display: block; grid-column: 1; order: 0; }
+#hud:has(.touch.on) .rcol { grid-column: -2 / -1; }
+#hud:has(.touch.on) .instructor { display: none; position: fixed; left: 0; right: 0; margin: 0 auto; top: 150px; width: min(440px, 58vw); min-height: 0; padding: 6px 10px; z-index: 2; }
+#hud:has(.touch.on) .itext { white-space: normal; font-size: 12px; }
+#hud:has(.touch.on) .instructor.live { display: flex; }
+#hud:has(.touch.on) .instructor .avatar { display: none; }
+@media (max-height: 520px) {
+  #hud:has(.touch.on) .radar { padding: 6px 8px; }
+  #hud:has(.touch.on) .radar-cv { height: 72px; }
+  #hud:has(.touch.on) .warnings { top: 118px; }
+}
+/* Pre-flight guide pages (fighters). */
+.pnotes .gdots { display: flex; gap: 6px; justify-content: center; margin-top: 16px; }
+.pnotes .gdots i { width: 22px; height: 4px; border-radius: 2px; background: #3a3a2a; }
+.pnotes .gdots i.done { background: #6b6a4f; }
+.pnotes .gdots i.on { background: var(--tone); }
+.gstep { text-align: center; font-size: 11px; letter-spacing: 0.3em; color: var(--ink-dim); }
+.gtitle2 { text-align: center; font-size: clamp(22px, 5vw, 30px); font-weight: 700; letter-spacing: 0.08em; color: var(--tone); }
+.glines { margin: 0; padding: 0 28px; list-style: none; display: grid; gap: 10px; font-size: 16px; line-height: 1.35; color: var(--ink); }
+.glines li::before { content: '> '; color: var(--tone); }
+.glines kbd { font-family: 'Chakra Petch', sans-serif; font-size: 13px; padding: 1px 7px; border: 1px solid #6b6a4f; border-radius: 3px; background: #24261a; color: #fff; white-space: nowrap; }
+.glines b { color: var(--tone); }
+#hud:has(.touch.on) .pslider { top: max(30%, 138px); } /* below the sight card */
+
+/* Short screens (phones sideways): compact briefing / notes so the buttons show. */
+@media (max-height: 520px) {
+  .debrief { gap: 7px; padding-bottom: 10px; }
+  .debrief .dhead { padding: 6px 16px; font-size: 10px; }
+  .debrief .stamp { margin: 6px 16px 6px; padding: 5px 14px 4px; }
+  .debrief .shead { font-size: 20px; }
+  .debrief .ssub { font-size: 10px; }
+  .debrief .drows { gap: 3px; font-size: 12px; padding: 0 16px; }
+  .debrief .dmeta, .debrief .bnotes { padding: 0 16px; }
+  .debrief .mbtns button { padding: 7px 12px; font-size: 12px; }
+  .pnotes .gdots { margin-top: 10px; }
+  .gtitle2 { font-size: 22px; }
+  .glines { gap: 6px; font-size: 14px; padding: 0 18px; }
+}

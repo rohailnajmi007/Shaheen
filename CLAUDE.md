@@ -60,7 +60,7 @@ out of scope until the owner says otherwise.
   automatically: no flap key), B brake, Space fire weapon, V gun (hold),
   X flares/chaff, E eject (once shot down) (air-to-ground mission), Z zoom, H help, M mute,
   Esc/P pause, R restart, F3 FPS. (Old F1 debug label: not ported yet.)
-- Instructor lines: aggressive, short shouted English, occasional censored curse
+- Instructor (2026-11-20: full coaching for the trainer, urgent lines only for fighters). Lines: aggressive, short shouted English, occasional censored curse
   (d*mn, h*ll, sh*tting, f*ck), nothing corny, under ~110 characters.
 - Ranks (owner, 2026-11-19): Mushshak AVN CDT, Mirage V FLT LT, JF-17 SQN LDR,
   F-16A/D WG CDR (J-10C WG CDR: my pick, owner to confirm). Name-tag crescent: white FLT LT (and cadet), blue SQN LDR, red WG CDR.
