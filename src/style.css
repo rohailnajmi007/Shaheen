@@ -114,7 +114,6 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .whp i { display: block; height: 100%; width: 100%; background: var(--green); transition: width 0.2s, background 0.3s; }
 .weapon.dmg .whp i { background: var(--amber); }
 .weapon.crit .whp i { background: var(--red); }
-.touch:not(.strike) .strike-only { display: none; }
 /* Shot down: big EJECT cue in the middle of the screen (tap it on touch screens). */
 .ejectcue { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; gap: 2px;
   padding: 12px 34px; border: 2px solid rgba(255,80,72,0.95); border-radius: 10px; background: rgba(60,8,6,0.72); color: #ff5048;
@@ -155,15 +154,41 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .keys.hide { opacity: 0; }
 .guide.show ~ .keys { opacity: 0; }
 
-.touch { display: none; position: absolute; inset: auto 0 0 0; padding: 14px; justify-content: space-between; align-items: flex-end; pointer-events: none; }
-.touch.on { display: flex; }
-.touch button { pointer-events: auto; border: 1px solid var(--line); background: var(--glass-hi); border-radius: 12px; padding: 10px; font-size: 12px; letter-spacing: 0.08em; touch-action: none; }
-.touch button.active { background: rgba(57,217,138,0.35); }
-.tleft { display: grid; gap: 10px; }
-.tbig { width: 86px; height: 70px; font-size: 13px !important; }
-.tright { display: flex; gap: 10px; align-items: flex-end; }
-.tbtns { display: grid; grid-template-columns: repeat(2, 64px); gap: 8px; }
-.tthr { pointer-events: auto; writing-mode: vertical-lr; direction: rtl; width: 46px; height: 190px; accent-color: var(--accent); }
+/* Touch controls (src/ui/touch.js): pitch slider left, round phase buttons right. */
+.touch { display: none; position: absolute; inset: 0; pointer-events: none; --big: clamp(78px, 21vh, 108px); --sm: clamp(52px, 13.5vh, 68px); }
+.touch.on { display: block; }
+.pslider { position: absolute; left: 14px; top: 30%; bottom: 74px; width: 84px; pointer-events: auto; touch-action: none; }
+.ptrack { position: absolute; left: 0; right: 0; top: 18px; bottom: 18px; }
+.ptrack::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 12px; transform: translateX(-50%); border-radius: 6px;
+  background: linear-gradient(rgba(93,252,160,0.28), rgba(10,18,30,0.55) 50%, rgba(255,194,74,0.28)); border: 1px solid var(--line); }
+.ptrack i { position: absolute; left: 50%; top: 50%; width: 40px; height: 2px; transform: translate(-50%, -50%); background: rgba(232,241,248,0.5); }
+.pthumb { position: absolute; left: 50%; top: 50%; width: 64px; height: 44px; border-radius: 22px; transform: translate(-50%, -50%);
+  background: rgba(20,34,52,0.82); border: 2px solid rgba(190,230,255,0.55); box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; pointer-events: none; }
+.pthumb b { display: block; width: 28px; height: 2px; border-radius: 1px; background: rgba(232,241,248,0.7); }
+.pslider.held .pthumb { border-color: var(--green); }
+.plab { position: absolute; left: 50%; transform: translateX(-50%); font-size: 9px; letter-spacing: 0.12em; color: var(--dim); white-space: nowrap; }
+.plab.up { top: 0; } .plab.dn { bottom: 0; }
+.tpause { position: absolute; left: 34px; bottom: 16px; width: 44px; height: 44px; border-radius: 50%; padding: 11px; pointer-events: auto; touch-action: none;
+  background: rgba(20,34,52,0.6); border: 2px solid rgba(190,230,255,0.4); color: var(--txt); }
+.tpause svg { width: 100%; height: 100%; }
+.tbtns { position: absolute; right: 74px; bottom: 18px; width: 0; height: 0; }
+.tb { display: none; position: absolute; width: var(--sm); height: var(--sm); border-radius: 50%; padding: 0; pointer-events: auto; touch-action: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--txt);
+  background: rgba(20,34,52,0.6); border: 2px solid rgba(190,230,255,0.45); font: 600 9px/1 'Chakra Petch', sans-serif; letter-spacing: 0.06em; }
+.tb.show { display: flex; }
+.tb svg { width: 44%; height: 44%; }
+.tb[data-slot="0"] { right: 0; bottom: 0; width: var(--big); height: var(--big); font-size: 11px; }
+.tb[data-slot="1"] { right: calc(var(--big) + 12px); bottom: 0; }
+.tb[data-slot="2"] { right: calc(var(--big) * 0.82); bottom: calc(var(--big) * 0.82); }
+.tb[data-slot="3"] { right: 0; bottom: calc(var(--big) + 12px); }
+.tb[data-slot="4"] { right: calc(var(--big) + var(--sm) + 22px); bottom: 0; }
+.tb.active { background: rgba(57,217,138,0.45); border-color: var(--green); }
+.tb-fire { border-color: rgba(255,130,120,0.6); color: #ffcfca; }
+.tb-fire.hot { background: rgba(255,60,50,0.85); border-color: #ff8a80; color: #fff; box-shadow: 0 0 18px rgba(255,60,50,0.7); }
+.tthr { position: absolute; right: 12px; bottom: 30px; width: 44px; height: clamp(150px, 42vh, 220px); pointer-events: auto; touch-action: none;
+  writing-mode: vertical-lr; direction: rtl; accent-color: var(--accent); }
+.tthr-lab { position: absolute; right: 22px; bottom: 10px; font-size: 10px; letter-spacing: 0.12em; color: var(--dim); }
 .touch.on ~ .keys, #hud:has(.touch.on) .keys { display: none; }
 #hud:has(.touch.on) .nameplate { display: none; }
 
@@ -329,3 +354,7 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
   .acimg img { max-height: 32px; }
   .stats { display: none; }
 }
+
+/* Touch screens: weapon card bottom left, beside the pitch slider, clear of the buttons. */
+#hud:has(.touch.on) .weapon { position: fixed; top: auto; right: auto; left: 112px; bottom: 12px; transform: none; max-width: 240px; padding: 8px 12px; }
+#hud:has(.touch.on) .weapon .wstate { font-size: 14px; }

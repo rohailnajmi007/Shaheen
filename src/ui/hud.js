@@ -2,6 +2,7 @@
 import { KT } from '../sim/aircraft.js';
 import { KEY_HELP } from '../input.js';
 import { Cockpit } from './cockpit.js';
+import { TouchControls } from './touch.js';
 import { drawBombSight, ReleaseCue } from './weapon_aids.js';
 import { REFUEL } from '../data/world.js';
 
@@ -56,21 +57,7 @@ export class Hud {
       <div class="card refuel"><label>FUEL TRUCK</label><div class="rbar"><i></i></div></div>
       <div class="nameplate"><div class="rank"></div><img class="wings" alt="" /><div class="tagname"></div></div>
       <div class="keys"></div>
-      <div class="touch">
-        <div class="tleft">
-          <button data-hold="pitchUp" class="tbig">NOSE<br>UP</button>
-          <button data-hold="pitchDown" class="tbig">NOSE<br>DOWN</button>
-        </div>
-        <div class="tright">
-          <div class="tbtns">
-            <button data-act="engine">ENG</button><button data-act="gear">GEAR</button><button data-hold="brake">BRK</button>
-            <button data-act="drop" class="strike-only">FIRE</button><button data-hold="gun" class="strike-only">GUN</button>
-            <button data-act="countermeasure" class="strike-only">FLR</button>
-            <button data-act="pause">II</button>
-          </div>
-          <input class="tthr" type="range" min="0" max="100" value="0" orient="vertical" aria-label="Throttle" />
-        </div>
-      </div>`;
+      <div class="touch"></div>`;
     this.el = {};
     for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'ejectcue', 'instructor', 'wname', 'wstate', 'wsub', 'gl1', 'gl2'])
       this.el[k] = $(`.${k}`, root);
@@ -94,27 +81,8 @@ export class Hud {
   }
 
   setupTouch() {
-    const inp = this.input;
-    const t = this.el.touch;
-    const coarse = matchMedia('(pointer: coarse)').matches;
-    t.classList.toggle('on', coarse);
-    for (const b of t.querySelectorAll('[data-hold]')) {
-      const a = b.dataset.hold;
-      const on = (v) => (e) => {
-        e.preventDefault();
-        if (a === 'brake') inp.touch.brake = v;
-        else if (a === 'gun') inp.touch.gun = v;
-        else inp.touch.pitch = v ? (a === 'pitchUp' ? 1 : -1) : 0;
-        b.classList.toggle('active', v);
-      };
-      b.addEventListener('pointerdown', on(true));
-      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, on(false));
-    }
-    for (const b of t.querySelectorAll('[data-act]')) b.addEventListener('pointerdown', (e) => { e.preventDefault(); inp.press(b.dataset.act); });
-    this.el.ejectcue.addEventListener('pointerdown', (e) => { e.preventDefault(); inp.press('engine'); });
-    const thr = $('.tthr', t);
-    thr.addEventListener('input', () => { inp.touch.throttleSet = thr.value / 100; });
-    this.el.tthr = thr;
+    this.touch = new TouchControls(this.el.touch, this.input);
+    this.el.ejectcue.addEventListener('pointerdown', (e) => { e.preventDefault(); this.input.press('engine'); });
   }
 
   start(flight, opts) {
@@ -131,7 +99,6 @@ export class Hud {
     this.cue.hide();
     this.cache.clear();
     this.el.weapon.classList.toggle('show', flight.mode === 'strike');
-    this.el.touch.classList.toggle('strike', flight.mode === 'strike');
     this.el.wname.textContent = d.weaponName || '';
     const strike = flight.mode === 'strike';
     this.el.keys.innerHTML = KEY_HELP.filter((k) => strike || !k[2]).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
@@ -180,7 +147,7 @@ export class Hud {
     this.cockpit.cue = this.fireCue(f);
     this.cockpit.draw(a, dt);
     this.cue.update(f, dt);
-    if (this.el.tthr && document.activeElement !== this.el.tthr) this.el.tthr.value = Math.round(a.throttle * 100);
+    this.touch.update(f, dt);
 
     if (f.mode === 'strike') {
       this.set('wname', this.el.wname, `${d.weaponName || 'WEAPON'}  x${a.bombsLeft}`);

@@ -75,3 +75,9 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 ## Briefing (before take-off, owner 2026-11-19)
 - `Briefing` in `src/ui/screens.js`, same `.debrief` sheet (plus `.brief`, `.bnotes`). Shown by `startFlight` before every flight (also Fly again / R); the sim waits (frame renders the parked jet, no steps) until Enter / Start (Esc / Main menu goes back). Ignores the Enter that opened it (300 ms).
 - Air to ground: PAKISTAN AIR FORCE | MISSION BRIEFING, amber STRIKE MISSION stamp ("N GROUND TARGETS · CLEARED HOT"), rows: departure, target area distance, targets, known threats, loadout, gun, countermeasures, recovery (assigned after the attack, land), time; tactics notes. Ferry: FLIGHT ORDERS, green FERRY FLIGHT stamp, departure, destination, distance, refuel stop, fuel, approach speed, time.
+
+## Touch controls (owner 2026-11-20, after Air Offense Command)
+- `src/ui/touch.js`, shown on touch (coarse pointer) screens or with `?touch=1` in the URL.
+- **Pitch slider (left):** the finger sets where the handle should go; the handle follows on a damped spring (`PITCH_SLIDER`: stiffness 75, damping 17; owner found 30/11 too slow), so it has some weight. Pitch = handle offset from the middle (up = nose up), proportional. Let go: it settles back to the middle (softer spring).
+- **Round buttons (right), by phase:** ground: ENGINE (big), BRAKE; airborne with gear down or landing (destination revealed, within `LANDING_PHASE_M` 6 km): GEAR, BRAKE; attack (strike, targets not done, gear up): FIRE (big; lights up red, steady, once locked / on target), GUN (hold, three-rounds icon), FLARES, nothing else (owner); cruise: GEAR, BRAKE (+ FLARES, GUN in a strike). ENGINE joins any airborne set if the engine is off. Icons + short text (GEAR UP / GEAR DN, ENG ON / ENG OFF).
+- Throttle slider at the right edge, small pause button bottom left; weapon card moves to the bottom left. Shot down: tap the big EJECT cue.
