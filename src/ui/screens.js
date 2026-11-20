@@ -47,9 +47,11 @@ export class Menu {
     this.step = 0;
     const base = import.meta.env.BASE_URL;
     root.innerHTML = `
-      <div class="menu-wrap">
-        <header class="brand"><div class="logo"><span>SHAHEEN</span></div></header>
-        <nav class="steps">${STEPS.map((st, i) => `<button class="stepdot" data-i="${i}"><b>${i + 1}</b><span>${st.id === 'dest' ? 'Route' : st.id === 'mode' ? 'Mission' : st.id === 'time' ? 'Time' : st.id[0].toUpperCase() + st.id.slice(1)}</span></button>`).join('')}</nav>
+      <div class="menu-wrap sheet">
+        <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>RESTRICTED</span></div>
+        <div class="mbody">
+        <header class="brand"><div class="logo"><span>SHAHEEN</span><small>FLIGHT AUTHORISATION · SORTIE ORDER</small></div></header>
+        <nav class="steps">${STEPS.map((st, i) => `<button class="stepdot" data-i="${i}"><b>${String(i + 1).padStart(2, '0')}</b><span>${st.id === 'dest' ? 'Route' : st.id === 'mode' ? 'Mission' : st.id === 'time' ? 'Time' : st.id[0].toUpperCase() + st.id.slice(1)}</span></button>`).join('')}</nav>
         <h2 class="steptitle"></h2>
         <section class="page" data-step="pilot">
           <input class="pname" maxlength="16" placeholder="Your name" spellcheck="false" autocomplete="off" />
@@ -73,15 +75,15 @@ export class Menu {
         </section>
         <section class="page" data-step="time">
           <div class="seg time">${Object.entries(TIMES).map(([k, t]) => `<button data-v="${k}">${t.label}</button>`).join('')}</div>
-          <p class="summary"></p>
-          <div class="best"></div>
         </section>
+        <div class="drows mlog"></div>
         <footer class="mfoot">
           <button class="ghost back">Back <kbd>Esc</kbd></button>
           <button class="fly next">Next <kbd>Enter</kbd></button>
           <button class="ghost keysbtn">Controls</button>
         </footer>
         <div class="keypop">${KEY_HELP.map(([k, t]) => `<div><kbd>${k}</kbd><span>${t}</span></div>`).join('')}<p>Gamepad: left stick pitch, triggers throttle, A fire, B brake, X flares, Y gear, LB engine.</p></div>
+        </div>
       </div>`;
     const name = $('.pname', root);
     name.value = settings.name;
@@ -181,7 +183,7 @@ export class Menu {
     const cur = this.current();
     const a = AIRCRAFT.find((x) => x.id === s.aircraft);
     for (const p of r.querySelectorAll('.page')) p.classList.toggle('on', p.dataset.step === cur.id);
-    $('.steptitle', r).textContent = cur.title;
+    $('.steptitle', r).textContent = `SECTION ${String(this.step + 1).padStart(2, '0')} · ${cur.title}`;
     for (const b of r.querySelectorAll('.stepdot')) {
       const st = STEPS[+b.dataset.i];
       const idx = steps.indexOf(st);
@@ -207,10 +209,19 @@ export class Menu {
     const sb = $('.seg.mode button[data-v="strike"]', r);
     sb.disabled = !a.strikeCapable;
     sb.querySelector('small').textContent = a.strikeCapable ? MODES[1].note : `Not available: the ${a.name} carries no weapons yet.`;
+    // The order sheet fills in as you go: sections not reached yet read PENDING.
     const route = routes.find((x) => x.id === s.dest);
-    $('.summary', r).textContent = `${a.rank} ${name} · ${a.name} · ${s.mode === 'strike' ? 'Air to ground' : route ? route.label : ''}`;
     const best = getBest(s);
-    $('.best', r).textContent = best ? `Best score: ${best}` : '';
+    const reached = (id) => steps.findIndex((st) => st.id === id) <= this.step;
+    const row = (k, id, v) => `<div class="drow${reached(id) ? '' : ' pend'}"><span>${k}</span><i></i><b>${esc(reached(id) ? v : 'PENDING')}</b></div>`;
+    $('.mlog', r).innerHTML = [
+      row('PILOT', 'pilot', `${a.rank} ${name}`),
+      row('AIRCRAFT', 'aircraft', `${a.name} · ${BASES[a.homeBase].short}`.toUpperCase()),
+      row('MISSION', 'mode', s.mode === 'strike' ? 'AIR TO GROUND' : 'FERRY FLIGHT'),
+      s.mode !== 'strike' && row('ROUTE', 'dest', route ? route.label.toUpperCase() : ''),
+      row('TIME OF DAY', 'time', TIMES[s.time].label.toUpperCase()),
+      best && `<div class="drow"><span>BEST SCORE</span><i></i><b>${best}</b></div>`,
+    ].filter(Boolean).join('');
     const last = this.step >= steps.length - 1;
     $('.next', r).innerHTML = last ? 'FLY <kbd>Enter</kbd>' : 'Next <kbd>Enter</kbd>';
     $('.next', r).classList.toggle('go', last);

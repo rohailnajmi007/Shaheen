@@ -87,3 +87,7 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 - Touch screens: the radar / targeting sight sits top left (it was hidden on phones); the instructor's line pops up as a slim strip under the warnings for `INSTRUCTOR_LIVE_S` (4 s) when he speaks.
 - No pilot's-notes pages before the briefing (owner 2026-11-20: removed, "don't like it"). No landing guide card on final either (removed, "not helpful"); the height callouts and PAPI lights stay.
 - Briefing simplified: strike rows TAKE OFF FROM, TARGETS, DISTANCE, THREATS, WEAPONS, LAND AT + one line of orders; ferry rows TAKE OFF FROM, LAND AT, DISTANCE, FUEL STOP. Supersedes the longer row list above.
+
+## Start screen look (owner 2026-11-20: "more military, like the briefings")
+- `.sheet` in `src/style.css` reuses the debrief paper (olive, scanlines, `.dhead` bar with PAKISTAN AIR FORCE / RESTRICTED). Stencil SHAHEEN + FLIGHT AUTHORISATION · SORTIE ORDER, numbered square section tabs (01 PILOT ...), SECTION nn · title, square khaki buttons (FLY turns green on the last step).
+- `.mlog`: the order fills in as dotted rows (PILOT, AIRCRAFT · home base, MISSION, ROUTE (ferry), TIME OF DAY, BEST SCORE); sections not reached yet read PENDING. Hidden on short screens (phones sideways), where the aircraft grid goes 3 wide.
