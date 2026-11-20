@@ -177,6 +177,7 @@ export class Flight {
     const a = this.ac;
     switch (name) {
       case 'engine': if (a.shotDown) this.ejectPilot(); else a.toggleEngine(); break; // E = eject once shot down
+      case 'eject': this.bailOut(); break; // touch EJECT button: any time airborne in a strike
       case 'gear': a.toggleGear(); break;
       case 'drop': this.dropStore(); break;
       case 'countermeasure': if (this.mode === 'strike') this.cb.dispense(); break;
@@ -224,7 +225,7 @@ export class Flight {
   // Missile can lock: airborne, gear fully up, still flying the mission.
   missileArmed() {
     const a = this.ac;
-    return this.mode === 'strike' && !a.onGround && !a.crashed && a.gearPos <= 0 && a.bombsLeft > 0 && this.state === 'flying';
+    return this.mode === 'strike' && !a.onGround && !a.crashed && !a.shotDown && a.gearPos <= 0 && a.bombsLeft > 0 && this.state === 'flying';
   }
 
   // Nearest live, unclaimed target between the missile's min and max range ahead.
@@ -397,7 +398,7 @@ export class Flight {
     const fpm = Math.abs(vy) * FT * 60;
     this.emit('touchdown', { fpm, x: a.pos.x });
     if (this.state !== 'flying') return;
-    if (a.shotDown) { this.crash(`Shot down by ${this.cb.killer}.`, fpm); return; }
+    if (a.shotDown) { this.crash(this.cb.killer ? `Shot down by ${this.cb.killer}.` : 'The pilot ejected; the jet flew into the ground.', fpm); return; }
     this.worstFpm = Math.max(this.worstFpm, fpm);
     const where = this.runwayAt(a.pos.x);
     const p = a.touchdownPitch * 180 / Math.PI;
@@ -567,6 +568,15 @@ export class Flight {
   }
 
   // E after being shot down: the seat fires out along the jet's up axis, chute later.
+  // Eject from a jet that still flies (touch EJECT button, owner 2026-11-20): it is
+  // abandoned (no engine, no controls) and the seat fires.
+  bailOut() {
+    const a = this.ac;
+    if (this.mode !== 'strike' || a.onGround || a.crashed || this.eject || this.state !== 'flying') return;
+    if (!a.shotDown) { a.shotDown = true; a.controls = false; a.engineOn = false; }
+    this.ejectPilot();
+  }
+
   ejectPilot() {
     const a = this.ac;
     if (this.eject || !a.shotDown || a.crashed) return;

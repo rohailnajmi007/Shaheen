@@ -83,7 +83,7 @@ const COMMON = {
   // Stores drawn under the jet: one per hardpoint, so at most hardpoints.length show
   // even when bombCount is larger (owner: 4 carried, 2 drawn).
   // Strike mission: first ground target this far (m) from the departure threshold.
-  strikeAreaStartM: 4500,
+  strikeAreaStartM: 8000, // owner 2026-11-20: was 4500, the attack came too soon after take-off
   // Missile lock: only airborne with the gear up; the seeker needs lockS seconds on a
   // target between rangeMin and rangeMax ahead before it reads LOCKED.
   missile: { rangeMin: 500, rangeMax: 4000, lockS: 1.5, dropS: 0.35, burnS: 8, speed: 420, accel: 140, turnDeg: 35, loft: 0.25, loftMax: 250 },
@@ -161,7 +161,7 @@ export const AIRCRAFT = [
     strikeCapable: true, bombCount: 2, hardpoints: [[236, 132], [244, 136]],
     weaponSprite: 'raad_body', weaponName: "RA'AD", weaponLabel: 'Cruise missile',
     weaponIsMissile: true, bombGuided: true,
-    strikeAreaStartM: 10000,
+    strikeAreaStartM: 15000, // was 10000
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 220, port: [318, 128], tracerEvery: 4 },
     countermeasures: 24,
     missile: { rangeMin: 1500, rangeMax: 8000, lockS: 2, dropS: 0.9, burnS: 60, speed: 240, accel: 50, turnDeg: 18,
@@ -205,7 +205,7 @@ export const AIRCRAFT = [
     weaponSprite: 'agm88_body', weaponName: 'AGM-88 HARM', weaponLabel: 'Air to ground missile',
     weaponIsMissile: true, bombGuided: true,
     // Targets further out than for bombs, so the HARM locks well after take-off.
-    strikeAreaStartM: 8000,
+    strikeAreaStartM: 12000, // was 8000
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [300, 100], tracerEvery: 5 },
     countermeasures: 30,
     lights: { navNear: [239, 116], navFar: [229, 112], tail: [10, 72], beacon: [16, 4], landing: [291, 153] },

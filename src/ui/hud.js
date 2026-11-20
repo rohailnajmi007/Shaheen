@@ -11,6 +11,8 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 // Flying name tag: largest name size (px) and the width the name may fill (px).
 const NAMETAG_FONT_PX = 20;
 const NAMETAG_TEXT_W = 148;
+// Touch EJECT button: second tap must come within this many seconds.
+const EJECT_ARM_S = 2.5;
 
 const HELMET = `<svg viewBox="0 0 64 64" aria-hidden="true">
   <defs><linearGradient id="hv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5d7da8"/><stop offset="1" stop-color="#0d1626"/></linearGradient></defs>
@@ -40,6 +42,7 @@ export class Hud {
         <div class="rcol">
           <div class="card panel"><canvas class="cockpit-cv"></canvas></div>
           <div class="card weapon"><div class="wname"></div><div class="wstate"></div><div class="wsub"></div><div class="whp"><i></i></div></div>
+          <button class="tejectbtn"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V8M6 13l6-6 6 6M5 3h14"/></svg><span>EJECT</span></button>
         </div>
       </div>
       <div class="warnings"></div>
@@ -59,7 +62,7 @@ export class Hud {
       <div class="keys"></div>
       <div class="touch"></div>`;
     this.el = {};
-    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'ejectcue', 'instructor', 'wname', 'wstate', 'wsub', 'gl1', 'gl2'])
+    for (const k of ['itext', 'phase', 'togo', 'warnings', 'callout', 'guide', 'weapon', 'refuel', 'keys', 'touch', 'ejectcue', 'tejectbtn', 'instructor', 'wname', 'wstate', 'wsub', 'gl1', 'gl2'])
       this.el[k] = $(`.${k}`, root);
     this.cockpit = new Cockpit($('.cockpit-cv', root));
     this.cue = new ReleaseCue($('.cue-cv', root));
@@ -83,6 +86,16 @@ export class Hud {
   setupTouch() {
     this.touch = new TouchControls(this.el.touch, this.input);
     this.el.ejectcue.addEventListener('pointerdown', (e) => { e.preventDefault(); this.input.press('engine'); });
+    // Touch EJECT (under the cockpit panel): two taps while the jet still flies (tap,
+    // then TAP AGAIN within EJECT_ARM_S), one tap once shot down.
+    const ej = this.el.tejectbtn;
+    this.ejectArmedT = -1;
+    ej.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const f = this.flight;
+      if (f?.ac.shotDown || this.ejectArmedT >= 0) { this.input.press('eject'); this.ejectArmedT = -1; }
+      else this.ejectArmedT = 0;
+    });
   }
 
   start(flight, opts) {
@@ -203,6 +216,12 @@ export class Hud {
     // Phase and distance.
     this.set('phase', this.el.phase, f.phase);
     this.cls('eject', this.el.ejectcue, 'show', !!a.shotDown && !f.eject && !a.crashed);
+    const canEject = this.touch.on && f.mode === 'strike' && f.state === 'flying' && !a.onGround && !a.crashed && !f.eject;
+    this.cls('ejbtn', this.el.tejectbtn, 'show', canEject);
+    if (this.ejectArmedT >= 0) { this.ejectArmedT += dt; if (this.ejectArmedT > EJECT_ARM_S || !canEject) this.ejectArmedT = -1; }
+    const armed = this.ejectArmedT >= 0;
+    this.cls('ejbtn', this.el.tejectbtn, 'armed', armed);
+    this.set('ejtxt', this.el.tejectbtn.lastElementChild, armed ? 'TAP AGAIN' : 'EJECT');
     const toGo = f.dest.x - a.pos.x;
     const tgt = f.mode === 'strike' && !f.revealed ? f.targets.find((t) => t.objective && t.alive && t.x > a.pos.x) : null;
     const togo = tgt ? `TARGET ${((tgt.x - a.pos.x) / 1000).toFixed(1)} KM` : f.revealed ? `${f.dest.short} ${toGo > 0 ? (toGo / 1000).toFixed(1) + ' KM' : 'BEHIND'}` : 'LANDING BASE: AFTER ATTACK';
@@ -254,7 +273,7 @@ export class Hud {
   // Weapon cue lamp in the cockpit panel (took the flap box's place, owner 2026-11-20).
   fireCue(f) {
     const a = f.ac;
-    if (a.shotDown && !f.eject && !a.crashed) return 'eject';
+    if (a.shotDown) return f.eject || a.crashed ? 'none' : 'eject';
     if (f.mode !== 'strike') return 'none';
     if (a.bombsLeft > 0) {
       if (f.data.weaponIsMissile) {

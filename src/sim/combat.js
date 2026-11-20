@@ -91,7 +91,7 @@ export class Combat {
     const a = this.f.ac;
     if (a.shotDown && !a.crashed) {
       this.shotDownT += dt;
-      if (this.shotDownT > DAMAGE.shotDownCrashS) this.f.crash(`Shot down by ${this.killer}.`, -1);
+      if (this.shotDownT > DAMAGE.shotDownCrashS) this.f.crash(this.killer ? `Shot down by ${this.killer}.` : 'The pilot ejected; the jet flew into the ground.', -1);
     }
   }
 

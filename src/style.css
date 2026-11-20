@@ -358,3 +358,11 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 /* Touch screens: weapon card bottom left, beside the pitch slider, clear of the buttons. */
 #hud:has(.touch.on) .weapon { position: fixed; top: auto; right: auto; left: 112px; bottom: 12px; transform: none; max-width: 240px; padding: 8px 12px; }
 #hud:has(.touch.on) .weapon .wstate { font-size: 14px; }
+
+/* Touch EJECT button under the cockpit panel (air-to-ground, airborne). */
+.tejectbtn { display: none; width: 58px; height: 58px; border-radius: 50%; padding: 0; pointer-events: auto; touch-action: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: rgba(110,14,10,0.72); border: 2px solid #ff5048; color: #ffd0cc; font: 700 9px/1 'Chakra Petch', sans-serif; letter-spacing: 0.06em; }
+.tejectbtn svg { width: 40%; height: 40%; }
+.tejectbtn.show { display: flex; margin-right: 58px; } /* clear of the throttle slider */
+.tejectbtn.armed { background: #ff3b30; color: #fff; font-size: 8px; animation: blink 0.4s steps(2) infinite; }
