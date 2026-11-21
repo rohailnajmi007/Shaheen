@@ -159,7 +159,7 @@ export const AIRCRAFT = [
     sprite: 'super_mushshak_body', gearSprite: 'super_mushshak_gear', gearTravel: 26,
     propSprite: 'super_mushshak_prop', propCenter: [272, 57], propRadius: 34,
     pivot: [172, 105],
-    lights: { navNear: [152, 41], navFar: [142, 38], tail: [5, 46], beacon: [14, 4], landing: [240, 82] },
+    lights: { navNear: [170, 38], navFar: [176, 34], tail: [5, 46], beacon: [14, 4], landing: [240, 82] },
   },
   {
     ...COMMON,
@@ -182,7 +182,7 @@ export const AIRCRAFT = [
     elevatorSprite: 'k8_elevator', elevatorHinge: [24, 80],
     pivot: [143, 150], nozzle: [5, 93], flameLength: 0, flameWidth: 14,
     smoke: { colors: [[40, 170, 70], [245, 245, 245], [225, 50, 40], [50, 110, 230]], perS: 120, size: 3.2, life: 6, grow: 3.5, alpha: 0.9 },
-    lights: { navNear: [121, 125], navFar: [115, 123], tail: [1, 80], beacon: [20, 7], landing: [290, 125] },
+    lights: { navNear: [150, 102], navFar: [158, 99], tail: [1, 80], beacon: [20, 7], landing: [290, 125] },
   },
   {
     ...COMMON,
@@ -211,7 +211,7 @@ export const AIRCRAFT = [
     aam: { type: 'aim9', count: 2, points: [[170, 97], [205, 99]] },
     gun: { name: '2 x TYPE 30-1 30MM', rps: 40, muzzleMs: 780, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 200, port: [310, 89], tracerEvery: 4 },
     countermeasures: 16,
-    lights: { navNear: [134, 84], navFar: [128, 82], tail: [41, 53], beacon: [172, 45], landing: [331, 95] },
+    lights: { navNear: [100, 90], navFar: [110, 88], tail: [41, 53], beacon: [172, 45], landing: [331, 95] },
   },
   {
     ...COMMON,
@@ -237,7 +237,7 @@ export const AIRCRAFT = [
     aam: { type: 'aim9', count: 2 },
     gun: { name: '2 x DEFA 552 30MM', rps: 40, muzzleMs: 815, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 250, port: [300, 118], tracerEvery: 4 },
     countermeasures: 16,
-    lights: { navNear: [79, 104], navFar: [94, 101], tail: [16, 64], beacon: [6, 3], landing: [328, 131] },
+    lights: { navNear: [100, 108], navFar: [110, 105], tail: [16, 64], beacon: [6, 3], landing: [328, 131] },
   },
   {
     ...COMMON,
@@ -272,7 +272,7 @@ export const AIRCRAFT = [
     countermeasures: 24,
     missile: { rangeMin: 1500, rangeMax: 8000, lockS: 2, dropS: 0.9, burnS: 60, speed: 240, accel: 50, turnDeg: 18,
       loft: 0, loftMax: 0, cruiseAltM: 60, diveM: 900, flame: 0.4, trail: 0.25 },
-    lights: { navNear: [177, 119], navFar: [198, 115], tail: [20, 75], beacon: [41, 3], landing: [328, 143] },
+    lights: { navNear: [110, 118], navFar: [120, 115], tail: [20, 75], beacon: [41, 3], landing: [328, 143] },
   },
   {
     ...COMMON,
@@ -296,7 +296,7 @@ export const AIRCRAFT = [
     aam: { type: 'aim120', count: 4 },
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [312, 95], tracerEvery: 5 },
     countermeasures: 30,
-    lights: { navNear: [262, 128], navFar: [248, 122], tail: [23, 72], beacon: [16, 4], landing: [298, 164] },
+    lights: { navNear: [118, 110], navFar: [128, 107], tail: [23, 72], beacon: [16, 4], landing: [298, 164] },
   },
   {
     ...COMMON,
@@ -321,7 +321,7 @@ export const AIRCRAFT = [
     aam: { type: 'aim120', count: 4 },
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [300, 100], tracerEvery: 5 },
     countermeasures: 30,
-    lights: { navNear: [239, 116], navFar: [229, 112], tail: [10, 72], beacon: [16, 4], landing: [291, 153] },
+    lights: { navNear: [118, 110], navFar: [128, 107], tail: [10, 72], beacon: [16, 4], landing: [291, 153] },
   },
   {
     ...COMMON,
@@ -348,7 +348,7 @@ export const AIRCRAFT = [
     aam: { type: 'pl15', count: 4, points: [[222, 134], [250, 137]] },
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 200, port: [330, 122], tracerEvery: 4 },
     countermeasures: 30,
-    lights: { navNear: [183, 121], navFar: [197, 118], tail: [21, 81], beacon: [24, 2], landing: [340, 135] },
+    lights: { navNear: [85, 125], navFar: [95, 122], tail: [21, 81], beacon: [24, 2], landing: [340, 135] },
   },
 ];
 

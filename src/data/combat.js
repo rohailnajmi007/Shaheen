@@ -198,11 +198,13 @@ export const DOGFIGHT = {
   catchUpThrust: 1.3,
   // Rules.
   maxFallS: 40,            // a shot-down bandit is dropped after falling this long
-  // Missile kill (owner 2026-11-21): the bandit breaks into 2-3 sections that fall
-  // apart, tumbling and burning (cuts per opponent: `breakup` in src/data/opponents.js).
-  // threeChance: three pieces instead of two; sepMs: how fast they push apart; upMs:
-  // extra lift from the blast; spinDegS: tumble rate; dragX/dragY: air drag (1/s).
-  breakup: { threeChance: 0.45, sepMs: [3, 7], upMs: [1, 5], spinDegS: [20, 85], dragX: 0.3, dragY: 0.08 },
+  // Missile kill (owner 2026-11-21): the bandit is blown into `pieces` large chunks of
+  // debris (sprite split in src/render/renderer.js). blastMs: how hard the blast throws
+  // them out; upMs: extra upward; carry: share of the jet's velocity they keep; spinDegS:
+  // tumble; dragX / dragY: air drag per piece (1/s, random in the range; light pieces
+  // more); burnChance: share that burn (the heavy middle always does), the rest smoke.
+  breakup: { pieces: [7, 11], blastMs: [5, 16], upMs: [0, 6], carry: 0.9, spinDegS: [40, 200],
+    dragX: [0.35, 0.9], dragY: [0.04, 0.1], burnChance: 0.55 },
   noAmmoEndS: 5,           // your gun empty this long: fight over, he leaves, you go home
   fleeGoneM: 3500,         // ... gone once this far away
   outOfRangeM: 4000,       // further apart than this for outOfRangeS: he got away (next one comes)

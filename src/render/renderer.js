@@ -72,12 +72,14 @@ export const DAMAGE_SMOKE = { fromDamage: 0.03, ratePerS: [10, 60], size: [2, 6]
 const WATCH_KILL_S = 5;
 // Pieces off a bandit going down: count on the kill, extra while falling, chip size (tex px),
 // fling speed (m/s), air drag (1/s), how long they stay, and a cap.
-// Missile-kill break-up (owner 2026-11-21: realistic, no cartoon jagged edges): each cut
-// is a smooth line across the fuselage, slanted up to slantH x the sprite height and
-// waving wobbleH; the break edge is charred with soft dark bands (char: [width px, alpha])
-// and a faint hot rim. Burning sections: smoke size (m) by piece size, fire chance per frame.
-export const BREAKUP_VIEW = { slantH: 0.5, wobbleH: 0.035, points: 9,
-  char: [[22, 0.12], [12, 0.22], [6, 0.35], [2.5, 0.5]], rim: [1.6, 0.4], smokeM: [2.5, 5.5], fireChance: 0.85, chipsOnKill: 5 };
+// Missile-kill debris (owner 2026-11-21: large pieces of debris, realistic, no cartoon
+// jagged edges): the sprite is shared out among the sim's seeds (nearest seed, plus a
+// smooth low-frequency wobble of noisePx on a noiseGridPx grid, so tears are irregular but
+// soft); pixels within charPx of a tear darken towards burnt metal (charDark at the tear);
+// scorch: overall darkening range. Burning chunks: smoke size (m) by weight, fire chance per
+// frame; non-burning chunks trail thin grey smoke.
+export const BREAKUP_VIEW = { noisePx: 9, noiseGridPx: 22, charPx: 4, charDark: 0.75, scorch: [0.1, 0.35],
+  smokeM: [1.8, 5], fireChance: 0.8, chipsOnKill: 4 };
 export const DEBRIS = { onKill: 12, fallingChipsPerS: 1, chipPx: [16, 40], flingMs: 18, airDrag: 0.6, lifeS: 30, max: 80,
   // Each round that hits any jet (you or a bandit) may knock off a small bit near the hit.
   hitChance: 0.7, hitChips: [1, 2], hitChipPx: [4, 10], hitFlingMs: 12 };
@@ -85,6 +87,10 @@ export const DEBRIS = { onKill: 12, fallingChipsPerS: 1, chipPx: [16, 40], fling
 const CLOUD_SPAN_M = 60000;
 // Tail strobe: flash starts (s) within each period.
 export const STROBE = { periodS: 1.6, flashes: [0, 0.2], flashS: 0.06 };
+// Wingtip nav lights (owner 2026-11-21): red on the near (left) wingtip, green on the far
+// (right) one, pulsing together: a smooth rise to full and back down every periodS,
+// never quite out (min). Sizes in texture px (near, far: the far tip sits behind the jet).
+export const NAV_PULSE = { periodS: 1.4, min: 0.12, nearPx: 24, farPx: 18, farAlpha: 0.75 };
 // Crash breakup (see crashFx). Shard sizes in aircraft texture px (1/16 m).
 export const CRASH = {
   bigSeverity: 0.6,     // from this severity: explosion, debris blasted out
@@ -1202,8 +1208,14 @@ export class Renderer {
     const t = this.time;
     ctx.globalCompositeOperation = 'lighter';
     const dot = (img, p, r) => ctx.drawImage(img, p[0] - r, p[1] - r, r * 2, r * 2);
-    dot(SOFT.green, L.navNear, 26);
-    dot(SOFT.red, L.navFar, 20);
+    // Nav lights: a slow, even breathing pulse (NAV_PULSE).
+    const N = NAV_PULSE;
+    const k = N.min + (1 - N.min) * (0.5 - 0.5 * Math.cos((t / N.periodS) * Math.PI * 2));
+    ctx.globalAlpha = k * N.farAlpha;
+    dot(SOFT.green, L.navFar, N.farPx * (0.75 + 0.25 * k));
+    ctx.globalAlpha = k;
+    dot(SOFT.red, L.navNear, N.nearPx * (0.75 + 0.25 * k));
+    ctx.globalAlpha = 1;
     dot(SOFT.white, L.tail, 22);
     // White anti-collision strobe on top of the tail (owner): two quick flashes, pause.
     const ph = t % STROBE.periodS;
@@ -1769,6 +1781,7 @@ export class Renderer {
     cache.ratio = ratio;
     ps.forEach((q, i) => {
       const c = cache.pieces[i];
+      if (!c.cv) return;
       // Where it is drawn, in world m (the smoke and fire come from there).
       c.x = ax + (q.x - ax) * ratio; c.y = Math.max(0.5, ay + (q.y - ay) * ratio); c.rot = q.rot;
       ctx.save();
@@ -1780,54 +1793,78 @@ export class Renderer {
     });
   }
 
-  // Cut the sprite into the break-up sections along smooth, slanted, slightly wavy lines
-  // (shared by the two pieces either side, so they fit together), charred softly at the break.
+  // Share the sprite out among the debris seeds (sim: Dogfight.breakUp): each painted
+  // pixel goes to the nearest seed, nudged by smooth noise, so the chunks are irregular
+  // and fit together; torn edges darken softly, each chunk a little scorched.
   cutPieces(img, pieces) {
     const B = BREAKUP_VIEW, W = img.width, H = img.height, r = Math.random;
-    const src = tinted(img, this.lightBody);
-    const line = (u) => {
-      const slant = (r() - 0.5) * 2 * B.slantH * H, ph = r() * 6.3, ph2 = r() * 6.3, pts = [];
-      for (let i = 0; i < B.points; i++) {
-        const t = i / (B.points - 1), y = -4 + t * (H + 8);
-        const wob = (Math.sin(ph + t * 5.1) * 0.65 + Math.sin(ph2 + t * 11.7) * 0.35) * B.wobbleH * H;
-        pts.push([u * W + slant * (0.5 - t) + wob, y]);
-      }
-      return pts;
+    const src = makeCanvas(W, H);
+    src.getContext('2d').drawImage(tinted(img, this.lightBody), 0, 0);
+    const data = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
+    const seeds = pieces.map((p) => ({ x: p.u * W, y: p.v * H, w: p.mass * W * 0.04 }));
+    const G = B.noiseGridPx, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
+    const grids = seeds.map(() => Float32Array.from({ length: gw * gh }, () => (r() - 0.5) * 2 * B.noisePx));
+    const noise = (g, x, y) => {
+      const fx = x / G, fy = y / G, ix = Math.floor(fx), iy = Math.floor(fy);
+      // Smoothstep between grid points: no creases, so the tear lines curve.
+      let tx = fx - ix, ty = fy - iy; tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+      const a = g[iy * gw + ix], b = g[iy * gw + ix + 1], c = g[(iy + 1) * gw + ix], q = g[(iy + 1) * gw + ix + 1];
+      return (a + (b - a) * tx) * (1 - ty) + (c + (q - c) * tx) * ty;
     };
-    const edge = (x) => [[x, -4], [x, H + 4]];
-    const cuts = pieces.slice(1).map((p) => line(p.u0));
-    const along = (g, pts) => { // smooth curve from pts[0] (current point) to the last point
-      for (let i = 1; i < pts.length - 1; i++) g.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
-      g.lineTo(...pts[pts.length - 1]);
-    };
-    const out = pieces.map((p, i) => {
-      const L = i ? cuts[i - 1] : edge(-4), R = i < pieces.length - 1 ? cuts[i] : edge(W + 4);
-      const cv = makeCanvas(W, H), g = cv.getContext('2d');
-      g.beginPath();
-      g.moveTo(...L[0]); g.lineTo(...R[0]);
-      along(g, R);
-      g.lineTo(...L[L.length - 1]);
-      along(g, [...L].reverse());
-      g.closePath();
-      g.save(); g.clip(); g.drawImage(src, 0, 0); g.restore();
-      // Charred break: soft dark bands along each cut edge (only on the metal: source-atop).
-      g.globalCompositeOperation = 'source-atop';
-      g.lineCap = 'round'; g.lineJoin = 'round';
-      const edges = [i ? cuts[i - 1] : null, i < pieces.length - 1 ? cuts[i] : null].filter(Boolean);
-      for (const e of edges) {
-        const stroke = (lw, col) => { g.beginPath(); g.moveTo(...e[0]); along(g, e); g.strokeStyle = col; g.lineWidth = lw; g.stroke(); };
-        for (const [lw, al] of B.char) stroke(lw, `rgba(22,15,10,${al})`);
-        stroke(B.rim[0], `rgba(255,130,50,${B.rim[1]})`);
+    const label = new Int16Array(W * H).fill(-1);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (data[(y * W + x) * 4 + 3] < 8) continue;
+      let best = 0, bd = Infinity;
+      for (let k = 0; k < seeds.length; k++) {
+        const sd = seeds[k];
+        const dd = Math.hypot(x - sd.x, (y - sd.y) * 1.6) - sd.w + noise(grids[k], x, y);
+        if (dd < bd) { bd = dd; best = k; }
       }
-      const ox = (p.u0 + p.u1) / 2 * W, oy = H * 0.5;
-      // The break edges, in px from the piece origin (smoke and fire come out of them).
-      const holes = [i ? p.u0 : null, i < pieces.length - 1 ? p.u1 : null].filter((u) => u != null).map((u) => [u * W - ox, 0]);
-      return { cv, ox, oy, holes, x: null, y: null, rot: 0 };
+      label[y * W + x] = best;
+    }
+    // Distance (px, up to charPx) to the tear: stamped out from the tear pixels (those
+    // touching another piece), so only the edges cost anything.
+    const R = B.charPx, tear = new Float32Array(W * H).fill(R + 1);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const l = label[y * W + x];
+      if (l < 0) continue;
+      const other = (X, Y) => X >= 0 && Y >= 0 && X < W && Y < H && label[Y * W + X] >= 0 && label[Y * W + X] !== l;
+      if (!(other(x + 1, y) || other(x - 1, y) || other(x, y + 1) || other(x, y - 1))) continue;
+      for (let oy = -R; oy <= R; oy++) for (let ox = -R; ox <= R; ox++) {
+        const X = x + ox, Y = y + oy;
+        if (X < 0 || Y < 0 || X >= W || Y >= H || label[Y * W + X] !== l) continue;
+        const d = Math.hypot(ox, oy) + 0.5, k = Y * W + X;
+        if (d < tear[k]) tear[k] = d;
+      }
+    }
+    const out = pieces.map((p, l) => {
+      let x0 = W, y0 = H, x1 = -1, y1 = -1;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (label[y * W + x] === l) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+      if (x1 < 0) return { cv: null, x: null };
+      const w = x1 - x0 + 1, h = y1 - y0 + 1;
+      const cv = makeCanvas(w, h), g = cv.getContext('2d');
+      const im = g.createImageData(w, h);
+      const scorch = B.scorch[0] + r() * (B.scorch[1] - B.scorch[0]);
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        if (label[y * W + x] !== l) continue;
+        const si = (y * W + x) * 4, oi = ((y - y0) * w + (x - x0)) * 4;
+        const td = tear[y * W + x];
+        const ch = td > B.charPx ? 0 : B.charDark * (1 - td / (B.charPx + 1)) ** 1.5;
+        const k = (1 - scorch) * (1 - ch);
+        im.data[oi] = data[si] * k + 22 * (1 - k);
+        im.data[oi + 1] = data[si + 1] * k + 15 * (1 - k);
+        im.data[oi + 2] = data[si + 2] * k + 10 * (1 - k);
+        im.data[oi + 3] = data[si + 3];
+      }
+      g.putImageData(im, 0, 0);
+      return { cv, ox: p.u * W - x0, oy: p.v * H - y0, x: null, y: null, rot: 0 };
     });
-    return { pieces: out, ratio: 1, texM: null };
+    return { pieces: out, ratio: 1 };
   }
 
-  // Burning sections: thick black smoke and fire out of each break, a continuous trail.
+  // Falling debris: burning chunks trail thick black smoke and fire, the rest grey smoke.
   breakupSmoke(d, w, dt) {
     const cache = this.breakCache.get(w);
     if (!cache) return;
@@ -1835,20 +1872,16 @@ export class Renderer {
     w.pieces.forEach((p, i) => {
       const c = cache.pieces[i];
       if (p.landed || c.x == null) return;
-      const size = B.smokeM[0] + (B.smokeM[1] - B.smokeM[0]) * p.mass;
+      const size = (B.smokeM[0] + (B.smokeM[1] - B.smokeM[0]) * p.mass) * (p.burn ? 1 : 0.6);
       const sp = Math.hypot(p.vx, p.vy);
-      const cs = Math.cos(c.rot), sn = Math.sin(c.rot), m = d.texM * cache.ratio;
-      for (const [hx, hy] of c.holes) {
-        const lx = hx * m, ly = -hy * m;
-        const x = c.x + lx * cs - ly * sn, y = c.y + lx * sn + ly * cs;
-        let n = Math.max(12 * dt, (sp * dt) / (size * 0.6));
-        for (; n > 0; n -= 1) {
-          if (n < 1 && Math.random() > n) break;
-          const f = Math.random();
-          P.spawn('dark', x - p.vx * dt * f, y - p.vy * dt * f, p.vx * 0.08, 1, size, 2.5 + Math.random() * 1.5, { grow: 3, alpha: 0.7, ground: false, drag: 0.4 });
-        }
-        if (Math.random() < B.fireChance) P.spawn('fire', x, y, p.vx * 0.3, p.vy * 0.3, size * 0.8, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
+      let n = Math.max(10 * dt, (sp * dt) / (size * (p.burn ? 0.6 : 1.4)));
+      for (; n > 0; n -= 1) {
+        if (n < 1 && Math.random() > n) break;
+        const f = Math.random();
+        P.spawn(p.burn ? 'dark' : 'smoke', c.x - p.vx * dt * f, c.y - p.vy * dt * f, p.vx * 0.08, 1, size,
+          p.burn ? 2.5 + Math.random() * 1.5 : 1.5 + Math.random(), { grow: 3, alpha: p.burn ? 0.7 : 0.35, ground: false, drag: 0.4 });
       }
+      if (p.burn && Math.random() < B.fireChance) P.spawn('fire', c.x, c.y, p.vx * 0.3, p.vy * 0.3, size * 0.8, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
     });
   }
 

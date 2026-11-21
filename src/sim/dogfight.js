@@ -284,31 +284,37 @@ export class Dogfight {
     this.endBandit(true);
   }
 
-  // The sections a missile kill tears the bandit into: 2 or 3, cut across the fuselage at
-  // random points inside the opponent's `breakup.cuts` ranges. Each piece is a rigid body
-  // (x, y in m, rot = its pitch) holding the strip [u0, u1] of the sprite (fractions of
-  // the width from the tail); the renderer cuts its picture once and draws it there.
+  // A missile kill blows the bandit apart in the air (owner 2026-11-21: "a bunch of large
+  // pieces of debris", not two clean halves): K.pieces chunks, each round a seed point
+  // (u, v = fractions of the sprite; the renderer gives every painted pixel to its
+  // nearest seed, so the pieces are irregular and use the whole airframe). The blast
+  // throws them outward from the middle; each has its own drag, so they string out.
   breakUp(b) {
     const B = this.opp.breakup, K = this.D.breakup, d = this.opp;
-    const three = Math.random() < K.threeChance;
-    const cuts = three ? [rand(...B.cuts[0]), rand(...B.cuts[1])] : [rand(B.cuts[0][0], B.cuts[1][1])];
-    const us = [0, ...cuts, 1];
     const [W, H] = B.sizePx;
+    const n = randInt(K.pieces);
     const cosP = Math.cos(b.pitch), sinP = Math.sin(b.pitch);
+    const cu = 0.5, cv = 0.55; // blast centre (sprite fractions)
     const pieces = [];
-    for (let i = 0; i < us.length - 1; i++) {
-      const u0 = us[i], u1 = us[i + 1];
-      const ox = (u0 + u1) / 2 * W, oy = H * 0.5;            // piece origin (texture px)
+    for (let i = 0; i < n; i++) {
+      // Spread along the jet (stratified), mostly through the fuselage, one up in the fin.
+      const u = clamp((i + 0.5 + (Math.random() - 0.5) * 0.7) / n, 0.04, 0.96);
+      const v = i === 0 ? rand(0.15, 0.3) : rand(0.38, 0.8);
+      const ox = u * W, oy = v * H;
       const lx = (ox - d.pivot[0]) * d.texM, ly = -(oy - d.pivot[1]) * d.texM;
-      // Pushed apart along the body (tail back, nose on), a kick up from the blast.
-      const along = (i - (us.length - 2) / 2) * rand(...K.sepMs);
-      const up = rand(...K.upMs);
       const x = b.pos.x + lx * cosP - ly * sinP, y = b.pos.y + lx * sinP + ly * cosP;
+      // Outward from the blast centre (in the jet's frame, then to the world).
+      let ex = u - cu, ey = cv - v;
+      const el = Math.hypot(ex, ey) || 1; ex /= el; ey /= el;
+      const kick = rand(...K.blastMs);
+      const kx = ex * kick, ky = ey * kick + rand(...K.upMs);
+      const mass = 1 - Math.min(1, Math.abs(u - cu) * 1.6); // middle chunks are the heavy ones
       pieces.push({
-        i, u0, u1, ox, oy, x, y, px: x, py: y, rot: b.pitch, prot: b.pitch,
-        vx: b.vel.x + along * cosP - up * sinP + rand(-1.5, 1.5), vy: b.vel.y + along * sinP + up * cosP,
-        spin: (Math.random() < 0.5 ? -1 : 1) * rand(...K.spinDegS) * D2R * (1.2 - (u1 - u0)),
-        mass: u1 - u0, landed: false,
+        i, u, v, ox, oy, x, y, px: x, py: y, rot: b.pitch, prot: b.pitch,
+        vx: b.vel.x * K.carry + kx * cosP - ky * sinP, vy: b.vel.y * K.carry + kx * sinP + ky * cosP,
+        spin: (Math.random() < 0.5 ? -1 : 1) * rand(...K.spinDegS) * D2R * (1.3 - mass * 0.7),
+        drag: rand(...K.dragX) * (1.4 - mass * 0.6), dragY: rand(...K.dragY),
+        mass, burn: Math.random() < K.burnChance || mass > 0.6, landed: false,
       });
     }
     return pieces;
@@ -323,8 +329,8 @@ export class Dogfight {
       p.px = p.x; p.py = p.y; p.prot = p.rot;
       if (p.landed) continue;
       p.vy -= G * dt;
-      p.vx *= Math.exp(-K.dragX * dt / (0.4 + p.mass));
-      p.vy *= Math.exp(-K.dragY * dt);
+      p.vx *= Math.exp(-p.drag * dt);
+      p.vy *= Math.exp(-p.dragY * dt);
       p.x += p.vx * dt; p.y += p.vy * dt;
       p.rot += p.spin * dt;
       if (p.y <= 0.5) {
