@@ -118,3 +118,5 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 - Owner 2026-11-21: "Main menu" from a mission lands on the mission page (the one after the name), or on the name page if no name is saved. The air-to-air card names the gun by calibre only ("20 MM CANNON").
 - **Tab icon (owner 2026-11-21):** the eagle from the Falcons' Hearth art (`public/favicon.png` 192 px, `favicon-32.png`), replacing the green jet SVG.
 - **Engine sound (owner 2026-11-21):** fades out (about a second) once the jet crashes or the flight is over (`engineOff` passed to `Sound.update`).
+- **Cockpit panel tiers (owner 2026-11-21, `cockpitStyle`):** trainers (Mushshak, K-8) `analog` basic grey dials; old fighters (Mirage V, F-7PG) `darkAnalog` fighter-style dials, amber; modern (JF-17, F-16A) `glass` green monochrome MFDs; top of the line (F-16D, J-10C) `colorGlass` colour PFD with horizon and engine page.
+- **Instructor portrait (owner 2026-11-21):** owner's art of a pilot in helmet and oxygen mask (`public/instructor.png`, from `docs/reference/instructor_source.png`), nods while talking (replaces the SVG helmet).

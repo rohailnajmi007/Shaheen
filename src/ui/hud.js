@@ -23,16 +23,8 @@ const GUN_SOLUTION = { rangeM: 900, coneDeg: 1.5 };
 // and draws their trails and where they're going. zoomRate: how fast it switches (1/s).
 export const RADAR = { behindM: 800, aheadM: 2500, maxAheadM: 9000, marginM: 500, dogfightM: 2500, minAltM: 300, zoomRate: 3, trailEveryS: 0.08, trailMax: 120 };
 
-const HELMET = `<svg viewBox="0 0 64 64" aria-hidden="true">
-  <defs><linearGradient id="hv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5d7da8"/><stop offset="1" stop-color="#0d1626"/></linearGradient></defs>
-  <rect width="64" height="64" rx="12" fill="#1d2a1f"/>
-  <path d="M10 62c2-12 10-17 22-17s20 5 22 17z" fill="#3e5a34"/>
-  <path d="M14 34c0-14 8-24 18-24s18 10 18 24v6c0 4-3 7-7 7H21c-4 0-7-3-7-7z" fill="#15171a"/>
-  <path d="M17 30c1-8 7-13 15-13s14 5 15 13l-2 6H19z" fill="url(#hv)"/>
-  <path d="M20 22c3-3 7-4 12-4" stroke="#9fc3ff" stroke-width="2" fill="none" opacity=".6"/>
-  <rect x="24" y="40" width="16" height="6" rx="3" fill="#2a2d31"/>
-  <g class="mouth"><rect x="28" y="42" width="8" height="2" rx="1" fill="#0a0a0a"/></g>
-</svg>`;
+// Instructor portrait (owner's art 2026-11-21: fighter pilot in helmet and mask).
+const HELMET = `<img src="${import.meta.env.BASE_URL}instructor.png" alt="" />`;
 
 export class Hud {
   constructor(root, input) {

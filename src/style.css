@@ -53,8 +53,11 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .hud-top { position: absolute; top: 14px; left: 14px; right: 14px; display: grid; grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr) minmax(300px, 1fr); gap: 14px; align-items: start; }
 .instructor { display: flex; gap: 12px; padding: 12px; min-height: 86px; transition: border-color 0.2s; }
 .instructor .avatar { width: 58px; height: 58px; flex: none; border-radius: 12px; overflow: hidden; }
-.instructor.talk .mouth { animation: talk 0.18s steps(2) 8; transform-origin: 32px 43px; }
-@keyframes talk { 50% { transform: scaleY(2.4); } }
+.instructor .avatar { background: linear-gradient(160deg, #2c4258, #101a24); }
+.instructor .avatar img { width: 100%; height: 100%; display: block; image-rendering: auto; }
+/* Talking: a short nod of the head while a line comes in. */
+.instructor.talk .avatar img { animation: talk 0.22s ease-in-out 6; transform-origin: 50% 100%; }
+@keyframes talk { 50% { transform: translateY(1.5px) scale(1.02); } }
 .instructor.urgent { border-color: rgba(255,80,72,0.7); animation: shake 0.35s; }
 @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 .iname { font-size: 11px; letter-spacing: 0.2em; color: var(--accent); }

@@ -1,10 +1,12 @@
 // Cockpit instrument panel (top right), ported from the Godot instrument_panel.gd.
-// One look per aircraft (data field cockpitStyle):
-//  - 'analog'     (Super Mushshak): grey metal plate, round dials, dark labels.
-//  - 'darkAnalog' (Mirage V): round dials on a black-green plate, amber lettering,
-//                 amber Mach / G strip under the dials.
-//  - 'glass'      (F-16A/D): dark panel, two green MFD screens (speed tape + Mach + G,
-//                 altitude tape + vertical speed bar), three gear lights, flap box.
+// One look per aircraft (data field cockpitStyle), four tiers (owner 2026-11-21):
+//  - 'analog'     (trainers: Super Mushshak, K-8): basic grey plate, round dials.
+//  - 'darkAnalog' (old fighters: Mirage V, F-7PG): fighter-style round dials on a
+//                 black-green plate, amber lettering, amber Mach / G strip.
+//  - 'glass'      (modern: JF-17, F-16A): two monochrome green MFDs (speed tape + Mach +
+//                 G, altitude tape + vertical speed bar), gear lights, flap box.
+//  - 'colorGlass' (top of the line: F-16D, J-10C): colour PFD with artificial horizon,
+//                 engine page.
 // Drawn in the Godot panel's own 266 x 114 units, scaled to the canvas size.
 // Performance: everything that never moves (plate, dial faces, scales, labels,
 // screen bezels) is drawn ONCE to an offscreen layer (rebuilt only when the

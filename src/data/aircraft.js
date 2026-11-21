@@ -250,7 +250,7 @@ export const AIRCRAFT = [
     // stall/rotate speeds than the Mirage, less thrust than the F-16.
     massKg: 10800, maxThrustN: 66000, afterburnerN: 43000,
     fuelKg: 1100, burnFullKgS: 2.8, dragCoef: 1.3,
-    stallKt: 132, rotateKt: 152, maxSpeedKt: 900, cockpitStyle: 'colorGlass',
+    stallKt: 132, rotateKt: 152, maxSpeedKt: 900, cockpitStyle: 'glass',
     // Owner's art (tools/make_aircraft_sprites.py "jf17"): gear layer, all-moving tailplane.
     sprite: 'jf17_body', gearSprite: 'jf17_gear', gearTravel: 29,
     elevatorSprite: 'jf17_elevator', elevatorHinge: [55, 124],
@@ -301,7 +301,7 @@ export const AIRCRAFT = [
     stats: { speed: 1, agility: 0.9, difficulty: 0.7 },
     massKg: 12000, maxThrustN: 76000, afterburnerN: 53000,
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,
-    stallKt: 125, rotateKt: 145, maxSpeedKt: 900, cockpitStyle: 'glass',
+    stallKt: 125, rotateKt: 145, maxSpeedKt: 900, cockpitStyle: 'colorGlass',
     sprite: 'f16_body', elevatorSprite: 'f16_elevator', elevatorHinge: [58, 113],
     gearSprite: 'f16_gear', gearTravel: 33,
     pivot: [169, 175], nozzle: [6, 101], flameLength: 320, flameWidth: 30,
