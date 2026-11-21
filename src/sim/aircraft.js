@@ -87,6 +87,11 @@ export class Aircraft {
     return d.retractableGear && !this.onGround && this.gearPos < 1 && this.altFt < this.gearWarningFt
       && this.speedKt < d.stallKt * 1.5 && this.vsFpm < 0;
   }
+  // Share of the stores still aboard (0 = none carried or all gone, 1 = full load).
+  get loadFrac() { const n = this.data.bombCount || 0; return n > 0 ? this.bombsLeft / n : 0; }
+  get massKg() { return this.data.massKg + this.bombsLeft * (this.data.storeMassKg || 0); }
+  get storesPitch() { return 1 - (this.data.stores?.pitchLoss || 0) * this.loadFrac; }
+
   get afterburner() {
     const d = this.data;
     if (d.afterburnerN <= 0 || this.rpm < 0.95) return 0;
@@ -188,13 +193,13 @@ export class Aircraft {
     const authority = clamp(speed / rotateMs, 0.25, 1);
     const stick = this.stick;
     this.elevator = moveToward(this.elevator, stick, d.elevatorSpeed * dt);
-    let target = stick * d.pitchRateDeg * D2R * authority * this.controlFactor;
+    let target = stick * d.pitchRateDeg * D2R * authority * this.controlFactor * this.storesPitch;
     if (this.onGround && this.landingRoll && stick <= 0) target = Math.min(target, -d.derotateDeg * D2R);
     const takeoffAttitude = (d.maxGroundPitchDeg - 2) * D2R;
     if (this.onGround && !this.landingRoll && stick >= 0 && this.pitch > D2R && speed >= rotateMs && this.pitch < takeoffAttitude) {
       target = Math.max(target, d.autoRotateDeg * D2R);
     }
-    this.pitchRate = moveToward(this.pitchRate, target, d.pitchAccelDeg * D2R * dt);
+    this.pitchRate = moveToward(this.pitchRate, target, d.pitchAccelDeg * this.storesPitch * D2R * dt);
     const prev = this.pitch;
     this.pitch += this.pitchRate * dt;
 
@@ -269,7 +274,8 @@ export class Aircraft {
 
   integrate(dt) {
     const d = this.data;
-    const weight = d.massKg * G;
+    const mass = this.massKg;
+    const weight = mass * G;
     const speed = this.speed;
     const nose = { x: Math.cos(this.pitch), y: Math.sin(this.pitch) };
     const path = speed > 0.5 ? { x: this.vel.x / speed, y: this.vel.y / speed } : nose;
@@ -277,11 +283,11 @@ export class Aircraft {
     this.aoa = wrapAngle(this.pitch - Math.atan2(path.y, path.x));
     const cl = this.liftFraction(this.aoa) * (1 + this.flapValue(d.flapLift));
     const vs = d.stallKt / KT;
-    const liftMag = weight * (speed / vs) * (speed / vs) * cl;
+    const liftMag = d.massKg * G * (speed / vs) * (speed / vs) * cl; // stores: heavier, not more lift
     this.liftRatio = liftMag / weight;
 
     const dragMult = 1 + d.inducedDrag * cl * cl + this.flapValue(d.flapDrag) + d.gearDrag * this.gearPos
-      + (this.airbrakeOut ? d.airbrakeDrag : 0)
+      + (this.airbrakeOut ? d.airbrakeDrag : 0) + (d.stores?.dragAdd || 0) * this.loadFrac
       + (this.onGround ? 0 : d.pitchRateDrag * Math.abs(this.pitchRate / D2R));
     const dragMag = d.dragCoef * speed * speed * dragMult;
     const thrust = this.thrust(speed);
@@ -299,9 +305,9 @@ export class Aircraft {
         this.events.push({ type: 'liftoff' });
       } else {
         const normal = -fy;
-        let v = this.vel.x + fx / d.massKg * dt;
+        let v = this.vel.x + fx / mass * dt;
         const resist = d.rollingFriction + (this.braking ? d.brakeStrength : 0);
-        const dv = resist * normal / d.massKg * dt;
+        const dv = resist * normal / mass * dt;
         v = v <= dv ? 0 : v - dv;
         this.vel.x = v; this.vel.y = 0;
         this.pos.x += v * dt; this.pos.y = 0;
@@ -309,8 +315,8 @@ export class Aircraft {
       }
     }
 
-    this.vel.x += fx / d.massKg * dt;
-    this.vel.y += fy / d.massKg * dt;
+    this.vel.x += fx / mass * dt;
+    this.vel.y += fy / mass * dt;
     this.pos.x += this.vel.x * dt;
     this.pos.y += this.vel.y * dt;
 

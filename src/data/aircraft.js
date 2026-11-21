@@ -76,6 +76,12 @@ export const COMMON = {
   guidanceAccel: 15,
   bombScatterMs: 0,
   weaponIsMissile: false,
+  // Weight of the stores (owner 2026-11-21: loaded = heftier, lighter and more agile as
+  // they go): each weapon weighs storeMassKg; fully loaded the pitch rate is down by
+  // pitchLoss and drag up by dragAdd (both shrink with each weapon gone). The extra
+  // mass also raises the stall speed a little (lift is sized for the empty jet).
+  storeMassKg: 0,
+  stores: { pitchLoss: 0.15, dragAdd: 0.12 },
   // Gun (air to ground): null = none. rps rounds/s, muzzleMs m/s, dragK air drag
   // (decel = dragK * v^2), spreadMrad dispersion, dmg per round (src/data/combat.js hp),
   // port = muzzle on the sprite (texture px), tracerEvery = one tracer in N rounds.
@@ -102,6 +108,9 @@ export const COMMON = {
   // Smoky engine trail (renderer): kind 'smoke' grey / 'dark' black, puffs per frame and
   // chance each, size (m), life (s), alpha, grow, from this throttle, dryOnly = not in afterburner.
   engineSmoke: null,
+  // Gear layer drawn in front of the body while fully down (F-7PG: the main wheel
+  // stands in front of the stores); behind it while moving, so it hides as it retracts.
+  gearFrontWhenDown: false,
 };
 
 export const AIRCRAFT = [
@@ -148,7 +157,7 @@ export const AIRCRAFT = [
     sprite: 'mirage5_body', gearSprite: 'mirage5_gear', gearTravel: 48,
     pivot: [170, 159], nozzle: [16, 89], flameLength: 190, flameWidth: 26,
     strikeCapable: true, bombCount: 4, hardpoints: [[150, 140], [205, 140]],
-    weaponSprite: 'mk82_body', weaponName: 'MK 82', weaponLabel: 'Unguided bomb',
+    weaponSprite: 'mk82_body', weaponName: 'MK 82', weaponLabel: 'Unguided bomb', storeMassKg: 240,
     bombScatterMs: 2.5, blastRadiusM: 26,
     gun: { name: '2 x DEFA 552 30MM', rps: 40, muzzleMs: 815, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 250, port: [300, 118], tracerEvery: 4 },
     countermeasures: 16,
@@ -179,7 +188,7 @@ export const AIRCRAFT = [
     // turbojet starts, cruises low and level, dives onto the target. Long range, so
     // the targets start further out. Two carried (near and far wing).
     strikeCapable: true, bombCount: 2, hardpoints: [[236, 132], [244, 136]],
-    weaponSprite: 'raad_body', weaponName: "RA'AD", weaponLabel: 'Cruise missile',
+    weaponSprite: 'raad_body', weaponName: "RA'AD", weaponLabel: 'Cruise missile', storeMassKg: 550,
     weaponIsMissile: true, bombGuided: true,
     strikeAreaStartM: 11000, // owner 2026-11-21: 15000 too far
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 220, port: [318, 128], tracerEvery: 4 },
@@ -204,7 +213,7 @@ export const AIRCRAFT = [
     gearX: [202, 292], gearTopY: [148, 147], gearWheel: [20, 16],
     pivot: [202, 183], nozzle: [7, 102], flameLength: 320, flameWidth: 30,
     strikeCapable: true, bombCount: 4, hardpoints: [[182, 152], [226, 154]],
-    weaponSprite: 'gbu12_body', weaponName: 'GBU-12 PAVEWAY II', weaponLabel: 'Laser guided bomb',
+    weaponSprite: 'gbu12_body', weaponName: 'GBU-12 PAVEWAY II', weaponLabel: 'Laser guided bomb', storeMassKg: 230,
     bombGuided: true,
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [312, 95], tracerEvery: 5 },
     countermeasures: 30,
@@ -226,7 +235,7 @@ export const AIRCRAFT = [
     gearSprite: 'f16_gear', gearTravel: 33,
     pivot: [169, 175], nozzle: [6, 101], flameLength: 320, flameWidth: 30,
     strikeCapable: true, bombCount: 4, hardpoints: [[192, 128], [206, 134]],
-    weaponSprite: 'agm88_body', weaponName: 'AGM-88 HARM', weaponLabel: 'Air to ground missile',
+    weaponSprite: 'agm88_body', weaponName: 'AGM-88 HARM', weaponLabel: 'Air to ground missile', storeMassKg: 360,
     weaponIsMissile: true, bombGuided: true,
     // Targets further out than for bombs, so the HARM locks well after take-off.
     strikeAreaStartM: 9000, // owner 2026-11-21: 12000 too far
@@ -259,6 +268,33 @@ export const AIRCRAFT = [
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 200, port: [330, 122], tracerEvery: 4 },
     countermeasures: 30,
     lights: { navNear: [183, 121], navFar: [197, 118], tail: [21, 81], beacon: [24, 2], landing: [340, 135] },
+  },
+  {
+    ...COMMON,
+    id: 'f7pg',
+    // Owner 2026-11-21: air superiority, air to air only (and ferry); light; thrust
+    // below the JF-17, about the Mirage's; brittle in a fight (fewer hit points).
+    airCombat: { maxThrustN: 46000, afterburnerN: 31000, pitchRateDeg: 32, pitchAccelDeg: 300, stallMarginDeg: 12 }, // T/W 1.03
+
+    name: 'F-7PG Skybolt',
+    role: 'Air superiority fighter',
+    // Rank and home base: my picks (owner did not say). Real F-7PGs fly from Rafiqui,
+    // not in the game yet, so Mushaf for now.
+    rank: 'FLT LT', rankCall: 'Flight Lieutenant', rankFull: 'Flight Lieutenant', rankBadge: 'white', homeBase: 'mushaf',
+    stats: { speed: 0.88, agility: 0.85, difficulty: 0.75 },
+    // MiG-21 family: small and light, a delta with a high landing speed.
+    massKg: 7600, maxThrustN: 44000, afterburnerN: 30000,
+    fuelKg: 900, burnFullKgS: 2.4, dragCoef: 0.93,
+    stallKt: 136, rotateKt: 158, maxSpeedKt: 600, cockpitStyle: 'darkAnalog',
+    airframeHp: 65, hitRadiusM: 4.6, hitCenterUpM: 2.2,
+    // Owner's art (tools/make_aircraft_sprites.py "f7pg"): gear layer, all-moving tailplane.
+    sprite: 'f7pg_body', gearSprite: 'f7pg_gear', gearTravel: 31, gearFrontWhenDown: true,
+    elevatorSprite: 'f7pg_elevator', elevatorHinge: [67, 75],
+    pivot: [185, 122], nozzle: [43, 76], flameLength: 220, flameWidth: 24,
+    strikeCapable: false,
+    gun: { name: '2 x TYPE 30-1 30MM', rps: 40, muzzleMs: 780, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 200, port: [310, 89], tracerEvery: 4 },
+    countermeasures: 16,
+    lights: { navNear: [134, 84], navFar: [128, 82], tail: [41, 53], beacon: [172, 45], landing: [331, 95] },
   },
 ];
 

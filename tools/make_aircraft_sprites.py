@@ -124,6 +124,32 @@ CONFIGS = {
                    "poly_src": [(384, 141), (428, 142), (448, 143), (468, 145), (495, 150), (495, 157),
                                 (483, 160), (472, 166), (440, 171), (404, 171), (401, 160), (393, 151)]},
     },
+    "f7pg": {
+        # Owner's F-7PG art (No. 20-style "Tigers", 801; 2026-11-21), gear down, nose
+        # LEFT (flipped). Owner's pair f7pg_pair_source.png: WITH the tailplane (top,
+        # f7pg_with_elevator_source.png) and WITHOUT it (bottom, f7pg_no_elevator_source.png,
+        # caption blanked). The two are drawn differently (stores and tail proportions
+        # move), so the body is the WITH picture and only the strip under the tailplane
+        # is filled from the WITHOUT picture, shifted so its nozzle lines up.
+        # All coordinates here are in the UNFLIPPED source (src_unflipped).
+        "src": "docs/reference/f7pg_with_elevator_source.png", "flip": True, "src_unflipped": True,
+        "display_width": 112,  # world px; 14.9 m incl. the pitot, like the JF-17
+        # Nose gear below the fuselage; main gear strut + wheel (the stores behind it
+        # are filled back in from the next column: gear_fill).
+        "gear_regions": [(265, 307, 205, 205), (568, 619, 223, 223), (584, 604, 201, 201)],
+        "gear_fill": [(568, 619, 201, 245)],
+        "gear_cut_y": 201,  # travel deep enough to hide the nose wheel too
+        # Lettering, mirrored back after the flip (Tigers, 801, fin serial/name, cockpit text).
+        "unflip": [(506, 122, 650, 163), (214, 155, 258, 181), (864, 26, 906, 40), (842, 44, 874, 57), (302, 132, 336, 146)],
+        "prop": None,
+        "points": {"nozzle": (890, 170), "main_wheel": (593, 266), "elevator_hinge": (840, 167),
+                   "gun_port": (330, 196), "light_nav_near": (700, 186), "light_nav_far": (712, 182),
+                   "light_tail": (895, 122), "light_beacon": (620, 104), "light_landing": (286, 210)},
+        "elevator": {"patch_src": "docs/reference/f7pg_no_elevator_source.png", "patch_box": (774, 157, 900, 177),
+                     "patch_shift": (-12, 0), "patch_clear_from_x": 894,
+                     "poly_src": [(777, 166), (781, 161), (793, 160), (933, 160), (934, 163), (966, 163),
+                                  (966, 171), (933, 172), (931, 174), (793, 174), (779, 170)]},
+    },
     # Air-to-air opponents (owner 2026-11-21): bandit art, no gear (always airborne).
     # MiG-21 and Rafale art points left: flipped to fly right like everything else.
     "mig21": {
@@ -223,14 +249,66 @@ def remove_background(im):
             px[x, y] = (0, 0, 0, 0)
 
 
-def build(name, cfg):
-    im = Image.open(cfg["src"]).convert("RGBA")
+def unflip_cfg(cfg, w):
+    """Configs written in the unflipped source's coordinates -> flipped coordinates."""
+    fx = lambda x: w - 1 - x
+    c = dict(cfg)
+    c["gear_regions"] = [(fx(x1), fx(x0), y1, y0) for x0, x1, y0, y1 in cfg["gear_regions"]]
+    c["gear_fill"] = [(fx(x1), fx(x0), y0, y1) for x0, x1, y0, y1 in cfg.get("gear_fill", [])]
+    c["points"] = {k: (fx(x), y) for k, (x, y) in cfg["points"].items()}
+    if cfg.get("elevator"):
+        e = dict(cfg["elevator"])
+        e["poly_src"] = [(fx(x), y) for x, y in e["poly_src"]]
+        c["elevator"] = e
+    return c
+
+
+def orient(im, cfg):
     if cfg.get("flip"):
         im = im.transpose(Image.FLIP_LEFT_RIGHT)
         # Text (serials) inside these SOURCE boxes is flipped back so it reads correctly.
         for x0, y0, x1, y1 in cfg.get("unflip", []):
             bx = (im.width - x1, y0, im.width - x0, y1)
             im.paste(im.crop(bx).transpose(Image.FLIP_LEFT_RIGHT), bx[:2])
+    return im
+
+
+def fill_gear_holes(img, orig, boxes):
+    """Where the gear was cut out in front of the stores, continue the stores: each
+    hole pixel takes the nearest body pixel to its left in the same row (needs body
+    on both sides). orig = the picture before the cut (what was opaque)."""
+    bp, op = img.load(), orig.load()
+    w = img.width
+    for x0, x1, y0, y1 in boxes:
+        for y in range(y0, y1 + 1):
+            src_x = next((x for x in range(x0 - 1, max(-1, x0 - 40), -1) if bp[x, y][3] > 0), None)
+            right = any(bp[x, y][3] > 0 for x in range(x1 + 1, min(w, x1 + 60)))
+            if src_x is None or not right:
+                continue
+            for x in range(x0, x1 + 1):
+                if bp[x, y][3] == 0 and op[x, y][3] > 0:
+                    bp[x, y] = bp[src_x, y]
+
+
+def build(name, cfg):
+    im = Image.open(cfg["src"]).convert("RGBA")
+    if cfg.get("src_unflipped"):
+        raw = im.copy()
+        cfg = unflip_cfg(cfg, im.width)
+        e = cfg.get("elevator")
+        if e and e.get("patch_src"):
+            # Body under the tailplane: the WITH picture, with the strip under the
+            # tailplane copied from the WITHOUT picture (shifted), right of
+            # patch_clear_from_x cleared to background (past the nozzle).
+            p = Image.open(e["patch_src"]).convert("RGBA")
+            x0, y0, x1, y1 = e["patch_box"]
+            sx, sy = e["patch_shift"]
+            under = raw.copy()
+            under.paste(p.crop((x0 - sx, y0 - sy, x1 - sx, y1 - sy)), (x0, y0))
+            under.paste((255, 255, 255, 255), (e["patch_clear_from_x"], y0, x1 + 80, y1))
+            e["under_img"] = orient(under, cfg)
+            e["under_offset"] = (0, 0)
+    im = orient(im, cfg)
     for box in cfg.get("erase", []):
         im.paste((255, 255, 255, 255), box)
     remove_background(im)
@@ -253,18 +331,19 @@ def build(name, cfg):
                     cfg["prop"]["spinner_y"][0] <= y <= cfg["prop"]["spinner_y"][1]):
                 layers["prop"].putpixel((x, y), px[x, y]); bp[x, y] = (0, 0, 0, 0)
 
+    fill_gear_holes(layers["body"], im, cfg.get("gear_fill", []))
     box = im.getbbox()
     out_w = cfg["display_width"] * TEXTURE_SCALE
     k = out_w / (box[2] - box[0])
     out_h = round((box[3] - box[1]) * k)
     out = {layer: img.crop(box).resize((out_w, out_h), Image.LANCZOS) for layer, img in layers.items()}
     moving = "elevator" if cfg.get("elevator") else "canard" if cfg.get("canard") else None
-    if moving and cfg[moving].get("under_src"):
+    if moving and (cfg[moving].get("under_src") or cfg[moving].get("under_img")):
         # The owner's art also exists WITHOUT the tailplane (or canards): that picture
         # is the body, and the moving layer is what differs between the two.
         e = cfg[moving]
         under = Image.new("RGBA", im.size, (255, 255, 255, 255))
-        src2 = Image.open(e["under_src"]).convert("RGBA")
+        src2 = e["under_img"] if "under_img" in e else Image.open(e["under_src"]).convert("RGBA")
         for b in e.get("under_erase", []):
             src2.paste((255, 255, 255, 255), b)
         if e.get("under_scale"):
@@ -278,6 +357,8 @@ def build(name, cfg):
                 if any(x0 <= x <= x1 and y >= y0 + (y1 - y0) * (x - x0) / (x1 - x0)
                        for x0, x1, y0, y1 in cfg["gear_regions"]):
                     upx[x, y] = (0, 0, 0, 0)
+        if cfg.get("gear_fill"):
+            fill_gear_holes(under, im, cfg["gear_fill"])
         under = under.crop(box).resize((out_w, out_h), Image.LANCZOS)
         mask = Image.new("L", (out_w, out_h), 0)
         poly = e["poly"] if "poly" in e else [((x - box[0]) * k, (y - box[1]) * k) for x, y in e["poly_src"]]

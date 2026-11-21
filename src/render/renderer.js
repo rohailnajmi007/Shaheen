@@ -950,7 +950,8 @@ export class Renderer {
     const sink = s.onGround ? (1 - s.gearPos) * gearTravel : 0;
     ctx.translate(-d.pivot[0], -d.pivot[1] + sink);
     const light = tint ? this.lightBody.map((l, i) => l * tint[i]) : this.lightBody;
-    if (s.gearPos > 0.05) {
+    const gearFront = d.gearFrontWhenDown && s.gearPos >= 0.99;
+    if (s.gearPos > 0.05 && !gearFront) {
       if (d.gearSprite && images[d.gearSprite]) ctx.drawImage(tinted(images[d.gearSprite], light), 0, -(1 - s.gearPos) * d.gearTravel);
       else if (d.gearX) this.drawCodeGear(ctx, d, s.gearPos, light);
     }
@@ -963,6 +964,7 @@ export class Renderer {
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     }
     ctx.drawImage(tinted(body, light), 0, 0);
+    if (gearFront && images[d.gearSprite]) ctx.drawImage(tinted(images[d.gearSprite], light), 0, 0);
     if (d.weaponSprite && s.bombsLeft > 0) {
       const w = images[d.weaponSprite];
       for (let i = 0; i < Math.min(s.bombsLeft, d.hardpoints.length); i++) {
