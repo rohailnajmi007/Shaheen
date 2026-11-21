@@ -111,7 +111,7 @@ export const DOGFIGHT = {
   spawnAltM: [-60, 120],   // ... this much higher than you
   spawnMinAltM: 450,       // ... but at least this high
   spawnMinKt: 380,         // ... at your speed, at least this
-  recoveryGapM: 9000,      // landing base this far ahead of you when the fight is over
+  recoveryGapM: 4000,      // landing base this far ahead of you when the fight is over (owner 2026-11-21: max 4 km)
   burnScale: 0.5,          // fuel burn x this on this mission (afterburner fights empty the tanks)
   hitRadiusMult: 2.4,      // jets' hit circles x this (rounds vs jets, both ways): the jets are drawn
                            // bigger than life when zoomed out, so a visual hit should count

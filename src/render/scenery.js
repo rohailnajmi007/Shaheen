@@ -118,6 +118,46 @@ export function buildLayer(slot, themeId, time, res) {
       x.beginPath(); x.moveTo(0, H);
       for (let px = 0; px <= W; px += 4) x.lineTo(px, H - fbm(ns, (px / W) * 8) * amp - 10 * res);
       x.lineTo(W, H); x.fill();
+      // Punjab: a patchwork of fields in bands receding to the horizon, a canal with
+      // a tree line along it (owner 2026-11-21).
+      if (th.fields) {
+        const top0 = H - amp - 10 * res;
+        x.save();
+        x.beginPath(); x.moveTo(0, H);
+        for (let px = 0; px <= W; px += 4) x.lineTo(px, H - fbm(ns, (px / W) * 8) * amp - 10 * res);
+        x.lineTo(W, H); x.closePath(); x.clip();
+        const rows = 5;
+        for (let k = 0; k < rows; k++) {
+          const y0 = top0 + (H - top0) * Math.pow(k / rows, 1.3), y1 = top0 + (H - top0) * Math.pow((k + 1) / rows, 1.3);
+          for (let px = -40 * res; px < W;) {
+            const w = (60 + r() * 140) * res * (0.6 + k * 0.25);
+            const col = th.fieldColors[Math.floor(r() * th.fieldColors.length)];
+            const sk = (r() - 0.5) * 30 * res;
+            x.fillStyle = shade(col, light, time.haze, L.haze * (1.2 - k * 0.15));
+            x.beginPath(); x.moveTo(px + sk, y0); x.lineTo(px + w + sk, y0); x.lineTo(px + w, y1); x.lineTo(px, y1); x.fill();
+            // Furrows on the nearer fields.
+            if (k >= 2 && r() < 0.6) {
+              x.strokeStyle = shade(col, light.map((v) => v * 0.82), time.haze, L.haze);
+              x.lineWidth = 1 * res;
+              for (let fy = y0 + 3 * res; fy < y1; fy += 4 * res) { x.beginPath(); x.moveTo(px + 2, fy); x.lineTo(px + w - 2, fy); x.stroke(); }
+            }
+            px += w + 2 * res; // the dark bund between fields shows through
+          }
+          x.fillStyle = shade(th.groundDark, light, time.haze, L.haze);
+          x.fillRect(0, y1 - 1 * res, W, 1.2 * res);
+        }
+        // Canal: a straight water line across the plain with banks and a row of trees.
+        const cy = top0 + (H - top0) * 0.42;
+        x.fillStyle = shade('#8a7d5c', light, time.haze, L.haze); x.fillRect(0, cy - 2 * res, W, 7 * res);
+        x.fillStyle = shade(th.canal, light, time.haze, L.haze * 0.8); x.fillRect(0, cy, W, 3 * res);
+        x.fillStyle = 'rgba(255,255,255,0.25)'; x.fillRect(0, cy + 0.5 * res, W, 0.8 * res);
+        x.fillStyle = shade(th.trees, light, time.haze, L.haze);
+        for (let px = 0; px < W; px += (7 + r() * 9) * res) {
+          const rr = (3 + r() * 3) * res;
+          x.beginPath(); x.arc(px, cy - 2 * res - rr * 0.6, rr, 0, Math.PI * 2); x.fill();
+        }
+        x.restore();
+      }
       // Fields and bush dots.
       x.fillStyle = shade(th.trees, light, time.haze, L.haze);
       for (let i = 0; i < 500; i++) {
@@ -132,7 +172,7 @@ export function buildLayer(slot, themeId, time, res) {
     const dark = shade(th.trees, light.map((v) => v * 0.85), time.haze, L.haze);
     const lit = shade(th.trees, light.map((v) => Math.min(1, v * 1.15)), time.haze, L.haze);
     const trunk = shade('#4a3a2a', light, time.haze, L.haze);
-    const count = themeId === 'desert' ? 40 : themeId === 'coast' ? 70 : th.palms ? 55 : 170;
+    const count = themeId === 'desert' ? 40 : themeId === 'coast' ? 70 : th.palms ? 55 : th.fields ? 80 : 170;
     for (let i = 0; i < count; i++) {
       const px = r() * W;
       const kind = r();
@@ -227,6 +267,30 @@ export function buildGround(themeId, time, res) {
     x.fillRect(r() * W, y, (2 + r() * 10 * (1 - y / H + 0.3)) * res, (1 + r()) * res);
   }
   x.globalAlpha = 1;
+  // Punjab (owner 2026-11-21): the near ground is farmland: rows of fields (wheat, mustard,
+  // green, fallow) split by earth bunds, furrowed, with a canal running across.
+  if (th.fields) {
+    const rows = [[0.06, 0.26], [0.26, 0.5], [0.62, 1.0]];
+    for (const [a, b] of rows) {
+      const y0 = a * H, y1 = b * H;
+      for (let px = 0; px < W;) {
+        const w = (90 + r() * 220) * res;
+        const col = th.fieldColors[Math.floor(r() * th.fieldColors.length)];
+        x.fillStyle = shade(col, time.light);
+        x.fillRect(px, y0, Math.min(w, W - px), y1 - y0);
+        x.strokeStyle = shade(col, time.light.map((v) => v * 0.85)); x.lineWidth = 1.2 * res;
+        for (let fy = y0 + 4 * res; fy < y1 - 2 * res; fy += 6 * res) { x.beginPath(); x.moveTo(px + 3 * res, fy); x.lineTo(px + w - 3 * res, fy); x.stroke(); }
+        px += w;
+        x.fillStyle = shade('#7a6a48', time.light); x.fillRect(px - 1.5 * res, y0, 3 * res, y1 - y0); // bund
+      }
+      x.fillStyle = shade('#7a6a48', time.light); x.fillRect(0, y0 - 1.5 * res, W, 3 * res);
+    }
+    // Canal between the 2nd and 3rd rows: banks, water, a glint, a few trees on the bank.
+    const cy = 0.48 * H, ch = 0.16 * H;
+    x.fillStyle = shade('#8c7b55', time.light); x.fillRect(0, cy, W, ch);
+    x.fillStyle = shade(th.canal, time.light); x.fillRect(0, cy + 2.5 * res, W, ch - 5 * res);
+    x.fillStyle = 'rgba(255,255,255,0.28)'; x.fillRect(0, cy + ch * 0.4, W, 1.2 * res);
+  }
   // Grass tufts along the top edge.
   x.fillStyle = shade(th.groundDark, time.light);
   for (let px = 0; px < W; px += (2 + r() * 5) * res) {

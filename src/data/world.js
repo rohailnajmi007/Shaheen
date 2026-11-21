@@ -166,12 +166,15 @@ export const THEMES = {
     sea: true, city: true,
   },
   // Flat Punjab plain (owner 2026-11-21: no mountains at Mushaf).
+  // Owner 2026-11-21: fields and canals, not too green: dusty olive land, a patchwork of
+  // wheat, mustard, green and fallow fields (fieldColors) and a canal with its tree line.
   punjab: {
     mountains: null, mountainsHi: 0, snow: false,
-    hills: '#5e8d42', hillsHi: 0.08,
-    trees: '#2b5524',
-    ground: '#5d9440', groundDark: '#4a7b32',
+    hills: '#9a9a62', hillsHi: 0.05,
+    trees: '#46552a',
+    ground: '#8e9156', groundDark: '#767a45',
     sea: false, city: false,
+    fields: true, fieldColors: ['#c9b56a', '#d9c24a', '#7f9a4a', '#a88f62', '#b9a874', '#93a15a'], canal: '#4f86a6',
   },
   // Northern areas (Kamra, owner 2026-11-21): tall snow-capped ranges, snowy hills
   // dotted with pines, snow on the ground. snowLine: share of the range under snow.
