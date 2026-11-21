@@ -122,6 +122,9 @@ export const COMMON = {
   // Smoky engine trail (renderer): kind 'smoke' grey / 'dark' black, puffs per frame and
   // chance each, size (m), life (s), alpha, grow, from this throttle, dryOnly = not in afterburner.
   engineSmoke: null,
+  // Air-to-air missiles (owner 2026-11-21): type (AAMS in src/data/combat.js), how many,
+  // and where they hang (texture px; default: the strike hardpoints). null = guns only.
+  aam: null,
   // Display smoke (aerobatic trainer, owner 2026-11-21): Space switches it on and off in
   // ferry flights; each time it comes on it takes the next colour. null = none.
   smoke: null,
@@ -205,6 +208,7 @@ export const AIRCRAFT = [
     elevatorSprite: 'f7pg_elevator', elevatorHinge: [67, 75],
     pivot: [185, 122], nozzle: [43, 76], flameLength: 220, flameWidth: 24,
     strikeCapable: false,
+    aam: { type: 'aim9', count: 2, points: [[170, 97], [205, 99]] },
     gun: { name: '2 x TYPE 30-1 30MM', rps: 40, muzzleMs: 780, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 200, port: [310, 89], tracerEvery: 4 },
     countermeasures: 16,
     lights: { navNear: [134, 84], navFar: [128, 82], tail: [41, 53], beacon: [172, 45], landing: [331, 95] },
@@ -212,7 +216,7 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'mirage5',
-    modes: ['ferry', 'strike'],
+    modes: ['ferry', 'strike', 'dogfight'], // air to air again (owner 2026-11-21)
     engineSmoke: { kind: 'smoke', perFrame: 1, chance: 0.6, size: 1.6, life: 1.6, alpha: 0.18, grow: 3, minThrottle: 0.5, dryOnly: true },
     // Air to air only (owner 2026-11-21): power (thrust/weight) Mirage < JF-17 < F-16A <
     // F-16D = J-10C; J-10C and F-16s lightest and most agile, JF-17 a bit less, Mirage sluggish.
@@ -230,6 +234,7 @@ export const AIRCRAFT = [
     strikeCapable: true, bombCount: 4, hardpoints: [[150, 140], [205, 140]],
     weaponSprite: 'mk82_body', weaponName: 'MK 82', weaponLabel: 'Unguided bomb', storeMassKg: 240,
     bombScatterMs: 2.5, blastRadiusM: 26,
+    aam: { type: 'aim9', count: 2 },
     gun: { name: '2 x DEFA 552 30MM', rps: 40, muzzleMs: 815, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 250, port: [300, 118], tracerEvery: 4 },
     countermeasures: 16,
     lights: { navNear: [79, 104], navFar: [94, 101], tail: [16, 64], beacon: [6, 3], landing: [328, 131] },
@@ -262,6 +267,7 @@ export const AIRCRAFT = [
     weaponSprite: 'raad_body', weaponName: "RA'AD", weaponLabel: 'Cruise missile', storeMassKg: 550,
     weaponIsMissile: true, bombGuided: true,
     strikeAreaStartM: 11000, // owner 2026-11-21: 15000 too far
+    aam: { type: 'pl15', count: 2 },
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 220, port: [318, 128], tracerEvery: 4 },
     countermeasures: 24,
     missile: { rangeMin: 1500, rangeMax: 8000, lockS: 2, dropS: 0.9, burnS: 60, speed: 240, accel: 50, turnDeg: 18,
@@ -287,6 +293,7 @@ export const AIRCRAFT = [
     strikeCapable: true, bombCount: 4, hardpoints: [[182, 152], [226, 154]],
     weaponSprite: 'gbu12_body', weaponName: 'GBU-12 PAVEWAY II', weaponLabel: 'Laser guided bomb', storeMassKg: 230,
     bombGuided: true,
+    aam: { type: 'aim120', count: 4 },
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [312, 95], tracerEvery: 5 },
     countermeasures: 30,
     lights: { navNear: [262, 128], navFar: [248, 122], tail: [23, 72], beacon: [16, 4], landing: [298, 164] },
@@ -311,6 +318,7 @@ export const AIRCRAFT = [
     weaponIsMissile: true, bombGuided: true,
     // Targets further out than for bombs, so the HARM locks well after take-off.
     strikeAreaStartM: 9000, // owner 2026-11-21: 12000 too far
+    aam: { type: 'aim120', count: 4 },
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [300, 100], tracerEvery: 5 },
     countermeasures: 30,
     lights: { navNear: [239, 116], navFar: [229, 112], tail: [10, 72], beacon: [16, 4], landing: [291, 153] },
@@ -337,6 +345,7 @@ export const AIRCRAFT = [
     pivot: [206, 178], nozzle: [8, 114], flameLength: 320, flameWidth: 30,
     // Air to ground: not yet (owner to pick its weapon). The PL-15 under the wing is part of the art.
     strikeCapable: false,
+    aam: { type: 'pl15', count: 4, points: [[222, 134], [250, 137]] },
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 200, port: [330, 122], tracerEvery: 4 },
     countermeasures: 30,
     lights: { navNear: [183, 121], navFar: [197, 118], tail: [21, 81], beacon: [24, 2], landing: [340, 135] },

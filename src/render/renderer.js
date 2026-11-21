@@ -4,7 +4,7 @@ import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, build
 import { Particles } from './particles.js';
 import { buildLandmarks, LANDMARKS } from './landmarks.js';
 import { THEMES, TIMES, REFUEL, TAXI } from '../data/world.js';
-import { GROUND_UNITS, AIR_DEFENCE, DAMAGE } from '../data/combat.js';
+import { GROUND_UNITS, AIR_DEFENCE, DAMAGE, AAMS } from '../data/combat.js';
 import { KT } from '../sim/aircraft.js';
 import { SONIC } from '../data/aircraft.js';
 
@@ -48,6 +48,7 @@ export const DOGFIGHT_CAM = {
   smallDrop: 0.13,            // ... and the instructor strip the middle: jets sit this share of the height lower
   minZoom: 0.12, maxZoom: 0.9, // (0.08 before: too costly to draw that far out; the marker shows a bandit off screen)
   zoomRate: 3, panRate: 4,    // how fast the framing follows (1/s)
+  keepOnW: 0.36, keepOnH: 0.34, // when both can't fit: your jet stays within this share of the screen from the centre
   banditTint: null,           // multiply on the bandit's sprite ([r,g,b]); null: the owner's art as is
   markerPx: 9,                // bandit marker size (x screen height / 720)
 };
@@ -226,6 +227,10 @@ export class Renderer {
       const fit = Math.min(fw * v.W / Math.max(Math.abs(b.x - st.x), 1), fh * v.H / Math.max(Math.abs(b.y - st.y), 1)) / base;
       z = clamp(fit, C.minZoom, C.maxZoom);
       midX = (st.x + b.x) / 2; midY = (st.y + b.y) / 2;
+      // Too far apart to fit both (zoom at its floor): keep YOUR jet on screen and lean
+      // toward the bandit (its edge marker shows where it is), never the empty middle.
+      const Sz = base * z, mx = C.keepOnW * v.W / Sz, my = C.keepOnH * v.H / Sz;
+      midX = st.x + clamp(midX - st.x, -mx, mx); midY = st.y + clamp(midY - st.y, -my, my);
       if (small) midY += (C.smallDrop * v.H) / ((v.H / 720) * 7.2 * Math.max(c.zoom, 0.01));
     }
     if (flight) {
@@ -314,6 +319,7 @@ export class Renderer {
       }
     }
     if (!flight.ac.crashed) this.drawAircraft(ctx, v, flight.data, st);
+    if (df) this.drawAams(ctx, v, flight);
     if (flight.armed && !flight.ac.crashed && flight.cb.firing) this.drawMuzzleAt(ctx, v, flight.data, st);
     this.drawShards(ctx, v);
     if (this.debris.length) this.drawShards(ctx, v, this.debris);
@@ -321,6 +327,7 @@ export class Renderer {
     this.drawRings(ctx, v);
     this.drawClouds(ctx, v, true);
     if (flight.mode === 'strike') { this.drawTargetMarker(ctx, v, flight); this.drawThreatArrows(ctx, v, flight); }
+    if (df) this.drawAamLock(ctx, v, flight); // over the clouds: the seeker box must always show
     if (this.bst && !df.fleeing) this.drawBanditMarker(ctx, v, flight, this.bst);
     this.drawScreenFx(ctx, v, flight.ac);
   }
@@ -1057,6 +1064,16 @@ export class Renderer {
       }
     }
     if (s.mach > SONIC.coneFrom) this.drawVapourCone(ctx, body, s.mach);
+    // Air-to-air missiles still on the jet (one per hang point, up to the number left).
+    if (d.aam && s.aamLeft > 0) {
+      const w = images[AAMS[d.aam.type].sprite];
+      const pts = d.aam.points || d.hardpoints || [];
+      for (let i = 0; i < Math.min(s.aamLeft, pts.length); i++) {
+        const hp = pts[i];
+        ctx.fillStyle = '#33363a'; ctx.fillRect(hp[0] - 6, hp[1] - 3, 12, 4);
+        if (w) ctx.drawImage(tinted(w, light), hp[0] - w.width / 2, hp[1]);
+      }
+    }
     if (d.elevatorSprite && images[d.elevatorSprite]) {
       const h = d.elevatorHinge;
       ctx.save();
@@ -1213,6 +1230,69 @@ export class Renderer {
     }
   }
 
+  // Air-to-air missiles in flight: the sprite along its path, motor flame while it burns.
+  drawAams(ctx, v, flight) {
+    const df = flight.df;
+    for (const m of df.aams) {
+      const img = images[m.M.sprite];
+      if (!img) continue;
+      const k = Math.max(v.S * flight.data.texM, (0.026 * v.W) / img.width);
+      ctx.save();
+      ctx.translate(v.sx(m.x), v.sy(m.y));
+      ctx.rotate(-Math.atan2(m.vy, m.vx));
+      ctx.scale(k, k);
+      ctx.drawImage(tinted(img, this.lightBody), -img.width / 2, -img.height / 2);
+      if (m.motor) {
+        ctx.globalCompositeOperation = 'lighter';
+        const l = img.height * 2.6 * (0.85 + 0.15 * Math.sin(this.time * 70 + m.t * 9));
+        ctx.fillStyle = 'rgba(255,190,90,0.95)';
+        ctx.beginPath(); ctx.moveTo(-img.width / 2, -img.height * 0.22); ctx.lineTo(-img.width / 2 - l, 0); ctx.lineTo(-img.width / 2, img.height * 0.22); ctx.fill();
+        ctx.drawImage(SOFT.warm, -img.width / 2 - 26, -26, 52, 52);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      ctx.restore();
+    }
+  }
+
+  // Seeker symbology on the bandit (owner 2026-11-21): amber diamond-cornered box that
+  // closes in while the seeker tracks; solid red box + LOCK once locked; NO LOCK flash.
+  drawAamLock(ctx, v, flight) {
+    const df = flight.df, s = df.seeker;
+    const b = this.bst;
+    const recent = flight.time - df.noLockT < 0.8;
+    if (!b || (s !== 'seek' && s !== 'lock' && !recent)) return;
+    const c = df.centre(df.b);
+    const x = v.sx(c.x), y = v.sy(c.y);
+    const u = Math.max(1, v.H / 720);
+    const k = df.lockFrac;
+    const r = (s === 'lock' ? 26 : 26 + (1 - k) * 46) * u;
+    ctx.save();
+    ctx.lineWidth = 2 * u;
+    if (s === 'lock') {
+      const blink = Math.floor(this.time * 6) % 2 === 0;
+      ctx.strokeStyle = 'rgba(255,70,60,0.95)';
+      ctx.strokeRect(x - r, y - r, r * 2, r * 2);
+      ctx.beginPath(); ctx.moveTo(x, y - r - 8 * u); ctx.lineTo(x, y - r); ctx.moveTo(x, y + r); ctx.lineTo(x, y + r + 8 * u);
+      ctx.moveTo(x - r - 8 * u, y); ctx.lineTo(x - r, y); ctx.moveTo(x + r, y); ctx.lineTo(x + r + 8 * u, y); ctx.stroke();
+      ctx.font = `700 ${Math.round(12 * u)}px "Chakra Petch", sans-serif`; ctx.textAlign = 'center';
+      ctx.fillStyle = blink ? 'rgba(255,90,80,1)' : 'rgba(255,200,190,1)';
+      ctx.fillText(`LOCK ${df.aamType.short}`, x, y - r - 12 * u);
+      ctx.fillText(`${(df.range / 1000).toFixed(1)} KM`, x, y + r + 20 * u);
+    } else if (s === 'seek') {
+      ctx.strokeStyle = 'rgba(255,196,74,0.95)';
+      const q = r * 0.35;
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        ctx.beginPath(); ctx.moveTo(x + sx * r, y + sy * (r - q)); ctx.lineTo(x + sx * r, y + sy * r); ctx.lineTo(x + sx * (r - q), y + sy * r); ctx.stroke();
+      }
+    }
+    if (recent && s !== 'lock') {
+      ctx.font = `700 ${Math.round(13 * u)}px "Chakra Petch", sans-serif`; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,196,74,1)';
+      ctx.fillText(df.missiles > 0 ? 'NO LOCK' : 'NO MISSILES', x, y - 40 * u);
+    }
+    ctx.restore();
+  }
+
   // --- effects ---
   handleFx(flight) {
     for (const e of flight.fx) {
@@ -1220,6 +1300,11 @@ export class Renderer {
       else if (e.type === 'explosion') this.explode(e.x, 0.5, e.big ? 1.4 : 0.8, e.kind === 'fuel');
       else if (e.type === 'crash') this.crashFx(e, flight);
       else if (e.type === 'missileLaunch') this.puffs(e.x, e.y, 6, 'smoke', 2);
+      else if (e.type === 'aamLaunch' || e.type === 'aamIgnite') {
+        // Rail launch / ignition: a flash and a puff of motor smoke.
+        this.particles.spawn('glow', e.x, e.y, 0, 0, 5, 0.18, { grow: 1.8, ground: false });
+        this.puffs(e.x, e.y, e.rail || e.type === 'aamIgnite' ? 7 : 2, 'smoke', 2.2);
+      }
       else if (e.type === 'roundHit') this.sparks(e.x, e.y, e.hard ? 5 : 3, e.hard);
       else if (e.type === 'roundGround') {
         if (Math.random() < 0.6) this.particles.spawn('dust', e.x, 0.3, (Math.random() - 0.5) * 6, 3 + Math.random() * 4, 1.6 + Math.random(), 0.9 + Math.random() * 0.6, { grow: 2.2, alpha: 0.6, drag: 1.5 });
@@ -1694,6 +1779,14 @@ export class Renderer {
       }
       if (a.onGround && a.braking && a.speedKt > 30 && Math.random() < 0.3) P.spawn('smoke', a.pos.x, 0.3, -2, 0.5, 1.5, 0.8, { grow: 2, alpha: 0.3 });
       if (d.hasPropeller && a.onGround && a.rpm > 0.8 && a.throttle > 0.6 && Math.random() < 0.3) P.spawn('dust', a.pos.x - 6, 0.3, -12, 0.5, 2, 1, { grow: 2, alpha: 0.35 });
+    }
+    // Air-to-air missile motor smoke: a thick white trail while it burns.
+    if (flight.df) for (const m of flight.df.aams) {
+      if (!m.motor) continue;
+      for (let i = 0; i < 2; i++) {
+        const f = i / 2;
+        P.spawn('smoke', m.x - m.vx * dt * f, m.y - m.vy * dt * f, m.vx * 0.04, 0.4, 2.4, 3.6, { grow: 4.5, alpha: 0.7 * m.M.smoke, ground: false, drag: 0.4 });
+      }
     }
     for (const w of flight.weapons) {
       if (w.motor) P.spawn('smoke', w.pos.x, w.pos.y, w.vel.x * 0.05, 0, 1.2, 2.5, { grow: 4, alpha: 0.55 * (d.missile.trail ?? 1), ground: false, drag: 0.3 });

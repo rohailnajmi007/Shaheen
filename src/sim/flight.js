@@ -216,7 +216,11 @@ export class Flight {
       case 'engine': if (a.shotDown) this.ejectPilot(); else a.toggleEngine(); break; // E = eject once shot down
       case 'eject': this.bailOut(); break; // touch EJECT button: any time airborne in a strike
       case 'gear': a.toggleGear(); break;
-      case 'drop': if (this.data.smoke && this.mode === 'ferry') this.toggleSmoke(); else this.dropStore(); break;
+      case 'drop':
+        if (this.data.smoke && this.mode === 'ferry') this.toggleSmoke();
+        else if (this.df) this.df.fireAam(); // air to air: missile (after a lock)
+        else this.dropStore();
+        break;
       case 'countermeasure': if (this.mode === 'strike') this.cb.dispense(); break;
     }
   }
@@ -386,7 +390,7 @@ export class Flight {
     return {
       x: l('x'), y: l('y'), pitch: p.pitch + dp * alpha, vx: l('vx'), vy: l('vy'), gearPos: l('gearPos'), elevator: l('elevator'),
       onGround: a.onGround, afterburner: a.afterburner, rpm: a.rpm, propAngle: a.propAngle,
-      bombsLeft: a.bombsLeft, engineOn: a.engineOn, mach: a.speedKt / MACH_KT,
+      bombsLeft: a.bombsLeft, engineOn: a.engineOn, mach: a.speedKt / MACH_KT, aamLeft: this.df ? this.df.missiles : 0,
     };
   }
 

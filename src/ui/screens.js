@@ -2,6 +2,7 @@
 import { AIRCRAFT } from '../data/aircraft.js';
 import { BASES, routesFrom, TIMES } from '../data/world.js';
 import { KEY_HELP } from '../input.js';
+import { AAMS } from '../data/combat.js';
 import { OPPONENTS, opponentById } from '../data/opponents.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -74,9 +75,12 @@ const MODE_NAME = { ferry: 'FERRY FLIGHT', strike: 'AIR TO GROUND', dogfight: 'A
 // Which missions an aircraft can fly.
 const modeOk = (m, a) => (a.modes || ['ferry']).includes(m);
 // What it carries, by kind, one line each (owner 2026-11-21): "4 laser guided bombs", "20 mm cannon".
-function armament(a) {
+// Per mission (owner 2026-11-21): air to ground lists the strike weapon, air to air the
+// missiles; the gun goes on both; ferry lists everything the jet can carry.
+function armament(a, mode = 'ferry') {
   const out = [];
-  if (a.strikeCapable && a.weaponLabel) out.push(`${a.bombCount} ${a.weaponLabel.toLowerCase()}s`);
+  if (mode !== 'dogfight' && a.strikeCapable && a.weaponLabel) out.push(`${a.bombCount} ${a.weaponLabel.toLowerCase()}s`);
+  if (mode !== 'strike' && a.aam) out.push(`${a.aam.count} ${AAMS[a.aam.type].short} missiles`);
   const cal = a.gun && /(\d+)\s*MM/i.exec(a.gun.name);
   if (a.gun) out.push(cal ? `${cal[1]} mm cannon` : 'cannon');
   return (out.length ? out : ['Unarmed']).map((l) => `<span>${l}</span>`).join('');
@@ -274,7 +278,10 @@ export class Menu {
     for (const b of r.querySelectorAll('[data-step="mode"] .mcard')) b.classList.toggle('sel', b.dataset.v === s.mode);
     for (const b of r.querySelectorAll('.accard')) {
       // Every jet is listed; the ones that don't fly this mission are greyed out.
-      b.disabled = !modeOk(s.mode, AIRCRAFT.find((x) => x.id === b.dataset.id));
+      const acd = AIRCRAFT.find((x) => x.id === b.dataset.id);
+      b.disabled = !modeOk(s.mode, acd);
+      const wl = armament(acd, s.mode);
+      if (b._wpn !== wl) { b._wpn = wl; b.querySelector('.acwpn').innerHTML = wl; }
       b.classList.toggle('sel', b.dataset.id === s.aircraft);
     }
     for (const b of r.querySelectorAll('.opcard')) b.classList.toggle('sel', b.dataset.id === s.opponent);

@@ -18,7 +18,7 @@ const PRESS = {
 export const KEY_HELP = [
   ['↑ / ↓', 'Throttle (hold)'], ['← / →', 'Nose up / down'], ['E', 'Engine · eject when hit'],
   ['G', 'Gear (flaps follow)'], ['B', 'Brakes / air brake (hold)'],
-  ['Space', 'Fire weapon', 'strike'], ['Space', 'Smoke on / off', 'smoke'], ['V', 'Gun (hold)', 'armed'], ['X', 'Flares + chaff', 'strike'], ['Esc', 'Pause'],
+  ['Space', 'Fire weapon', 'strike'], ['Space', 'Smoke on / off', 'smoke'], ['Space', 'Fire missile (lock first)', 'aam'], ['V', 'Gun (hold)', 'armed'], ['X', 'Flares + chaff', 'strike'], ['Esc', 'Pause'],
 ];
 
 export class Input {

@@ -124,6 +124,9 @@ function soundFx(f) {
       case 'chute': sound.burst({ freq: 500, dur: 0.5, vol: 0.3 }); break;
       case 'sonicBoom': sound.sonicBoom(); break;
       case 'cleared': sound.chime(true); break;
+      case 'aamLaunch': sound.whoosh(); if (e.rail) sound.burst({ freq: 700, dur: 0.5, vol: 0.5 }); break;
+      case 'aamIgnite': sound.burst({ freq: 600, dur: 0.6, vol: 0.45 }); break;
+      case 'aamNoLock': sound.tone(300, 0.12, 0.08, 'square'); break;
       case 'smokeOn': sound.burst({ freq: 2500, type: 'highpass', dur: 0.4, vol: 0.15 }); break;
       case 'acHit': sound.metalHit(e.bandit ? 0.45 : 1); break;
       case 'airBurst': sound.explosion(0.45 * (e.power || 1)); break;
@@ -198,7 +201,8 @@ function frame(now) {
     // Engine silent once the flight is over or the jet crashed (owner 2026-11-21).
     engineOff: a.crashed || flight.state === 'done',
     stall: a.stalled && !a.onGround && !a.crashed, gear: a.gearWarning && !a.crashed,
-    gun: !!cb && cb.firing, lock: !!cb && cb.radarLock, missile: !!cb && !a.crashed && cb.incoming().length > 0,
+    gun: !!cb && cb.firing, lock: !!cb && cb.radarLock,
+    seek: flight.df && !a.crashed ? flight.df.seeker : null, seekFrac: flight.df ? flight.df.lockFrac : 0, missile: !!cb && !a.crashed && cb.incoming().length > 0,
   });
   hud.update(dt, sound);
   if (endTimer > 0) {

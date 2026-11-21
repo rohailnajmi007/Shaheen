@@ -7,7 +7,7 @@
 // you're out of rounds) the landing base appears and you land as usual.
 // Numbers: DOGFIGHT in src/data/combat.js, per-opponent `ai` overrides. No DOM.
 import { Aircraft, KT, G } from './aircraft.js';
-import { DOGFIGHT, DAMAGE } from '../data/combat.js';
+import { DOGFIGHT, DAMAGE, AAMS } from '../data/combat.js';
 import { shellStep, segDist } from './combat.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -36,6 +36,120 @@ export class Dogfight {
     this.prevDx = 0;
     this.noAmmoT = 0;
     this.result = null;       // why the fight ended: 'done', 'winchester'
+    // Your air-to-air missiles (owner 2026-11-21): stock, seeker lock, the ones in the air.
+    const am = flight.data.aam;
+    this.aamType = am ? AAMS[am.type] : null;
+    this.missiles = am ? am.count : 0;
+    this.lockT = 0;           // seconds the bandit has been in the seeker
+    this.aams = [];           // missiles in the air
+    this.noLockT = -9;        // when Space was pressed without a lock (HUD flash)
+  }
+
+  get locked() { return !!this.aamType && this.lockT >= this.aamType.lockS; }
+  // 'none' (no bandit / no missiles), 'search' (not in the seeker), 'seek' (closing in), 'lock'.
+  get seeker() {
+    if (!this.aamType || this.missiles <= 0 || !this.fighting || this.f.ac.onGround) return 'none';
+    return this.locked ? 'lock' : this.lockT > 0 ? 'seek' : 'search';
+  }
+  get lockFrac() { return this.aamType ? Math.min(1, this.lockT / this.aamType.lockS) : 0; }
+
+  // Seeker: the bandit inside the cone ahead of your nose and within range builds the lock.
+  stepSeeker(dt) {
+    const M = this.aamType, a = this.f.ac, b = this.b;
+    if (!M || this.missiles <= 0 || !b || this.fleeing || a.onGround || a.shotDown || a.crashed) { this.lockT = 0; return; }
+    const c = this.centre(b);
+    const dx = c.x - a.pos.x, dy = c.y - a.pos.y, dist = Math.hypot(dx, dy);
+    const off = Math.abs(wrap(Math.atan2(dy, dx) - a.pitch));
+    const inside = dist >= M.rangeM[0] && dist <= M.rangeM[1] && off <= M.coneDeg * D2R;
+    const was = this.locked;
+    this.lockT = inside ? Math.min(M.lockS, this.lockT + dt) : Math.max(0, this.lockT - dt * 2);
+    if (!was && this.locked) this.f.emit('aamLocked');
+  }
+
+  // Space: fire one missile at the locked bandit.
+  fireAam() {
+    const M = this.aamType, f = this.f, a = f.ac;
+    if (!M || a.onGround || a.shotDown || a.crashed) return;
+    if (this.missiles <= 0) { f.say('Missiles gone! Guns, guns!', true, null); this.noLockT = f.time; return; }
+    if (!this.locked || !this.b) { this.noLockT = f.time; f.emit('aamNoLock'); return; }
+    const d = f.data, pts = d.aam.points || d.hardpoints || [[d.pivot[0], d.pivot[1] - 20]];
+    const hp = pts[(this.missiles - 1) % pts.length];
+    const p = a.pointM(hp[0], hp[1] + 4);
+    const drop = M.launch === 'drop';
+    const ang = Math.atan2(a.vel.y, a.vel.x);
+    const m = {
+      M, x: p.x, y: p.y, px: p.x, py: p.y, t: 0,
+      vx: a.vel.x + (drop ? Math.sin(ang) * 5 : 0), vy: a.vel.y - (drop ? Math.cos(ang) * 5 : 0),
+      motor: !drop, target: this.b, decoyAt: Math.random() < M.flareChance ? 0.6 + Math.random() * 0.8 : null,
+      decoy: null, // a flare / chaff point it went for instead
+    };
+    this.aams.push(m);
+    this.missiles -= 1;
+    this.lockT = 0; // the seeker looks again for the next one
+    this.jinkT = 0; // the bandit sees it coming: breaks at once
+    f.emit('aamLaunch', { x: p.x, y: p.y, rail: !drop });
+    f.say(`${M.fox}! ${M.short} away!`, true);
+  }
+
+  // Missiles in flight: motor, guidance to the intercept point, proximity fuse.
+  stepAams(dt) {
+    const f = this.f;
+    for (let i = this.aams.length - 1; i >= 0; i--) {
+      const m = this.aams[i], M = m.M;
+      m.t += dt; m.px = m.x; m.py = m.y;
+      const drop = M.launch === 'drop';
+      const burnFrom = drop ? M.dropS : 0;
+      if (!m.motor && drop && m.t >= M.dropS && m.t < M.dropS + M.burnS) { m.motor = true; f.emit('aamIgnite', { x: m.x, y: m.y }); }
+      if (m.motor && m.t >= burnFrom + M.burnS) m.motor = false;
+      let sp = Math.hypot(m.vx, m.vy), hd = Math.atan2(m.vy, m.vx);
+      if (m.t < burnFrom) {
+        m.vy -= G * dt; // falling clear of the jet
+      } else {
+        if (m.motor) sp = Math.min(sp + M.accel * dt, (m.v0 ?? (m.v0 = sp)) + M.speedMs);
+        else sp = Math.max(0, sp - M.dragMs2 * dt);
+        // The bandit's flares / chaff: it goes for the decoy instead.
+        if (m.decoyAt != null && !m.decoy && m.target && m.t > m.decoyAt + burnFrom && m.target === this.b) {
+          const b = m.target;
+          m.decoy = { x: b.pos.x - b.vel.x * 0.15, y: b.pos.y - 6, vx: b.vel.x * 0.5, vy: -8 };
+          f.emit('countermeasure', { x: m.decoy.x, y: m.decoy.y, bandit: true });
+          f.emit('aamDecoyed');
+        }
+        let aim = null;
+        if (m.decoy) { m.decoy.x += m.decoy.vx * dt; m.decoy.y += m.decoy.vy * dt; aim = m.decoy; }
+        else if (m.target && m.target === this.b && !m.target.shotDown) {
+          const b = m.target, c = this.centre(b);
+          const dist = Math.hypot(c.x - m.x, c.y - m.y);
+          const tgo = dist / Math.max(sp, 50);
+          aim = { x: c.x + b.vel.x * tgo, y: c.y + b.vel.y * tgo };
+        }
+        if (aim && sp > 120) {
+          const want = Math.atan2(aim.y - m.y, aim.x - m.x);
+          hd += clamp(wrap(want - hd), -M.turnDegS * D2R * dt, M.turnDegS * D2R * dt);
+        } else hd -= 0.15 * dt * Math.cos(hd); // no target: noses over slowly
+        m.vx = Math.cos(hd) * sp; m.vy = Math.sin(hd) * sp;
+      }
+      m.x += m.vx * dt; m.y += m.vy * dt;
+      // Fuse: passes within fuseM of the bandit it was fired at (and not decoyed).
+      const b = this.b;
+      if (b && m.target === b && !m.decoy && m.t > burnFrom) {
+        const c = this.centre(b);
+        if (segDist(m.px, m.py, m.x, m.y, c.x, c.y) <= M.fuseM) {
+          f.emit('airBurst', { x: m.x, y: m.y, power: 1.1 });
+          f.emit('acHit', { x: c.x, y: c.y, bandit: true });
+          this.hp -= M.dmg * this.D.playerDmgMult;
+          b.controlFactor = 1 - (1 - DAMAGE.controlAtZero) * this.damage;
+          this.aams.splice(i, 1);
+          if (this.hp <= 0) this.shootDown();
+          else f.say(`Hit! The ${this.opp.name} is still flying! Finish him!`, true);
+          continue;
+        }
+      }
+      if (m.y <= 0) { f.emit('explosion', { x: m.x, y: 0 }); this.aams.splice(i, 1); continue; }
+      if (m.t > M.lifeS || (m.decoy && Math.hypot(m.decoy.x - m.x, m.decoy.y - m.y) < 15)) {
+        f.emit('airBurst', { x: m.x, y: m.y, power: 0.5 });
+        this.aams.splice(i, 1);
+      }
+    }
   }
 
   get active() { return !!this.b; }
@@ -164,6 +278,8 @@ export class Dogfight {
         this.falling.splice(i, 1);
       }
     }
+    this.stepSeeker(dt);
+    this.stepAams(dt);
     this.stepRounds(dt);
     this.rules(dt);
   }
@@ -193,7 +309,7 @@ export class Dogfight {
     if (!b) return;
     if (this.fleeing) { if (this.range > D.fleeGoneM) { this.b = null; this.escaped += 1; } return; }
     // Out of rounds: the fight's over, the bandit leaves, you go home.
-    const out = f.cb.ammo <= 0 && f.cb.rounds.length === 0;
+    const out = f.cb.ammo <= 0 && f.cb.rounds.length === 0 && this.missiles <= 0 && this.aams.length === 0;
     this.noAmmoT = out ? this.noAmmoT + dt : 0;
     if (this.noAmmoT > D.noAmmoEndS) { this.fleeing = true; this.firing = false; this.over('winchester'); return; }
     this.farT = this.range > D.outOfRangeM ? this.farT + dt : 0;

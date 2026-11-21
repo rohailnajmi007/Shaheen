@@ -206,6 +206,14 @@ CONFIGS = {
         "src": "docs/reference/raad_source.png",
         "display_width": 37, "gear_regions": [], "prop": None, "points": {},
     },
+    # Air-to-air missiles (owner's art 2026-11-21); "largest" keeps only the missile
+    # (captions and phone buttons are separate shapes). Lengths at the 2x art scale.
+    "aim120": {"src": "docs/reference/aim120_source.png", "largest": True,
+               "display_width": 29, "gear_regions": [], "prop": None, "points": {}},   # 3.65 m, F-16s
+    "pl15": {"src": "docs/reference/pl15_source.png", "largest": True,
+             "display_width": 32, "gear_regions": [], "prop": None, "points": {}},     # ~4 m, JF-17, J-10C
+    "aim9": {"src": "docs/reference/aim9_source.png", "largest": True,
+             "display_width": 23, "gear_regions": [], "prop": None, "points": {}},     # 2.85 m, F-7PG, Mirage
     "mk82": {    # Mk 82 unguided bomb, Mirage V (2.2 m); the "Mk 82" caption is erased
         "src": "docs/reference/mk82_source.png", "erase": [(180, 79, 330, 97)],
         "display_width": 17, "gear_regions": [], "prop": None, "points": {},
@@ -385,6 +393,26 @@ def build(name, cfg):
     remove_background(im)
     w, h = im.size
     px = im.load()
+    if cfg.get("largest"):
+        # Keep only the biggest opaque shape.
+        seen = bytearray(w * h); best = []
+        for sy in range(h):
+            for sx in range(w):
+                if seen[sy * w + sx] or px[sx, sy][3] == 0:
+                    continue
+                comp = []; q = deque([(sx, sy)]); seen[sy * w + sx] = 1
+                while q:
+                    cx, cy = q.popleft(); comp.append((cx, cy))
+                    for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                        if 0 <= nx < w and 0 <= ny < h and not seen[ny * w + nx] and px[nx, ny][3] > 0:
+                            seen[ny * w + nx] = 1; q.append((nx, ny))
+                if len(comp) > len(best):
+                    best = comp
+        keep = set(best)
+        for yy in range(h):
+            for xx in range(w):
+                if px[xx, yy][3] and (xx, yy) not in keep:
+                    px[xx, yy] = (0, 0, 0, 0)
     layers = {"body": im.copy()}
     if cfg["gear_regions"]:
         layers["gear"] = Image.new("RGBA", im.size, (0, 0, 0, 0))

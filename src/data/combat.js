@@ -103,6 +103,26 @@ export const EJECT = {
 // src/data/opponents.js, whose `ai` blocks override the numbers below). Both jets fly
 // right. Dodge his bursts by climbing, diving, or changing speed so he overshoots.
 // When the fight is over the landing base appears recoveryGapM ahead. Missiles later.
+// Air-to-air missiles (owner 2026-11-21: within visual range, Space to fire after a lock).
+// Lock: keep the bandit inside coneDeg of your nose, between rangeM[0] and rangeM[1], for
+// lockS seconds (the box closes in, the growl turns to a steady tone). Launch: 'rail' =
+// motor lights on the rail; 'drop' = ejected clear, falls dropS, then the motor lights.
+// Flight: +speedMs over the launch speed (accel m/s2) while the motor burns (burnS), then
+// it slows by dragMs2; it turns at most turnDegS toward the intercept point; proximity
+// fuse fuseM; dmg against the bandit's hit points; flareChance: the bandit's flares (IR)
+// or chaff and notching (radar) pull it off; it self-destructs after lifeS.
+export const AAMS = {
+  aim9: { name: 'AIM-9M SIDEWINDER', short: 'AIM-9M', fox: 'FOX TWO', sprite: 'aim9_body', launch: 'rail',
+    rangeM: [300, 2800], coneDeg: 22, lockS: 0.9, dropS: 0, speedMs: 620, accel: 420, burnS: 2.2, dragMs2: 70,
+    turnDegS: 42, fuseM: 9, dmg: 90, flareChance: 0.3, lifeS: 9, smoke: 0.9 },
+  aim120: { name: 'AIM-120 AMRAAM', short: 'AIM-120', fox: 'FOX THREE', sprite: 'aim120_body', launch: 'drop',
+    rangeM: [500, 4000], coneDeg: 30, lockS: 1.4, dropS: 0.45, speedMs: 800, accel: 330, burnS: 3.5, dragMs2: 55,
+    turnDegS: 32, fuseM: 12, dmg: 115, flareChance: 0.15, lifeS: 11, smoke: 1 },
+  pl15: { name: 'PL-15', short: 'PL-15', fox: 'FOX THREE', sprite: 'pl15_body', launch: 'drop',
+    rangeM: [500, 4000], coneDeg: 30, lockS: 1.5, dropS: 0.5, speedMs: 850, accel: 340, burnS: 4, dragMs2: 55,
+    turnDegS: 30, fuseM: 12, dmg: 125, flareChance: 0.15, lifeS: 12, smoke: 1 },
+};
+
 export const DOGFIGHT = {
   bandits: [2, 3],         // bandits per mission (random in this range), one after another
   fightStartM: 4000,       // the first one comes once you're this far from your home base (owner 2026-11-21: 4 km max; was 9)

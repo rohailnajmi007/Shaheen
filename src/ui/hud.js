@@ -107,7 +107,7 @@ export class Hud {
     this.el.weapon.classList.toggle('show', flight.armed);
     this.el.wname.textContent = d.weaponName || '';
     const strike = flight.mode === 'strike';
-    this.el.keys.innerHTML = KEY_HELP.filter((k) => !k[2] || (k[2] === 'strike' ? strike : k[2] === 'smoke' ? !!(flight.data.smoke && flight.mode === 'ferry') : flight.armed)).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
+    this.el.keys.innerHTML = KEY_HELP.filter((k) => !k[2] || (k[2] === 'strike' ? strike : k[2] === 'smoke' ? !!(flight.data.smoke && flight.mode === 'ferry') : k[2] === 'aam' ? !!(flight.data.aam && flight.mode === 'dogfight') : flight.armed)).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
     this.msgQueue = []; this.msgT = 0; this.trail = [];
     this.el.itext.textContent = '';
     this.el.keys.classList.remove('hide');
@@ -157,15 +157,20 @@ export class Hud {
       const name = df.opp.name.toUpperCase();
       // Calibre only (owner 2026-11-21): "20 MM CANNON", not the gun's model name.
       const cal = d.gun && /(\d+)\s*MM/i.exec(d.gun.name);
-      this.set('wname', this.el.wname, cal ? `${cal[1]} MM CANNON` : 'CANNON');
+      const gunName = cal ? `${cal[1]} MM CANNON` : 'CANNON';
+      // Missiles first when the jet carries them: "AIM-120 x4 · 20 MM CANNON".
+      this.set('wname', this.el.wname, df.aamType ? `${df.aamType.short} x${df.missiles} · ${gunName}` : gunName);
       const r = df.range;
       const rs = r < 1000 ? `${Math.round(r)} M` : `${(r / 1000).toFixed(1)} KM`;
       const sol = this.gunSolution(f);
       const state = f.revealed ? `RTB · ${f.dest.short}`
         : b ? (df.fleeing ? `${name} LEAVING` : cb.ammo <= 0 ? 'WINCHESTER · NO ROUNDS' : df.dx > 0 ? (sol ? `IN RANGE ${rs} · GUNS` : `${name} AHEAD ${rs}`) : `${name} ON YOUR SIX ${rs}`)
           : df.phase === 'inbound' ? `${df.total} x ${name} AHEAD` : 'NEXT BANDIT INBOUND';
-      this.set('wstate', this.el.wstate, state);
-      this.cls('wstate', this.el.weapon, 'hot', sol);
+      // Seeker state overrides while it matters (owner 2026-11-21).
+      const sk = df.seeker;
+      const st2 = f.revealed ? state : sk === 'lock' ? `LOCKED ${rs} · FIRE (SPACE)` : sk === 'seek' ? `SEEKING… ${Math.round(df.lockFrac * 100)}%` : state;
+      this.set('wstate', this.el.wstate, st2);
+      this.cls('wstate', this.el.weapon, 'hot', sol || sk === 'lock');
       const bd = b ? ` · ${name} DMG ${Math.round(100 - Math.max(0, df.hp) / df.opp.airframeHp * 100)}%` : '';
       this.set('wsub', this.el.wsub, `GUN ${cb.ammo} · KILLS ${df.kills}/${df.total}${bd}`);
       const hp = Math.round(cb.hp);
