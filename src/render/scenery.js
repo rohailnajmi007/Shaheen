@@ -291,7 +291,11 @@ function sprite(wM, hM, R, draw) {
 // Base name stencilled across the top of the hangar front (owner 2026-11-21), in a
 // military stencil font (Black Ops One, public/fonts). Band = facade above the doors (m).
 const HANGAR_NAME = { font: '"Black Ops One", "Chakra Petch", sans-serif', bandTopM: 9, doorTopM: 13.5, textM: 3.1, maxWidth: 0.62, spacingM: 0.5, color: '#262a2e' };
-function hangar(time, R, col, name) {
+// A plane inside (owner 2026-11-21: fighter bases, a C-130): the doors stand open (two
+// panels pushed to each side), the hangar is lit inside at night, shaded by day, and the
+// plane is drawn planeFill x the door height, its fin cut off by the facade above the door.
+const HANGAR_PLANE = { planeFill: 1.45, dayShade: [0.5, 0.52, 0.55], nightLight: [1.0, 0.92, 0.78] };
+function hangar(time, R, col, name, plane = null) {
   const N = HANGAR_NAME;
   return sprite(64, 22, R, (x, W, H, R) => {
     const body = shade(col, time.light), roof = shade('#6c7178', time.light), dark = shade('#3a3f45', time.light);
@@ -301,8 +305,30 @@ function hangar(time, R, col, name) {
     x.fillRect(2 * R, 9 * R, W - 4 * R, H - 9 * R);
     x.fillStyle = dark;
     x.fillRect(6 * R, N.doorTopM * R, W - 12 * R, H - N.doorTopM * R);
-    x.fillStyle = shade('#80868d', time.light);
-    for (let i = 0; i < 6; i++) x.fillRect(6 * R + i * (W - 12 * R) / 6, N.doorTopM * R, (W - 12 * R) / 6 - 0.4 * R, H - N.doorTopM * R);
+    const img = plane && images[plane];
+    const dx0 = 6 * R, dw = W - 12 * R, dy0 = N.doorTopM * R, dh = H - dy0, pw = dw / 6;
+    if (img) {
+      // Inside: lit floor and back wall at night, deep shade by day.
+      const g = x.createLinearGradient(0, dy0, 0, H);
+      if (time.lights) { g.addColorStop(0, 'rgb(120,104,80)'); g.addColorStop(1, 'rgb(210,186,140)'); }
+      else { g.addColorStop(0, shade('#2b2f34', time.light)); g.addColorStop(1, shade('#4a4f56', time.light)); }
+      x.fillStyle = g; x.fillRect(dx0, dy0, dw, dh);
+      const P = HANGAR_PLANE;
+      const ph = dh * P.planeFill, pwid = ph * img.width / img.height;
+      const L = time.lights ? P.nightLight : time.light.map((v, i) => v * P.dayShade[i]);
+      x.save(); x.beginPath(); x.rect(dx0, dy0, dw, dh); x.clip();
+      x.drawImage(tinted(img, L, plane), W / 2 - pwid / 2, H - ph, pwid, ph);
+      x.restore();
+      // Door panels pushed to the sides (two at each end, slightly offset).
+      x.fillStyle = shade('#80868d', time.light);
+      for (const [px, k] of [[dx0, 0], [dx0 + 0.7 * R, 1], [dx0 + dw - pw, 0], [dx0 + dw - pw - 0.7 * R, 1]]) {
+        x.fillRect(px, dy0, pw - 0.4 * R, dh);
+        x.fillStyle = shade(k ? '#737980' : '#80868d', time.light);
+      }
+    } else {
+      x.fillStyle = shade('#80868d', time.light);
+      for (let i = 0; i < 6; i++) x.fillRect(dx0 + i * pw, dy0, pw - 0.4 * R, dh);
+    }
     if (name) {
       x.save();
       x.font = `${N.textM * R}px ${N.font}`;
@@ -315,7 +341,7 @@ function hangar(time, R, col, name) {
       x.fillText(name, 0, 0);
       x.restore();
     }
-    if (time.lights) { x.fillStyle = 'rgba(255,220,150,0.95)'; x.fillRect(W / 2 - 14 * R, H - 9 * R, 28 * R, 9 * R); }
+    if (time.lights && !img) { x.fillStyle = 'rgba(255,220,150,0.95)'; x.fillRect(W / 2 - 14 * R, H - 9 * R, 28 * R, 9 * R); }
   });
 }
 function tower(time, R, hM) {
@@ -775,7 +801,7 @@ export function buildBase(base, time, R) {
   const back = [];
   const put = (spr, x) => back.push({ ...spr, x: base.x + x, layer: 0 });
   const hx = hangarsX(base, startEnd), hb = hangarBlockM(base);
-  for (let i = 0; i < base.hangars; i++) put(hangar(time, R, col, base.hangarName || base.short), hx + i * 72);
+  for (let i = 0; i < base.hangars; i++) put(hangar(time, R, col, base.hangarName || base.short, base.hangarPlane), hx + i * 72);
   put(admin(time, R, base.id === 'risalpur' ? 3 : 2, col), hx + base.hangars * 72 + 20);
   put(tower(time, R, base.towerM), hx + base.hangars * 72 + 104);
   const gaps = [[startEnd + FILL.marginM, hx - FILL.marginM], [hx + hb + FILL.marginM, base.runwayM - 10]];

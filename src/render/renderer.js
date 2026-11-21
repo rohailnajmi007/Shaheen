@@ -1,5 +1,5 @@
 // Draws the world, the aircraft and effects on one canvas.
-import { images, tinted, SOFT, makeCanvas, rng } from './assets.js';
+import { images, tinted, SOFT, makeCanvas, rng, imageState } from './assets.js';
 import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget, buildFuelTruck, FLOODLIGHT, BILLBOARD } from './scenery.js';
 import { Particles } from './particles.js';
 import { buildLandmarks, LANDMARKS } from './landmarks.js';
@@ -151,6 +151,7 @@ export class Renderer {
     const R = Math.round(10 * res);
     this.landmarks = buildLandmarks(world.bases, time, res);
     this.baseGfx = world.bases.map((b) => ({ base: b, builtX: b.x, ...buildBase(b, time, R) }));
+    this.imgVer = imageState.version;
     this.wrecks = [];
     this.debris = []; // pieces off bandits (not the camera's crash wreck)
     this.truckGfx = buildFuelTruck(time, R);
@@ -179,7 +180,10 @@ export class Renderer {
   // A base moved (air to air: the landing base is placed when the fight is over):
   // build its scenery again, once.
   checkBases() {
-    if (this.baseGfx.every((bg) => bg.builtX === bg.base.x)) return;
+    // Also when a sprite arrived after the scenery was built (late load / retry).
+    const late = this.imgVer !== imageState.version;
+    if (!late && this.baseGfx.every((bg) => bg.builtX === bg.base.x)) return;
+    this.imgVer = imageState.version;
     const time = this.timeData, R = Math.round(10 * this.res);
     this.baseGfx = this.world.bases.map((b) => ({ base: b, builtX: b.x, ...buildBase(b, time, R) }));
     this.landmarks = buildLandmarks(this.world.bases, time, this.res);
@@ -281,7 +285,7 @@ export class Renderer {
     // Camera: the live bandit, or for a few seconds the one just shot down (break-up).
     const fw = df && !df.b && df.falling.length ? df.falling[df.falling.length - 1] : null;
     this.camB = this.bst || (fw && fw.t < WATCH_KILL_S ? df.renderState(alpha, fw.ac, fw.prev) : null);
-    if (df) this.checkBases();
+    this.checkBases(); // moved landing base (air to air) or a late sprite
     // Ejected: the camera follows the pilot.
     const ej = flight.eject;
     this.updateCamera(dt, ej ? { ...st, x: ej.x, y: ej.y, vx: ej.vx, vy: ej.vy } : st, flight);

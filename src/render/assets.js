@@ -8,20 +8,31 @@ import { OPPONENTS } from '../data/opponents.js';
 const SPRITES = [...new Set([
   ...AIRCRAFT.flatMap((a) => [a.sprite, a.gearSprite, a.elevatorSprite, a.canardSprite, a.propSprite, a.weaponSprite,
     a.rankBadge && `paf_pilot_wings_${a.rankBadge}`]),
-  ...Object.values(BASES).flatMap((b) => [b.parked, ...(b.parkedGroups || []).map((g) => g.sprite), ...(b.decor || []).map((d) => d.sprite), ...(b.billboards || []).map((d) => d.sprite)]),
+  ...Object.values(BASES).flatMap((b) => [b.parked, ...(b.parkedGroups || []).map((g) => g.sprite), ...(b.decor || []).map((d) => d.sprite), ...(b.billboards || []).map((d) => d.sprite), b.hangarPlane]),
   ...OPPONENTS.map((o) => o.sprite),
 ].filter(Boolean))];
 
 export const images = {};
 
+// Bumped whenever a sprite arrives; the renderer rebuilds base scenery built without it.
+export const imageState = { version: 0 };
+// A sprite that fails (dev-server hiccup, slow network) is tried again a few times in the
+// background instead of being missing for the whole session (owner 2026-11-21: parked
+// jets and emblems vanished at Masroor).
+const RETRY = { tries: 4, delayMs: 800 };
 export async function loadImages() {
   const base = import.meta.env.BASE_URL || '/';
-  await Promise.all(SPRITES.map((name) => new Promise((resolve) => {
+  const load = (name, n, resolve) => {
     const img = new Image();
-    img.onload = () => { images[name] = img; resolve(); };
-    img.onerror = () => { console.warn('missing sprite', name); resolve(); };
-    img.src = `${base}sprites/${name}.png`;
-  })));
+    img.onload = () => { images[name] = img; imageState.version++; resolve(); };
+    img.onerror = () => {
+      resolve(); // don't hold up the start
+      if (n < RETRY.tries) setTimeout(() => load(name, n + 1, () => {}), RETRY.delayMs * (n + 1));
+      else console.warn('missing sprite', name);
+    };
+    img.src = `${base}sprites/${name}.png${n ? `?r=${n}` : ''}`;
+  };
+  await Promise.all(SPRITES.map((name) => new Promise((resolve) => load(name, 0, resolve))));
 }
 
 export function makeCanvas(w, h) {

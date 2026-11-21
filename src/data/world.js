@@ -18,6 +18,7 @@ export const BASES = {
   },
   masroor: {
     id: 'masroor', name: 'PAF Base Masroor', city: 'Karachi', short: 'MASROOR',
+    hangarPlane: 'c130_front_body', // a C-130 in each big hangar (fighter bases, owner 2026-11-21)
     runwayM: 1400, hangars: 2, towerM: 28, parked: 'jf17_front_body', apron: [-60, 520], taxiFromM: -30, holdM: 135,
     boards: ['NO. 2 MR SQN|MINHASIANS', 'NO. 8 MR SQN|HAIDER'],
     // Big emblem billboards behind the parked rows, by their squadron's board (owner 2026-11-21);
@@ -32,6 +33,7 @@ export const BASES = {
   },
   mushaf: {
     id: 'mushaf', name: 'PAF Base Mushaf', city: 'Sargodha', short: 'MUSHAF',
+    hangarPlane: 'c130_front_body', // a C-130 in each big hangar (fighter bases, owner 2026-11-21)
     runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [32, 560], taxiFromM: 25, holdM: 225,
     boards: ['NO. 9 MR SQN|GRIFFINS', 'NO. 29 MR SQN|AGGRESSORS'],
     billboards: [
@@ -53,6 +55,7 @@ export const BASES = {
   // of J-10Cs, each squadron's board right next to its last jet.
   kamra: {
     id: 'kamra', name: 'PAF Base Kamra', city: 'Kamra', short: 'KAMRA',
+    hangarPlane: 'c130_front_body', // a C-130 in each big hangar (fighter bases, owner 2026-11-21)
     runwayM: 1500, hangars: 2, towerM: 26, theme: 'north', taxiFromM: 5, holdM: 240,
     parkedGroups: [
       { sprite: 'jf17_front_body', from: -20, count: 6, board: 'NO. 26 MR SQN|BLACK SPIDERS' },
@@ -69,6 +72,7 @@ export const BASES = {
   // Sqn "Falcons" F-16Cs (owner's front art), then No. 11 Sqn "Arrows" F-16As.
   shahbaz: {
     id: 'shahbaz', name: 'PAF Base Shahbaz', city: 'Jacobabad', short: 'SHAHBAZ',
+    hangarPlane: 'c130_front_body', // a C-130 in each big hangar (fighter bases, owner 2026-11-21)
     runwayM: 1500, hangars: 2, towerM: 26, theme: 'sindh', taxiFromM: 5, holdM: 240,
     parkedGroups: [
       { sprite: 'f16c_front_body', from: -20, count: 6, board: 'NO. 5 MR SQN|FALCONS' },
@@ -161,8 +165,9 @@ export const THEMES = {
     ground: '#c4ad7c', groundDark: '#ad9564',
     sea: true, city: true,
   },
+  // Flat Punjab plain (owner 2026-11-21: no mountains at Mushaf).
   punjab: {
-    mountains: '#8a98a6', mountainsHi: 0.1, snow: false,
+    mountains: null, mountainsHi: 0, snow: false,
     hills: '#5e8d42', hillsHi: 0.08,
     trees: '#2b5524',
     ground: '#5d9440', groundDark: '#4a7b32',
@@ -179,7 +184,7 @@ export const THEMES = {
   },
   // Jacobabad (Shahbaz, owner 2026-11-21): flat Sindh desert, low dunes, palm groves.
   sindh: {
-    mountains: '#b59a7c', mountainsHi: 0.05, snow: false,
+    mountains: null, mountainsHi: 0, snow: false, // flat (owner 2026-11-21)
     hills: '#d9bf8c', hillsHi: 0.06,
     trees: '#5f6e34',
     ground: '#dcc28e', groundDark: '#c4a874',
