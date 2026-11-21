@@ -70,6 +70,7 @@ export class Aircraft {
     this.stick = 0;
     this.thrustFactor = 1;  // < 1 with a damaged engine (src/sim/combat.js)
     this.shotDown = false;  // shot down: no control, nose drops until it hits the ground
+    this.burnScale = 1;     // fuel burn multiplier (dogfight: lower)
   }
 
   get speed() { return Math.hypot(this.vel.x, this.vel.y); }
@@ -114,6 +115,24 @@ export class Aircraft {
     this.events.push({ type: 'gear', down: this.gearDown });
   }
 
+  // Start in the air (dogfight): engine running, gear and flaps up, level at speedMs.
+  setAirborne(x, y, speedMs, throttle) {
+    this.pos = { x, y };
+    this.vel = { x: speedMs, y: 0 };
+    this.prevVel = { x: speedMs, y: 0 };
+    this.onGround = false;
+    this.engineOn = true; this.rpm = 1; this.throttle = throttle;
+    this.gearDown = !this.data.retractableGear ? true : false;
+    this.gearPos = this.gearDown ? 1 : 0;
+    this.flapSetting = 0; this.flapPos = 0;
+    // Level flight: pitch = the angle of attack that gives 1 G at this speed.
+    const d = this.data;
+    const vs = d.stallKt / KT;
+    const cl = (vs / speedMs) ** 2;
+    const stallA = d.stallAoaDeg * D2R;
+    this.pitch = Math.max(0, ((cl - d.zeroAoaLift) / (1 - d.zeroAoaLift)) * stallA);
+  }
+
   step(dt, input) {
     this.time += dt;
     if (this.crashed) return;
@@ -143,7 +162,7 @@ export class Aircraft {
     const d = this.data;
     this.rpm = moveToward(this.rpm, this.engineOn ? 1 : 0, dt / Math.max(d.engineSpoolS, 0.01));
     if (this.rpm > 0) {
-      let burn = d.burnFullKgS * lerp(d.idleBurnFraction, 1, Math.min(this.throttle, 1));
+      let burn = d.burnFullKgS * this.burnScale * lerp(d.idleBurnFraction, 1, Math.min(this.throttle, 1));
       burn *= lerp(1, d.afterburnerBurnMult, this.afterburner);
       this.fuel = Math.max(0, this.fuel - burn * this.rpm * dt);
       if (this.fuel <= 0 && this.engineOn) {

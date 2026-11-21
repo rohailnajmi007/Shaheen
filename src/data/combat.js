@@ -94,3 +94,52 @@ export const EJECT = {
   minAltM: 0,         // can eject at any height (zero-zero seat)
   resultWaitS: 14,    // the debrief waits at most this long for the pilot to land
 };
+
+// Air to air (owner 2026-11-21): 1 v 1 guns-only dogfight. Both jets fly right; the
+// bandit (same type as yours) starts ahead of you or on your six. Dodge his bursts by
+// climbing, diving, or changing speed so he overshoots. Missiles later.
+export const DOGFIGHT = {
+  startAltM: 900,          // both start airborne, gear up, this high...
+  startKt: 430,            // ... at this speed
+  startThrottle: 0.8,
+  spawnGapM: [450, 750],   // bandit this far ahead of or behind you
+  spawnAltM: [-60, 120],   // ... and this much higher
+  homeGapM: 3000,          // the fight starts this far past your home base
+  burnScale: 0.3,          // fuel burn x this (afterburner fights would empty the tanks)
+  hitRadiusMult: 2.4,      // jets' hit circles x this (rounds vs jets, both ways): the jets are drawn
+                           // bigger than life when zoomed out, so a visual hit should count
+  banditHp: 100,
+  banditAmmoMult: 1.5,     // bandit rounds = your gun's rounds x this
+  banditDmgMult: 0.12,     // his rounds hurt you this much x the gun's dmg...
+  playerDmgMult: 0.3,      // ... and yours hurt him this much (a kill takes a few good bursts)
+  holdFireS: 3,            // he doesn't shoot in the first seconds
+  // Bandit AI.
+  reactionS: 0.35,         // aims at where you were this long ago (dodging works)
+  aimErrDeg: 1.3,          // slow wandering aim error
+  fireConeDeg: 2.2,        // fires when its nose is this close to the aim point...
+  fireRangeM: 800,         // ... and you are this close
+  burstS: [0.35, 0.8],     // burst length
+  burstGapS: [0.7, 1.6],   // pause between bursts
+  aoaLimit: 0.8,           // it pulls at most this share of the stall angle of attack
+  pitchGain: 3.5,          // pitch-rate wanted per radian of pitch error (1/s)
+  chaseGapM: 160,          // when chasing, it wants to sit this far behind you
+  throttleLagS: 1.1,       // its throttle follows what it wants this slowly (so it can overshoot)
+  chaseBrakeMs: 80,        // uses the air brake only when closing faster than this
+  speedReadS: 2.5,         // it notices your speed changes this late
+  waitGapM: 1300,          // in front of you and further ahead than this: it eases off
+  jinkAltM: 170,           // when you're behind it: climbs/dives up to this much...
+  jinkEveryS: [1.6, 3.2],  // ... changing its mind this often
+  jinkBaseMinM: 500,       // ... around halfway between its height and yours, at least this
+  overshootPerS: 0.45,     // chance per s it chops throttle + air brake while you're close behind
+  overshootS: [1.4, 2.6],
+  overshootRangeM: 550,
+  floorM: 160,             // it pulls up below this
+  ceilingM: 3200,          // ... and noses down above this
+  catchUpM: 1100,          // further apart than this: it gets extra thrust to close up
+  catchUpThrust: 1.3,
+  // Rules.
+  endAfterKillS: 5,        // debrief this long after the bandit goes down
+  noAmmoEndS: 5,           // both guns empty (or yours) this long: fight over
+  outOfRangeM: 4000,       // further apart than this for outOfRangeS: he disengages
+  outOfRangeS: 12,
+};

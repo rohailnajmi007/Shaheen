@@ -2,8 +2,9 @@
 import { Aircraft, KT, FT, G } from './aircraft.js';
 import { aircraftById } from '../data/aircraft.js';
 import { BASES, ferryLayout, ROUTES_FROM, REFUEL } from '../data/world.js';
-import { GROUND_UNITS, STRIKE, AIR_DEFENCE, EJECT } from '../data/combat.js';
+import { GROUND_UNITS, STRIKE, AIR_DEFENCE, EJECT, DOGFIGHT } from '../data/combat.js';
 import { Combat } from './combat.js';
+import { Dogfight } from './dogfight.js';
 
 const GRADES = ['PERFECT', 'GOOD', 'FIRM', 'HARD'];
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -47,7 +48,9 @@ export class Flight {
   constructor(opts) {
     this.opts = opts;
     this.data = aircraftById(opts.aircraftId);
-    this.mode = opts.mode === 'strike' && this.data.strikeCapable ? 'strike' : 'ferry';
+    this.mode = opts.mode === 'strike' && this.data.strikeCapable ? 'strike'
+      : opts.mode === 'dogfight' && this.data.gun ? 'dogfight' : 'ferry';
+    this.armed = this.mode !== 'ferry'; // gun, damage, eject (strike and dogfight)
     this.ac = new Aircraft(this.data);
     this.ac.reset(60);
     this.state = 'preflight'; // preflight, flying, rollout, stopover, done
@@ -70,8 +73,15 @@ export class Flight {
     this.seeker = { target: null, t: 0 }; // missile seeker: candidate target and time on it
     this.eject = null;      // ejection seat / parachute once the pilot has ejected
     this.cb = new Combat(this);
+    this.df = null;         // the dogfight (air to air) and its bandit
     this.buildWorld();
-    this.say(`${this.callsign()}! Engine start: E. Then throttle up. Move it!`);
+    if (this.mode === 'dogfight') {
+      this.df = new Dogfight(this);
+      this.state = 'flying';
+      this.airborneOnce = true;
+      this.say(this.df.ahead ? `${this.callsign()}! Bandit dead ahead! Guns only. Get your nose on him!`
+        : `${this.callsign()}! Bandit on your SIX! Break! Climb, dive, make him overshoot!`, true);
+    } else this.say(`${this.callsign()}! Engine start: E. Then throttle up. Move it!`);
   }
 
   callsign() {
@@ -83,7 +93,12 @@ export class Flight {
     // Every flight starts at the aircraft's home base (x = 0).
     const home = BASES[this.data.homeBase] ? this.data.homeBase : 'risalpur';
     this.home = home;
-    if (this.mode === 'ferry') {
+    if (this.mode === 'dogfight') {
+      // Over open country past your home base; no landing in this mode (for now).
+      this.bases = [{ ...BASES[home], x: 0, visible: true }];
+      this.dest = this.bases[0];
+      this.themeStops = [{ x: -900, theme: BASES[home].theme }, { x: 2100, theme: BASES[home].theme }, { x: 3800, theme: 'desert' }];
+    } else if (this.mode === 'ferry') {
       this.bases = ferryLayout(home).map(([id, x]) => ({ ...BASES[id], x, visible: true }));
       this.dest = this.bases.slice(1).find((b) => b.id === this.opts.dest) || this.bases[1];
       this.themeStops = [];
@@ -165,6 +180,7 @@ export class Flight {
     if (this.state === 'rollout') return 'LANDED';
     if (a.onGround) return a.speed > 1 ? 'TAKE OFF ROLL' : 'PRE-FLIGHT';
     if (this.mode === 'strike' && !this.revealed) return a.bombsLeft > 0 ? 'ATTACK RUN' : 'EGRESS';
+    if (this.df) return this.df.down ? 'SPLASH ONE' : this.df.dx > 0 ? 'DOGFIGHT · ON HIS TAIL' : 'DOGFIGHT · BANDIT BEHIND';
     const toGo = this.dest.x - a.pos.x;
     if (toGo > 0 && toGo < 3000 && a.altFt < 3000) return 'APPROACH';
     if (a.vsFpm > 300) return 'CLIMB';
@@ -356,7 +372,8 @@ export class Flight {
     a.events.length = 0;
     this.stepWeapons(dt);
     this.stepEject(dt);
-    if (this.mode === 'strike') this.cb.step(dt, input);
+    if (this.armed) this.cb.step(dt, input);
+    if (this.df) this.df.step(dt);
     for (const t of this.targets) if (!t.alive) t.deadAt += dt;
     if (this.state === 'done') return;
 
@@ -366,7 +383,7 @@ export class Flight {
     this.instructor();
     if (this.mode === 'strike') { this.stepSeeker(dt); this.stepStrike(); }
     // Too far past everything: fuel or not, end the misery.
-    if (a.pos.x > this.lastX + 9000) this.crash('Lost. You flew right past the base.', -1);
+    if (this.mode !== 'dogfight' && a.pos.x > this.lastX + 9000) this.crash('Lost. You flew right past the base.', -1);
   }
 
   onAircraftEvent(e) {
@@ -573,7 +590,7 @@ export class Flight {
   // abandoned (no engine, no controls) and the seat fires.
   bailOut() {
     const a = this.ac;
-    if (this.mode !== 'strike' || a.onGround || a.crashed || this.eject || this.state !== 'flying') return;
+    if (!this.armed || a.onGround || a.crashed || this.eject || this.state !== 'flying') return;
     if (!a.shotDown) { a.shotDown = true; a.controls = false; a.engineOn = false; }
     this.ejectPilot();
   }
@@ -664,8 +681,35 @@ export class Flight {
       }
       if (toGo > 0 && toGo < 1800 && a.speedKt > this.approachKt() * 1.35 && a.altFt < 1500) this.say('Too FAST! Throttle back, air brake B!', true, 'fast');
     }
+    if (this.df) this.dogfightLines();
     if (a.gearWarning) this.say('GEAR! Are you blind?! GEAR DOWN!', true, 'gearwarn');
     if (!a.onGround && a.pos.y < 40 && a.pos.y > 2 && a.vsFpm < -1500) this.say('PULL UP! PULL UP!', true, `pullup${Math.floor(this.time / 6)}`);
+  }
+
+  dogfightLines() {
+    const df = this.df;
+    const a = this.ac;
+    if (df.down || a.shotDown || a.crashed) return;
+    const slot = Math.floor(this.time / 7);
+    if (df.firing && df.dx < 0) this.say("Guns, guns! He's shooting! Climb, dive, chop the throttle!", true, `guns${slot}`);
+    if (df.dx < 0 && df.dx > -350 && Math.abs(df.b.pos.y - a.pos.y) < 60) this.say("He's right on your six! Air brake, B! Make him overshoot!", true, `six${Math.floor(this.time / 12)}`);
+    if (df.dx > 0 && df.dx < 250 && df.b.vel.x < a.vel.x - 15) this.say("You'll overshoot! Throttle back! Air brake!", true, `over${slot}`);
+    if (df.dx > 0 && df.prevDx < 0) this.say("He overshot! Now he's yours! Nose on him, GUNS!", true, `rev${slot}`);
+    if (df.dx < 0 && df.prevDx > 0) this.say("You overshot him! He's behind you now! MOVE!", true, `rev2${slot}`);
+    if (this.cb.ammo === 0) this.say('Winchester! No rounds left! Stay alive!', true, 'winchester');
+    df.prevDx = df.dx;
+  }
+
+  // Dogfight over: KILL (bandit down), WINCHESTER (out of rounds), DISENGAGED (too far apart).
+  finishDogfight(outcome) {
+    const r = this.baseResult();
+    r.grade = outcome;
+    r.title = outcome === 'KILL' ? 'BANDIT DESTROYED' : outcome === 'WINCHESTER' ? 'OUT OF AMMUNITION' : 'BANDIT DISENGAGED';
+    if (outcome === 'KILL') this.say('Bandit destroyed. That is how it is done. RTB.', true);
+    else if (outcome === 'WINCHESTER') { r.reasons.push('You ran out of rounds before he went down.'); this.say('No rounds, no kill. Shoot closer, in short bursts!', true); }
+    else { r.reasons.push('You let him get away: stay within 4 km.'); this.say('He got away! You let him go! Stay on him!', true); }
+    r.score = this.score(r);
+    this.end(r);
   }
 
   gradeFor(fpm) {
@@ -683,10 +727,14 @@ export class Flight {
       fpm: this.worstFpm,
       targets: this.mode === 'strike' ? { hit: this.objectives.filter((t) => !t.alive).length, total: this.objectives.length } : null,
       defences: this.mode === 'strike' ? { hit: this.defences.filter((t) => !t.alive).length, total: this.defences.length } : null,
-      gun: this.mode === 'strike' && this.data.gun ? { fired: this.cb.stats.roundsFired, total: this.data.gun.rounds } : null,
-      damage: this.mode === 'strike' ? Math.round(100 - this.cb.hp) : 0,
+      gun: this.armed && this.data.gun ? { fired: this.cb.stats.roundsFired, total: this.data.gun.rounds } : null,
+      damage: this.armed ? Math.round(100 - this.cb.hp) : 0,
       countermeasures: this.mode === 'strike' ? { used: this.cb.stats.cmUsed, evaded: this.cb.stats.evaded } : null,
       weapons: this.mode === 'strike' ? { used: this.data.bombCount - this.ac.bombsLeft, total: this.data.bombCount, name: this.data.weaponName } : null,
+      dogfight: this.df ? {
+        kill: this.df.down, banditHp: Math.round(Math.max(0, this.df.hp)), hits: this.df.hitsOnBandit,
+        start: this.df.ahead ? 'AHEAD' : 'ON YOUR SIX',
+      } : null,
       mode: this.mode,
       from: this.bases[0].short,
       aircraft: this.data.name,
@@ -717,6 +765,11 @@ export class Flight {
 
   score(r) {
     if (r.grade === 'CRASH') return 0;
+    if (r.dogfight) {
+      // Kill: 1500 + 10 per % airframe left + up to 300 for rounds saved; else what you did to him.
+      if (r.grade !== 'KILL') return Math.round((100 - r.dogfight.banditHp) * 3);
+      return 1500 + Math.round((100 - r.damage) * 10) + Math.round(300 * (1 - r.gun.fired / Math.max(r.gun.total, 1)));
+    }
     const base = { PERFECT: 1000, GOOD: 800, FIRM: 550, HARD: 300, 'WRONG BASE': 150 }[r.grade] || 0;
     const fuel = Math.round(300 * clamp(1 - r.fuelUsedKg / r.fuelCapKg, 0, 1));
     const tgt = r.targets ? r.targets.hit * 400 : 0;

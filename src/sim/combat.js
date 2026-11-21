@@ -129,7 +129,8 @@ export class Combat {
       const r = this.rounds[i];
       shellStep(r, dt);
       let gone = r.t > 4;
-      for (const t of T) {
+      if (this.f.df && this.f.df.roundHits(r)) gone = true;
+      else for (const t of T) {
         if (!t.alive || Math.abs(t.x - r.x) > t.w / 2 + 12) continue;
         if (segBox(r.px, r.py, r.x, r.y, t.x - t.w / 2, t.x + t.w / 2, 0, t.h)) {
           this.f.emit('roundHit', { x: r.x, y: Math.max(0.5, Math.min(r.y, t.h)), hard: t.armour < 0.5 });
@@ -442,7 +443,7 @@ export class Combat {
     if (this.hp <= 0) { this.killer = cause; f.shootDown(cause); return; }
     if (f.time - this.lastHitSay > 4) {
       this.lastHitSay = f.time;
-      f.say(this.hp < DAMAGE.engineBelow ? `Engine's hit! ${Math.round(this.hp)}% left! Get OUT of there!` : `You're HIT! Airframe ${Math.round(this.hp)}%. Move!`, true);
+      f.say(this.hp < DAMAGE.engineBelow ? `Engine's hit! ${Math.floor(this.hp)}% left! Get OUT of there!` : `You're HIT! Airframe ${Math.floor(this.hp)}%. Move!`, true);
     }
   }
 
