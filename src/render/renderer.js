@@ -4,7 +4,7 @@ import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, build
 import { Particles } from './particles.js';
 import { buildLandmarks, LANDMARKS } from './landmarks.js';
 import { THEMES, TIMES, REFUEL, TAXI } from '../data/world.js';
-import { GROUND_UNITS, AIR_DEFENCE, DAMAGE, AAMS } from '../data/combat.js';
+import { GROUND_UNITS, AIR_DEFENCE, DAMAGE } from '../data/combat.js';
 import { KT } from '../sim/aircraft.js';
 import { SONIC } from '../data/aircraft.js';
 
@@ -43,8 +43,16 @@ export const COMBAT_FX = {
 };
 // Dogfight camera and bandit look (owner 2026-11-21: both jets always on screen).
 // Air-to-air missiles on screen (owner 2026-11-21: they were invisible): at least
-// minLenW of the screen width long, a smoke trail line (px at 720p) fading over trailFadeS.
-export const AAM_VIEW = { minLenW: 0.04, trailPx: 3, trailEdgePx: 5.5, trailFadeS: 4 };
+// minLenW of the screen width long. Motor smoke (owner 2026-11-21: "make it better"): soft
+// puffs along the path, thin and bright behind the missile, billowing out (radius grows
+// rM0 + growM per second, never under px0 + pxGrow per second at 720p), rising riseMs,
+// wobbling up to wobbleM, fading over lifeS. spacing = puff step as a fraction of radius;
+// a faint grey edge (edgeAlpha, edgeScale x radius) lets it read against white cloud.
+export const AAM_VIEW = {
+  minLenW: 0.04,
+  smoke: { lifeS: 3.5, rM0: 0.6, growM: 3.4, px0: 2.2, pxGrow: 6, riseMs: 1.2, wobbleM: 2.5,
+    alpha: 0.85, spacing: 0.45, maxPerSeg: 48, edgeAlpha: 0.16, edgeScale: 1.25 },
+};
 export const DOGFIGHT_CAM = {
   fillW: 0.6, fillH: 0.5,     // the two jets span at most this share of the screen
   smallH: 520, smallFillW: 0.42, smallFillH: 0.22, // phones (height under smallH px): HUD covers the edges...
@@ -1067,16 +1075,8 @@ export class Renderer {
       }
     }
     if (s.mach > SONIC.coneFrom) this.drawVapourCone(ctx, body, s.mach);
-    // Air-to-air missiles still on the jet (one per hang point, up to the number left).
-    if (d.aam && s.aamLeft > 0) {
-      const w = images[AAMS[d.aam.type].sprite];
-      const pts = d.aam.points || d.hardpoints || [];
-      for (let i = 0; i < Math.min(s.aamLeft, pts.length); i++) {
-        const hp = pts[i];
-        ctx.fillStyle = '#33363a'; ctx.fillRect(hp[0] - 6, hp[1] - 3, 12, 4);
-        if (w) ctx.drawImage(tinted(w, light), hp[0] - w.width / 2, hp[1]);
-      }
-    }
+    // Air-to-air missiles are not drawn on the jet: the owner's aircraft art already shows
+    // them (owner 2026-11-21). They appear only once launched (drawAams).
     if (d.elevatorSprite && images[d.elevatorSprite]) {
       const h = d.elevatorHinge;
       ctx.save();
@@ -1235,25 +1235,45 @@ export class Renderer {
 
   // Air-to-air missiles in flight: the sprite along its path, motor flame while it burns.
   drawAams(ctx, v, flight) {
-    const df = flight.df, A = AAM_VIEW, now = flight.time;
-    // Smoke trails: a grey edge under a white core, so they read on sky and on cloud;
-    // they thicken and fade with age.
-    const trail = (pts, fade) => {
-      if (pts.length < 2) return;
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      for (const [w, col] of [[A.trailEdgePx, `rgba(110,115,122,${0.45 * fade})`], [A.trailPx, `rgba(248,248,248,${0.9 * fade})`]]) {
-        ctx.lineWidth = w * Math.max(1, v.H / 720);
-        ctx.strokeStyle = col;
-        ctx.beginPath();
-        pts.forEach((p, n) => (n ? ctx.lineTo(v.sx(p.x), v.sy(p.y)) : ctx.moveTo(v.sx(p.x), v.sy(p.y))));
-        ctx.stroke();
+    const df = flight.df, A = AAM_VIEW, now = flight.time, K = A.smoke;
+    const u = Math.max(1, v.H / 720);
+    const puff = tinted(SOFT.smoke, this.lightBody, 'aamSmoke'), edge = SOFT.dark;
+    // One trail: puffs interpolated between the recorded points, each sized and faded by
+    // its own age, so it starts as a tight white line and spreads into a soft plume.
+    const trail = (pts) => {
+      for (let n = 1; n < pts.length; n++) {
+        const p0 = pts[n - 1], p1 = pts[n];
+        const age0 = now - p0.at, age1 = now - p1.at;
+        if (age0 > K.lifeS && age1 > K.lifeS) continue;
+        const rad = (age) => Math.max(v.S * (K.rM0 + K.growM * age), u * (K.px0 + K.pxGrow * age));
+        const x0 = v.sx(p0.x), y0 = v.sy(p0.y), x1 = v.sx(p1.x), y1 = v.sy(p1.y);
+        const len = Math.hypot(x1 - x0, y1 - y0);
+        const cnt = Math.min(K.maxPerSeg, Math.max(1, Math.ceil(len / (rad(Math.min(age0, age1)) * K.spacing))));
+        const nx = len ? -(y1 - y0) / len : 0, ny = len ? (x1 - x0) / len : 0;
+        for (let i = 0; i < cnt; i++) {
+          const f = i / cnt, age = age0 + (age1 - age0) * f;
+          if (age > K.lifeS || age < 0) continue;
+          const life = age / K.lifeS;
+          const r = rad(age);
+          // Billow: a smooth sideways wander that grows with age; smoke rises a little.
+          const seed = (p0.x + (p1.x - p0.x) * f) * 0.09;
+          const wob = (Math.sin(seed) * 0.6 + Math.sin(seed * 2.7 + 1.3) * 0.4) * K.wobbleM * Math.min(1, age) * v.S;
+          const px = x0 + (x1 - x0) * f + nx * wob, py = y0 + (y1 - y0) * f + ny * wob - K.riseMs * age * v.S;
+          const al = (1 - life) * (1 - life * 0.3);
+          const re = r * K.edgeScale;
+          ctx.globalAlpha = K.edgeAlpha * al;
+          ctx.drawImage(edge, px - re, py - re + r * 0.2, re * 2, re * 2);
+          ctx.globalAlpha = K.alpha * al;
+          ctx.drawImage(puff, px - r, py - r, r * 2, r * 2);
+        }
       }
+      ctx.globalAlpha = 1;
     };
     if (df.oldTrails) {
-      df.oldTrails = df.oldTrails.filter((o) => now - o.at < A.trailFadeS);
-      for (const o of df.oldTrails) trail(o.pts, 1 - (now - o.at) / A.trailFadeS);
+      df.oldTrails = df.oldTrails.filter((o) => now - o.at < K.lifeS);
+      for (const o of df.oldTrails) trail(o.pts);
     }
-    for (const m of df.aams) if (m.trail) trail([...m.trail, { x: m.x, y: m.y }], 1);
+    for (const m of df.aams) if (m.trail) trail(m.motor ? [...m.trail, { x: m.x, y: m.y, at: now }] : m.trail);
     for (const m of df.aams) {
       const img = images[m.M.sprite];
       if (!img) continue;
@@ -1805,14 +1825,7 @@ export class Renderer {
       if (a.onGround && a.braking && a.speedKt > 30 && Math.random() < 0.3) P.spawn('smoke', a.pos.x, 0.3, -2, 0.5, 1.5, 0.8, { grow: 2, alpha: 0.3 });
       if (d.hasPropeller && a.onGround && a.rpm > 0.8 && a.throttle > 0.6 && Math.random() < 0.3) P.spawn('dust', a.pos.x - 6, 0.3, -12, 0.5, 2, 1, { grow: 2, alpha: 0.35 });
     }
-    // Air-to-air missile motor smoke: a thick white trail while it burns.
-    if (flight.df) for (const m of flight.df.aams) {
-      if (!m.motor || Math.random() < 0.6) continue; // a few puffs round the trail line
-      for (let i = 0; i < 2; i++) {
-        const f = i / 2;
-        P.spawn('smoke', m.x - m.vx * dt * f, m.y - m.vy * dt * f, m.vx * 0.04, 0.4, 2.4, 3.6, { grow: 4.5, alpha: 0.7 * m.M.smoke, ground: false, drag: 0.4 });
-      }
-    }
+    // (Air-to-air missile smoke is drawn by drawAams from the missile's recorded path.)
     for (const w of flight.weapons) {
       if (w.motor) P.spawn('smoke', w.pos.x, w.pos.y, w.vel.x * 0.05, 0, 1.2, 2.5, { grow: 4, alpha: 0.55 * (d.missile.trail ?? 1), ground: false, drag: 0.3 });
     }

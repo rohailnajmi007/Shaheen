@@ -208,11 +208,12 @@ CONFIGS = {
     },
     # Air-to-air missiles (owner's art 2026-11-21); "largest" keeps only the missile
     # (captions and phone buttons are separate shapes). Lengths at the 2x art scale.
-    "aim120": {"src": "docs/reference/aim120_source.png", "largest": True,
+    # The art points left: flipped so the nose leads (owner 2026-11-21: they flew backwards).
+    "aim120": {"src": "docs/reference/aim120_clean_source.png", "largest": True, "flip": True,
                "display_width": 29, "gear_regions": [], "prop": None, "points": {}},   # 3.65 m, F-16s
-    "pl15": {"src": "docs/reference/pl15_source.png", "largest": True,
+    "pl15": {"src": "docs/reference/pl15_source.png", "largest": True, "flip": True,
              "display_width": 32, "gear_regions": [], "prop": None, "points": {}},     # ~4 m, JF-17, J-10C
-    "aim9": {"src": "docs/reference/aim9_source.png", "largest": True,
+    "aim9": {"src": "docs/reference/aim9_source.png", "largest": True, "flip": True,
              "display_width": 23, "gear_regions": [], "prop": None, "points": {}},     # 2.85 m, F-7PG, Mirage
     "mk82": {    # Mk 82 unguided bomb, Mirage V (2.2 m); the "Mk 82" caption is erased
         "src": "docs/reference/mk82_source.png", "erase": [(180, 79, 330, 97)],

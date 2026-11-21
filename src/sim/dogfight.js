@@ -94,7 +94,7 @@ export class Dogfight {
   // A missile is gone: its smoke trail stays a few seconds, fading (renderer).
   dropAam(i) {
     const m = this.aams.splice(i, 1)[0];
-    if (m.trail && m.trail.length > 1) (this.oldTrails || (this.oldTrails = [])).push({ pts: m.trail, at: this.f.time });
+    if (m.trail && m.trail.length > 1) (this.oldTrails || (this.oldTrails = [])).push({ pts: m.trail, at: m.trail[m.trail.length - 1].at });
   }
 
   // Missiles in flight: motor, guidance to the intercept point, proximity fuse.
@@ -135,8 +135,8 @@ export class Dogfight {
         m.vx = Math.cos(hd) * sp; m.vy = Math.sin(hd) * sp;
       }
       m.x += m.vx * dt; m.y += m.vy * dt;
-      // Smoke trail points while the motor burns (drawn as a line by the renderer).
-      if (m.motor && (!m.trail || m.t - m.trail[m.trail.length - 1].t > 0.04)) (m.trail || (m.trail = [])).push({ x: m.x, y: m.y, t: m.t });
+      // Smoke trail points while the motor burns (drawn as billowing puffs by the renderer).
+      if (m.motor && (!m.trail || m.t - m.trail[m.trail.length - 1].t > 0.04)) (m.trail || (m.trail = [])).push({ x: m.x, y: m.y, t: m.t, at: f.time });
       // Fuse: passes within fuseM of the bandit it was fired at (and not decoyed).
       const b = this.b;
       if (b && m.target === b && !m.decoy && m.t > burnFrom) {
