@@ -37,6 +37,8 @@ const STEPS = [
   { id: 'report', title: 'Sortie order' },
 ];
 // Simple line icons (stroke = currentColor).
+// Map pin before the home base on the aircraft cards (owner 2026-11-21).
+const PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.6A2.6 2.6 0 1 1 12 6.4a2.6 2.6 0 0 1 0 5.2z" fill="currentColor"/></svg>';
 const ICON = {
   // A jet on a dashed route from one base to another.
   ferry: '<svg viewBox="0 0 96 64"><path d="M10 50 Q48 4 86 50" fill="none" stroke-dasharray="5 5"/><circle cx="10" cy="52" r="4"/><circle cx="86" cy="52" r="4"/><path d="M38 24 l16 0 l8 -6 l3 0 l-4 7 l7 1 l0 3 l-7 1 l4 7 l-3 0 l-8 -6 l-16 0 z" fill="currentColor" stroke="none"/></svg>',
@@ -112,6 +114,7 @@ export class Menu {
                 <b>${a.name}</b>
                 <span class="acrole">${a.role}</span>
                 <small class="acwpn">${armament(a)}</small>
+                <small class="achome">${PIN}${BASES[a.homeBase]?.name || ''}</small>
               </button>`).join('')}
             </div>
           </section>
