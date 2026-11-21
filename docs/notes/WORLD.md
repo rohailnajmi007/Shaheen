@@ -23,4 +23,4 @@ The shared route world: bases, scenery, landmarks, the refuelling stop, night mo
 - **Refuelling stop (owner 2026-11-20):** no T key. Stopping at a base that is not the destination brings the fuel truck on its own: it drives in from ahead, parks clear of the nose with a hose to the jet, fills the tanks, drives off (`REFUEL` in `src/data/world.js`). Rolling away early sends it off.
 
 ## Mushaf captured-aircraft display (owner 2026-11-21)
-- The two tail sections on the plinths (MiG-21 Bison, Su-30MKI) are now cut from the owner's opponent sprites (`TROPHY_ART` in `src/render/scenery.js`: texture-px box + height), lit like the scene (warm floodlight at night). Was hand-drawn.
+- The two tail sections on the plinths (MiG-21 Bison, Su-30MKI) are now cut from the owner's opponent sprites (`TROPHY_ART` in `src/render/scenery.js`: fin outline in texture px + height; **fin only, no fuselage**, owner 2026-11-21), lit like the scene (warm floodlight at night). Was hand-drawn.

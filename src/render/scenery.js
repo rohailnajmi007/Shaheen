@@ -434,8 +434,12 @@ function monument(time, R, lines) {
 // Captured-aircraft display (Mushaf): the tail section of an IAF jet on a black stone
 // plinth with its name in gold, cut from the opponent sprites (owner 2026-11-21). Floodlit at night.
 const TROPHY_SCALE = 1.5;
-// Tail sections cut from the opponent sprites (texture px box) and their height on the plinth.
-const TROPHY_ART = { mig21: { sprite: 'mig21_body', box: [0, 0, 150, 100], h: 31 }, su30: { sprite: 'su30_body', box: [0, 0, 215, 128], h: 37 } };
+// Fins only (owner 2026-11-21: no fuselage), cut from the opponent sprites along an
+// outline in texture px, cut straight at the root; h = height on the plinth.
+const TROPHY_ART = {
+  mig21: { sprite: 'mig21_body', poly: [[0, 0], [66, 0], [150, 56], [150, 60], [30, 60]], h: 27 },
+  su30: { sprite: 'su30_body', poly: [[95, 0], [126, 0], [208, 103], [96, 103]], h: 36 },
+};
 function trophy(time, R, kind) {
   const label = kind === 'mig21' ? 'IAF MIG-21 BISON' : 'IAF SU-30MKI';
   const tw = textW(label, 8);
@@ -459,9 +463,19 @@ function trophy(time, R, kind) {
     const img = images[art.sprite];
     if (img) {
       const lit = night ? [0.95, 0.88, 0.75] : L;
-      const [bx, by, bw, bh] = art.box;
-      const dh = art.h, dw = bw * dh / bh;
-      x.drawImage(tinted(img, lit), bx, by, bw, bh, -dw / 2, -dh, dw, dh);
+      const xs = art.poly.map((p) => p[0]), ys = art.poly.map((p) => p[1]);
+      const bx = Math.min(...xs), by = Math.min(...ys), bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
+      const k = art.h / bh;
+      x.save();
+      x.translate(-bw * k / 2, -art.h);
+      x.scale(k, k);
+      x.translate(-bx, -by);
+      x.beginPath();
+      art.poly.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py)));
+      x.closePath();
+      x.clip();
+      x.drawImage(tinted(img, lit), 0, 0);
+      x.restore();
     }
     x.restore();
     if (night) g.circle(-w / 2 + 3, -1, 1.5, 'rgb(255,230,150)');

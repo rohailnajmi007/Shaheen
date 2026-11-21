@@ -45,7 +45,9 @@ export const DAMAGE_SMOKE = { fromDamage: 0.03, ratePerS: [10, 60], size: [2, 6]
 const WATCH_KILL_S = 5;
 // Pieces off a bandit going down: count on the kill, extra while falling, chip size (tex px),
 // fling speed (m/s), air drag (1/s), how long they stay, and a cap.
-export const DEBRIS = { onKill: 12, fallingChipsPerS: 1, chipPx: [16, 40], flingMs: 18, airDrag: 0.6, lifeS: 30, max: 60 };
+export const DEBRIS = { onKill: 12, chipPx: [16, 40], flingMs: 18, airDrag: 0.6, lifeS: 30, max: 80,
+  // Each round that hits any jet (you or a bandit) may knock off a small bit near the hit.
+  hitChance: 0.7, hitChips: [1, 2], hitChipPx: [4, 10], hitFlingMs: 12 };
 // Near clouds are scattered over this much of the route, then repeat.
 const CLOUD_SPAN_M = 60000;
 // Tail strobe: flash starts (s) within each period.
@@ -1030,7 +1032,16 @@ export class Renderer {
       else if (e.type === 'roundHit') this.sparks(e.x, e.y, e.hard ? 5 : 3, e.hard);
       else if (e.type === 'roundGround') {
         if (Math.random() < 0.6) this.particles.spawn('dust', e.x, 0.3, (Math.random() - 0.5) * 6, 3 + Math.random() * 4, 1.6 + Math.random(), 0.9 + Math.random() * 0.6, { grow: 2.2, alpha: 0.6, drag: 1.5 });
-      } else if (e.type === 'acHit') this.sparks(e.x, e.y, 4, true);
+      } else if (e.type === 'acHit') {
+        this.sparks(e.x, e.y, 4, true);
+        // Small bits off whichever jet took the round (owner 2026-11-21: only while being hit).
+        const df = flight.df;
+        const hitB = e.bandit && df && df.b;
+        if (Math.random() < DEBRIS.hitChance && (hitB || !flight.ac.crashed)) {
+          const n = DEBRIS.hitChips[0] + Math.floor(Math.random() * (DEBRIS.hitChips[1] - DEBRIS.hitChips[0] + 1));
+          this.chips(hitB ? df.opp : flight.data, hitB ? df.b : flight.ac, n, 1, { x: e.x, y: e.y });
+        }
+      }
       else if (e.type === 'flakPuff') this.particles.spawn('dark', e.x, e.y, 0, 0, 3, 2.5, { grow: 2.5, alpha: 0.7, drag: 1, ground: false });
       else if (e.type === 'airBurst') this.airBurst(e.x, e.y, e.power);
       else if (e.type === 'samLaunch') {
@@ -1402,15 +1413,27 @@ export class Renderer {
 
   // Pieces torn off a jet in the air (owner 2026-11-21: a bandit going down sheds bits):
   // jagged chips cut from its sprite, charred at the edge, flung off and falling.
-  chips(d, ac, n, power = 1) {
+  // at: a round's hit point (m) -> small bits cut from the sprite near it, flung from there.
+  chips(d, ac, n, power = 1, at = null) {
     const img = images[d.sprite];
     if (!img) return;
     const r = Math.random;
     const L = this.lightBody;
     const src = tinted(img, L);
+    const size = at ? DEBRIS.hitChipPx : DEBRIS.chipPx;
+    const cosP = Math.cos(ac.pitch), sinP = Math.sin(ac.pitch);
+    let hx = 0, hy = 0;
+    if (at) {
+      // Hit point in texture px (the hit circle is bigger than the jet: clamp onto the body).
+      const wx = at.x - ac.pos.x, wy = at.y - ac.pos.y;
+      const lx = wx * cosP + wy * sinP, ly = -wx * sinP + wy * cosP;
+      hx = Math.min(img.width * 0.9, Math.max(img.width * 0.1, d.pivot[0] + lx / d.texM));
+      hy = Math.min(img.height * 0.75, Math.max(img.height * 0.3, d.pivot[1] - ly / d.texM));
+    }
     for (let i = 0; i < n; i++) {
-      const rad = DEBRIS.chipPx[0] + r() * (DEBRIS.chipPx[1] - DEBRIS.chipPx[0]);
-      const cx = img.width * (0.15 + r() * 0.7), cy = img.height * (0.3 + r() * 0.45);
+      const rad = size[0] + r() * (size[1] - size[0]);
+      const cx = at ? hx + (r() - 0.5) * 30 : img.width * (0.15 + r() * 0.7);
+      const cy = at ? hy + (r() - 0.5) * 12 : img.height * (0.3 + r() * 0.45);
       const cv = makeCanvas(rad * 2 + 2, rad * 2 + 2);
       const g = cv.getContext('2d');
       g.beginPath();
@@ -1428,8 +1451,7 @@ export class Renderer {
       g.strokeStyle = 'rgba(25,18,12,0.85)'; g.lineWidth = 3; g.stroke();
       // Empty (transparent) chips aren't worth keeping.
       const lx = (cx - d.pivot[0]) * d.texM, ly = -(cy - d.pivot[1]) * d.texM;
-      const cosP = Math.cos(ac.pitch), sinP = Math.sin(ac.pitch);
-      const sp = DEBRIS.flingMs * power * (0.4 + r() * 0.8);
+      const sp = (at ? DEBRIS.hitFlingMs : DEBRIS.flingMs) * power * (0.4 + r() * 0.8);
       const ang = r() * Math.PI * 2;
       this.debris.push({
         cv, ox: rad + 1, oy: rad + 1,
@@ -1476,10 +1498,7 @@ export class Renderer {
     const df = flight.df;
     if (df) {
       if (df.b) this.damageSmoke(df.b, df.opp, df.damage, dt, false);
-      for (const w of df.falling) {
-        this.damageSmoke(w.ac, df.opp, 1, dt, true);
-        if (Math.random() < dt * DEBRIS.fallingChipsPerS) this.chips(df.opp, w.ac, 1, 0.5);
-      }
+      for (const w of df.falling) this.damageSmoke(w.ac, df.opp, 1, dt, true);
       for (const w of this.wrecks) {
         if ((w.t += dt) > 40 || Math.random() > dt * 12) continue;
         P.spawn('dark', w.x + (Math.random() - 0.5) * 10, 1, 1, 4, 5, 4, { grow: 3.5, lift: 3, alpha: 0.6 });
