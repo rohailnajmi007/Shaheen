@@ -1,4 +1,8 @@
-// All sound is made in code with Web Audio (no sound files).
+// All sound is made in code with Web Audio (no sound files), except the crash song.
+
+// Crash song (owner 2026-11-21): plays in the background after a crash. The owner
+// supplies the file (it is a commercial recording: not bundled); no file = no song.
+export const CRASH_SONG = { url: '/audio/crash_song.mp3', vol: 0.55, fadeInS: 2.5, fadeOutS: 1.2 };
 
 export class Sound {
   constructor() {
@@ -107,7 +111,28 @@ export class Sound {
     void c;
   }
 
+  // The song runs through the master bus, so mute and the master volume apply.
+  playCrashSong() {
+    if (!this.ctx || this.song) return;
+    const el = new Audio(CRASH_SONG.url);
+    el.loop = true;
+    const g = this.gain(0, this.master);
+    this.ctx.createMediaElementSource(el).connect(g);
+    g.gain.setTargetAtTime(CRASH_SONG.vol, this.ctx.currentTime, CRASH_SONG.fadeInS / 3);
+    el.play().catch(() => { /* file missing or blocked: stay silent */ });
+    this.song = { el, g };
+  }
+  stopCrashSong() {
+    const s = this.song;
+    if (!s) return;
+    this.song = null;
+    s.g.gain.setTargetAtTime(0, this.ctx.currentTime, CRASH_SONG.fadeOutS / 3);
+    setTimeout(() => { s.el.pause(); s.g.disconnect(); }, CRASH_SONG.fadeOutS * 1000 + 200);
+  }
+  pauseSong(on) { if (this.song) { if (on) this.song.el.pause(); else this.song.el.play().catch(() => {}); } }
+
   stopFlight() {
+    this.stopCrashSong();
     if (!this.nodes) return;
     for (const s of this.nodes.srcs) { try { s.stop(); } catch { /* already stopped */ } }
     this.nodes = null;

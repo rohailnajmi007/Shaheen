@@ -16,7 +16,7 @@ lives now. To look at the old code: `git show godot-final:<path>`.
 - **Rendering:** one HTML `<canvas>` with the Canvas 2D API for the world and
   aircraft; the HUD, menus, pause and result screens are HTML + CSS layered on top
   (`index.html`: `#game`, `#hud`, `#menu`, `#pause`, `#result`).
-- **Sound:** Web Audio, synthesised in code (`src/audio.js`), no audio files.
+- **Sound:** Web Audio, synthesised in code (`src/audio.js`), no audio files, except the crash song (`public/audio/crash_song.mp3`, owner-supplied, optional: `CRASH_SONG`).
 - **Saves:** `localStorage` keys `shaheen.settings` (name, aircraft, mode, route,
   time of day, quality, volumes) and `shaheen.best` (best score per aircraft/route).
 - **Platforms:** web first (desktop browsers; touch and gamepad also work). No back end.

@@ -94,7 +94,7 @@ function toMenu() {
 
 function togglePause(on = !pause.open) {
   if (mode !== 'flight') return;
-  if (on) { pause.show(); sound.ctx?.suspend(); } else { pause.hide(); sound.ctx?.resume(); last = performance.now(); }
+  if (on) { pause.show(); sound.ctx?.suspend(); sound.pauseSong(true); } else { pause.hide(); sound.ctx?.resume(); sound.pauseSong(false); last = performance.now(); }
 }
 
 function soundFx(f) {
@@ -102,7 +102,7 @@ function soundFx(f) {
     switch (e.type) {
       case 'touchdown': sound.thump(Math.min(1, e.fpm / f.data.hardFpm)); break;
       case 'explosion': sound.explosion(e.big ? 1 : 0.7); break;
-      case 'crash': sound.explosion(0.5 + e.severity * 0.5); break;
+      case 'crash': sound.explosion(0.5 + e.severity * 0.5); sound.playCrashSong(); break;
       case 'gear': sound.gearMotor(f.data.gearTransitS); break;
       case 'gearLocked': sound.clunk(); break;
       case 'missileLaunch': sound.whoosh(); break;

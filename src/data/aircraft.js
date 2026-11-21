@@ -55,10 +55,10 @@ const COMMON = {
   gaugeVsiMaxFpm: 6000,
   gEffects: true,
   gEffectMinKt: 250,
-  blackoutStartG: 5,
-  blackoutFullG: 9,
-  redoutStartG: -1.5,
-  redoutFullG: -4,
+  blackoutStartG: 7, // owner 2026-11-21: was 5/9 and -1.5/-4, came on too easily
+  blackoutFullG: 11,
+  redoutStartG: -2.5,
+  redoutFullG: -5.5,
   // Instructor lines (owner 2026-11-20): 'full' coaching (trainer) or 'minimal'
   // (fighters: urgent lines only: stall, pull up, gear, SAM, hits, results).
   instructorLines: 'minimal',
@@ -86,7 +86,7 @@ const COMMON = {
   // Stores drawn under the jet: one per hardpoint, so at most hardpoints.length show
   // even when bombCount is larger (owner: 4 carried, 2 drawn).
   // Strike mission: first ground target this far (m) from the departure threshold.
-  strikeAreaStartM: 8000, // owner 2026-11-20: was 4500, the attack came too soon after take-off
+  strikeAreaStartM: 6000, // owner 2026-11-21: 8000 too far (was 4500 before that: too soon)
   // Missile lock: only airborne with the gear up; the seeker needs lockS seconds on a
   // target between rangeMin and rangeMax ahead before it reads LOCKED.
   missile: { rangeMin: 500, rangeMax: 4000, lockS: 1.5, dropS: 0.35, burnS: 8, speed: 420, accel: 140, turnDeg: 35, loft: 0.25, loftMax: 250 },
@@ -165,7 +165,7 @@ export const AIRCRAFT = [
     strikeCapable: true, bombCount: 2, hardpoints: [[236, 132], [244, 136]],
     weaponSprite: 'raad_body', weaponName: "RA'AD", weaponLabel: 'Cruise missile',
     weaponIsMissile: true, bombGuided: true,
-    strikeAreaStartM: 15000, // was 10000
+    strikeAreaStartM: 11000, // owner 2026-11-21: 15000 too far
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 220, port: [318, 128], tracerEvery: 4 },
     countermeasures: 24,
     missile: { rangeMin: 1500, rangeMax: 8000, lockS: 2, dropS: 0.9, burnS: 60, speed: 240, accel: 50, turnDeg: 18,
@@ -209,7 +209,7 @@ export const AIRCRAFT = [
     weaponSprite: 'agm88_body', weaponName: 'AGM-88 HARM', weaponLabel: 'Air to ground missile',
     weaponIsMissile: true, bombGuided: true,
     // Targets further out than for bombs, so the HARM locks well after take-off.
-    strikeAreaStartM: 12000, // was 8000
+    strikeAreaStartM: 9000, // owner 2026-11-21: 12000 too far
     gun: { name: 'M61A1 20MM', rps: 100, muzzleMs: 1050, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 510, port: [300, 100], tracerEvery: 5 },
     countermeasures: 30,
     lights: { navNear: [239, 116], navFar: [229, 112], tail: [10, 72], beacon: [16, 4], landing: [291, 153] },
