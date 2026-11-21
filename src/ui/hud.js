@@ -104,7 +104,7 @@ export class Hud {
     const d = flight.data;
     // Embroidered name tag: rank top right, wings (crescent colour = rank), name.
     $('.wings', this.root).src = `${import.meta.env.BASE_URL}sprites/paf_pilot_wings_${d.rankBadge}.png`;
-    $('.rank', this.root).textContent = d.rankFull.toUpperCase();
+    $('.rank', this.root).textContent = d.rank; // abbreviation only (owner 2026-11-21): AVN CDT, FLT LT, SQN LDR, WG CDR
     const tag = $('.tagname', this.root);
     tag.textContent = (opts.name || 'Shaheen').toUpperCase();
     // Long names get smaller thread so they stay on the patch.
@@ -115,7 +115,7 @@ export class Hud {
     this.el.weapon.classList.toggle('show', flight.armed);
     this.el.wname.textContent = d.weaponName || '';
     const strike = flight.mode === 'strike';
-    this.el.keys.innerHTML = KEY_HELP.filter((k) => !k[2] || (k[2] === 'strike' ? strike : flight.armed)).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
+    this.el.keys.innerHTML = KEY_HELP.filter((k) => !k[2] || (k[2] === 'strike' ? strike : k[2] === 'smoke' ? !!(flight.data.smoke && flight.mode === 'ferry') : flight.armed)).map(([k, t]) => `<span><kbd>${k}</kbd>${t}</span>`).join('');
     this.msgQueue = []; this.msgT = 0; this.trail = [];
     this.el.itext.textContent = '';
     this.el.keys.classList.remove('hide');

@@ -122,12 +122,15 @@ export const COMMON = {
   // Smoky engine trail (renderer): kind 'smoke' grey / 'dark' black, puffs per frame and
   // chance each, size (m), life (s), alpha, grow, from this throttle, dryOnly = not in afterburner.
   engineSmoke: null,
+  // Display smoke (aerobatic trainer, owner 2026-11-21): Space switches it on and off in
+  // ferry flights; each time it comes on it takes the next colour. null = none.
+  smoke: null,
   // Gear layer drawn in front of the body while fully down (F-7PG: the main wheel
   // stands in front of the stores); behind it while moving, so it hides as it retracts.
   gearFrontWhenDown: false,
 };
 
-// Start-screen order (owner 2026-11-21): trainer, then F-7PG, Mirage V, JF-17, F-16A, F-16D, J-10C.
+// Start-screen order (owner 2026-11-21): trainers (Mushshak, K-8), then F-7PG, Mirage V, JF-17, F-16A, F-16D, J-10C.
 export const AIRCRAFT = [
   {
     ...COMMON,
@@ -154,6 +157,29 @@ export const AIRCRAFT = [
     propSprite: 'super_mushshak_prop', propCenter: [272, 57], propRadius: 34,
     pivot: [172, 105],
     lights: { navNear: [152, 41], navFar: [142, 38], tail: [5, 46], beacon: [14, 4], landing: [240, 82] },
+  },
+  {
+    ...COMMON,
+    id: 'k8',
+    modes: ['ferry'],
+    // Owner 2026-11-21: jet trainer at Risalpur, more powerful than the Mushshak, well
+    // below the fighters; no afterburner; aerobatic display smoke on Space.
+    name: 'K-8 Karakoram',
+    role: 'Jet trainer',
+    rank: 'AVN CDT', rankCall: 'Cadet', rankFull: 'Aviation Cadet', rankBadge: 'white', homeBase: 'risalpur',
+    instructorLines: 'full',
+    stats: { speed: 0.55, agility: 0.7, difficulty: 0.4 },
+    // Small turbofan trainer: T/W about 0.43, top speed about 430 kt, stall about 95 kt.
+    massKg: 3800, maxThrustN: 16000, engineSpoolS: 3,
+    fuelKg: 450, burnFullKgS: 0.55, dragCoef: 0.31,
+    stallKt: 95, rotateKt: 112, maxSpeedKt: 450, pitchRateDeg: 30, pitchAccelDeg: 240,
+    cockpitStyle: 'analog', gaugeVsiMaxFpm: 6000,
+    // Owner's art (tools/make_aircraft_sprites.py "k8"): gear layer, all-moving tailplane.
+    sprite: 'k8_body', gearSprite: 'k8_gear', gearTravel: 30,
+    elevatorSprite: 'k8_elevator', elevatorHinge: [24, 80],
+    pivot: [143, 150], nozzle: [5, 93], flameLength: 0, flameWidth: 14,
+    smoke: { colors: [[40, 170, 70], [245, 245, 245], [225, 50, 40], [50, 110, 230]], perS: 120, size: 3.2, life: 6, grow: 3.5, alpha: 0.9 },
+    lights: { navNear: [121, 125], navFar: [115, 123], tail: [1, 80], beacon: [20, 7], landing: [290, 125] },
   },
   {
     ...COMMON,
@@ -249,7 +275,7 @@ export const AIRCRAFT = [
 
     name: 'F-16A Fighting Falcon',
     role: 'Multirole fighter',
-    rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'mushaf',
+    rank: 'SQN LDR', rankCall: 'Squadron Leader', rankFull: 'Squadron Leader', rankBadge: 'blue', homeBase: 'mushaf',
     stats: { speed: 1, agility: 0.9, difficulty: 0.7 },
     massKg: 12000, maxThrustN: 76000, afterburnerN: 53000,
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,

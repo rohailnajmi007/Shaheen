@@ -1,5 +1,18 @@
 // Pooled particles in world metres. Drawn with soft sprites.
-import { SOFT } from './assets.js';
+import { SOFT, softSprite } from './assets.js';
+
+// Coloured display smoke (K-8): one soft puff sprite per colour, made once.
+const tintCacheSmoke = new Map();
+function tintSmoke(c) {
+  const k = c.join(',');
+  let s = tintCacheSmoke.get(k);
+  if (!s) {
+    const [r, g, b] = c;
+    s = softSprite(64, [[0, `rgba(${r},${g},${b},0.95)`], [0.5, `rgba(${r},${g},${b},0.55)`], [1, `rgba(${r},${g},${b},0)`]]);
+    tintCacheSmoke.set(k, s);
+  }
+  return s;
+}
 
 const MAX = 2500;
 
@@ -15,6 +28,7 @@ export class Particles {
     const p = this.pool.pop();
     if (!p) return null;
     p.kind = kind; p.x = x; p.y = y; p.vx = vx; p.vy = vy;
+    p.color = opts.color || null;
     p.size = size; p.grow = opts.grow ?? 1.5; p.life = life; p.age = 0;
     p.alpha = opts.alpha ?? 1; p.drag = opts.drag ?? 0.6; p.lift = opts.lift ?? 0;
     p.add = opts.add ?? (kind === 'fire' || kind === 'glow' || kind === 'spark');
@@ -58,7 +72,7 @@ export class Particles {
         if (!p.add) a *= nightBoost;
         if (a <= 0.01) continue;
         ctx.globalAlpha = Math.min(1, a);
-        const img = p.kind === 'spark' ? SOFT.warm : p.kind === 'white' ? SOFT.smoke : SOFT[p.kind] || SOFT.smoke;
+        const img = p.kind === 'tint' ? tintSmoke(p.color) : p.kind === 'spark' ? SOFT.warm : p.kind === 'white' ? SOFT.smoke : SOFT[p.kind] || SOFT.smoke;
         ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
       }
     }

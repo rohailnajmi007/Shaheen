@@ -1666,6 +1666,18 @@ export class Renderer {
         const p = a.pointM(d.pivot[0] + 20, d.pivot[1] - 50);
         P.spawn('white', p.x, p.y, a.vel.x * 0.3, a.vel.y * 0.3, 1.5, 0.4, { grow: 3, alpha: 0.45, ground: false });
       }
+      // Display smoke (K-8, Space): a thick coloured trail from the tail, steady at any speed.
+      if (flight.smokeOn && d.smoke && a.engineOn && !a.crashed) {
+        const Z = d.smoke, col = Z.colors[flight.smokeIdx];
+        const p = a.pointM(d.nozzle[0], d.nozzle[1]);
+        let n = Z.perS * dt;
+        for (let i = 0; n > 0; i++, n -= 1) {
+          if (n < 1 && Math.random() > n) break;
+          const f = Math.random();
+          P.spawn('tint', p.x - a.vel.x * dt * f, p.y - a.vel.y * dt * f, a.vel.x * 0.05, 0.3, Z.size, Z.life,
+            { grow: Z.grow, alpha: Z.alpha, ground: false, drag: 0.6, color: col });
+        }
+      }
       // Smoky engines (data: engineSmoke): Mirage grey when not in afterburner, JF-17 a thin black trail.
       const es = d.engineSmoke;
       if (es && d.nozzle && a.rpm > 0.5 && a.throttle > es.minThrottle && !(es.dryOnly && a.afterburner > 0)) {

@@ -216,9 +216,17 @@ export class Flight {
       case 'engine': if (a.shotDown) this.ejectPilot(); else a.toggleEngine(); break; // E = eject once shot down
       case 'eject': this.bailOut(); break; // touch EJECT button: any time airborne in a strike
       case 'gear': a.toggleGear(); break;
-      case 'drop': this.dropStore(); break;
+      case 'drop': if (this.data.smoke && this.mode === 'ferry') this.toggleSmoke(); else this.dropStore(); break;
       case 'countermeasure': if (this.mode === 'strike') this.cb.dispense(); break;
     }
+  }
+
+  // Display smoke (K-8): on with the next colour, or off.
+  toggleSmoke() {
+    if (this.smokeOn) { this.smokeOn = false; return; }
+    this.smokeIdx = ((this.smokeIdx ?? -1) + 1) % this.data.smoke.colors.length;
+    this.smokeOn = true;
+    this.emit('smokeOn');
   }
 
   dropStore() {

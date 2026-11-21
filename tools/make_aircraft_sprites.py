@@ -124,6 +124,27 @@ CONFIGS = {
                    "poly_src": [(384, 141), (428, 142), (448, 143), (468, 145), (495, 150), (495, 157),
                                 (483, 160), (472, 166), (440, 171), (404, 171), (401, 160), (393, 151)]},
     },
+    "k8": {
+        # Owner's K-8 Karakoram art (822, 2026-11-21), gear down, nose LEFT (flipped).
+        # Only the picture WITH the tailplane: the body under it is made by continuing
+        # each row's fuselage colour into the tailplane outline (inpaint_until_x; past
+        # that x it is background). Coordinates in the unflipped source.
+        "src": "docs/reference/k8_sprite_source.png", "flip": True, "src_unflipped": True,
+        # Phone share buttons, and the ground line under the art beside the wheels (flipped coordinates).
+        "erase": [(0, 0, 160, 14), (0, 353, 314, 358), (378, 353, 668, 358), (716, 353, 860, 358)],
+        "unflip": [(195, 225, 275, 262), (676, 145, 750, 162), (733, 92, 768, 120)],  # 822, serial, flag
+        "display_width": 90,  # world px; K-8 is 11.6 m
+        "gear_regions": [(140, 192, 288, 288), (480, 545, 313, 313)],
+        "gear_cut_y": 290,
+        "body_clear_below": 140,
+        "prop": None,
+        "points": {"nozzle": (826, 228), "main_wheel": (511, 357), "elevator_hinge": (782, 198),
+                   "light_nav_near": (560, 300), "light_nav_far": (575, 296), "light_tail": (836, 197),
+                   "light_beacon": (790, 32), "light_landing": (175, 300)},
+        "elevator": {"inpaint_until_x": 818, "inpaint_color": (228, 229, 231, 255),
+                     "poly_src": [(722, 189), (760, 186), (800, 181), (818, 186), (836, 196), (835, 204),
+                                  (816, 216), (790, 217), (760, 207), (735, 201)]},
+    },
     "f7pg": {
         # Owner's F-7PG art (No. 20-style "Tigers", 801; 2026-11-21), gear down, nose
         # LEFT (flipped). Owner's pair f7pg_pair_source.png: WITH the tailplane (top,
@@ -319,7 +340,24 @@ def build(name, cfg):
         raw = im.copy()
         cfg = unflip_cfg(cfg, im.width)
         e = cfg.get("elevator")
-        if e and e.get("patch_src"):
+        if e and e.get("inpaint_until_x"):
+            # No picture without the tailplane: continue each row's colour from just left
+            # of the outline up to inpaint_until_x, background beyond.
+            under = raw.copy()
+            m = Image.new("L", raw.size, 0)
+            src_poly = [(raw.width - 1 - x, y) for x, y in e["poly_src"]]  # back to unflipped
+            ImageDraw.Draw(m).polygon(src_poly, fill=255)
+            mp, up = m.load(), under.load()
+            for y in range(raw.height):
+                xs = [x for x in range(raw.width) if mp[x, y]]
+                if not xs:
+                    continue
+                c = tuple(e["inpaint_color"]) if e.get("inpaint_color") else up[max(0, min(xs) - 2), y]
+                for x in xs:
+                    up[x, y] = c if x <= e["inpaint_until_x"] else (255, 255, 255, 255)
+            e["under_img"] = orient(under, cfg)
+            e["under_offset"] = (0, 0)
+        elif e and e.get("patch_src"):
             # Body under the tailplane: the WITH picture, with the strip under the
             # tailplane copied from the WITHOUT picture (shifted), right of
             # patch_clear_from_x cleared to background (past the nozzle).
@@ -394,6 +432,12 @@ def build(name, cfg):
         elev.paste(out["body"], (0, 0), mask)
         out[moving] = elev
         out["body"] = under
+    if cfg.get("body_clear_below"):
+        # Stray ground-line pixels under the body (texture px rows from here down).
+        bpx = out["body"].load()
+        for y in range(cfg["body_clear_below"], out["body"].height):
+            for x in range(out["body"].width):
+                bpx[x, y] = (0, 0, 0, 0)
     for layer, img in out.items():
         img.save("public/sprites/%s_%s.png" % (name, layer))
 
