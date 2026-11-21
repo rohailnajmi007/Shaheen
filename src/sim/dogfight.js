@@ -7,7 +7,7 @@
 // you're out of rounds) the landing base appears and you land as usual.
 // Numbers: DOGFIGHT in src/data/combat.js, per-opponent `ai` overrides. No DOM.
 import { Aircraft, KT, G } from './aircraft.js';
-import { DOGFIGHT } from '../data/combat.js';
+import { DOGFIGHT, DAMAGE } from '../data/combat.js';
 import { shellStep, segDist } from './combat.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -39,6 +39,7 @@ export class Dogfight {
   }
 
   get active() { return !!this.b; }
+  get damage() { return this.b ? 1 - Math.max(0, this.hp) / this.opp.airframeHp : 0; } // 0 = intact, 1 = destroyed
   get number() { return this.kills + this.escaped + 1; } // which bandit this is (1-based)
 
   // A new bandit, ahead of you or on your six, near your height and speed.
@@ -113,10 +114,10 @@ export class Dogfight {
     if (!b) return false;
     const c = this.centre(b);
     if (Math.abs(r.x - c.x) > 80 || segDist(r.px, r.py, r.x, r.y, c.x, c.y) > this.hitR(b)) return false;
-    this.f.emit('acHit', { x: r.x, y: r.y });
+    this.f.emit('acHit', { x: r.x, y: r.y, bandit: true });
     this.hitsOnBandit += 1;
     this.hp -= r.dmg * this.D.playerDmgMult;
-    if (this.hp < this.opp.airframeHp * 0.45) b.thrustFactor = Math.min(b.thrustFactor, this.D.banditDamagedThrust);
+    b.controlFactor = 1 - (1 - DAMAGE.controlAtZero) * this.damage;
     if (this.hp <= 0) this.shootDown();
     return true;
   }
@@ -127,7 +128,7 @@ export class Dogfight {
     this.hp = 0;
     b.shotDown = true; b.controls = false; b.engineOn = false;
     this.f.emit('airBurst', { x: b.pos.x, y: b.pos.y, power: 1.3 });
-    this.f.emit('banditDown', { x: b.pos.x, y: b.pos.y });
+    this.f.emit('banditDown', { x: b.pos.x, y: b.pos.y, vx: b.vel.x, vy: b.vel.y, pitch: b.pitch });
     const left = this.total - this.kills - this.escaped - 1;
     this.f.say(left > 0 ? `SPLASH ONE! ${this.opp.name} going down! ${left} more coming, stay sharp!` : "SPLASH! That's the last of them! Shabash!", true);
     this.falling.push({ ac: b, prev: this.prev, t: 0 });
@@ -275,7 +276,7 @@ export class Dogfight {
     const lim = d.stallAoaDeg * D2R * D.aoaLimit;
     targetPitch = path + clamp(wrap(targetPitch - path), -lim, lim);
     // Far behind you: extra thrust so it can close up.
-    b.thrustFactor = (relX > D.catchUpM ? D.catchUpThrust : 1) * (this.hp < this.opp.airframeHp * 0.45 ? D.banditDamagedThrust : 1);
+    b.thrustFactor = (relX > D.catchUpM ? D.catchUpThrust : 1) * (1 - (1 - DAMAGE.thrustAtZero) * this.damage);
 
     // Pitch controller: wanted pitch rate from the error, as a stick deflection.
     const err = wrap(targetPitch - b.pitch);

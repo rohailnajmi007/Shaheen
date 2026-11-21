@@ -118,7 +118,7 @@ function soundFx(f) {
       case 'countermeasure': sound.pop(); break;
       case 'eject': sound.launch(); sound.clunk(); break;
       case 'chute': sound.burst({ freq: 500, dur: 0.5, vol: 0.3 }); break;
-      case 'acHit': sound.clank(); break;
+      case 'acHit': sound.metalHit(e.bandit ? 0.45 : 1); break;
       case 'airBurst': sound.explosion(0.45 * (e.power || 1)); break;
       default: break;
     }

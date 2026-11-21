@@ -432,15 +432,16 @@ function monument(time, R, lines) {
 }
 
 // Captured-aircraft display (Mushaf): the tail section of an IAF jet on a black stone
-// plinth with its name in gold. The tail faces left. Floodlit at night.
+// plinth with its name in gold, cut from the opponent sprites (owner 2026-11-21). Floodlit at night.
 const TROPHY_SCALE = 1.5;
+// Tail sections cut from the opponent sprites (texture px box) and their height on the plinth.
+const TROPHY_ART = { mig21: { sprite: 'mig21_body', box: [0, 0, 150, 100], h: 31 }, su30: { sprite: 'su30_body', box: [0, 0, 215, 128], h: 37 } };
 function trophy(time, R, kind) {
   const label = kind === 'mig21' ? 'IAF MIG-21 BISON' : 'IAF SU-30MKI';
   const tw = textW(label, 8);
   const w = tw + 14;
   const night = !!time.lights;
   const L = time.light;
-  const flood = (c) => (night ? c01([c[0] * 0.75, c[1] * 0.72, c[2] * 0.65].map((v) => Math.min(1, v * 1.25))) : c01(lit01(c, L)));
   const gold = night ? c01([0.95, 0.8, 0.45]) : c01(lit01([0.92, 0.78, 0.42], L));
   return godotSprite(Math.max(w, 70) + 4, 84, R, (x) => {
     const g = gfx(x);
@@ -453,42 +454,14 @@ function trophy(time, R, kind) {
     x.save();
     x.translate(0, -16 - 3 * sc);
     x.scale(sc, sc);
-    const fin = (p, size) => {
-      const bw = size[0] / 3;
-      g.rect(p[0], p[1], bw, size[1], flood([0.1, 0.5, 0.2]));
-      g.rect(p[0] + bw, p[1], bw, size[1], flood([0.95, 0.95, 0.93]));
-      g.rect(p[0] + bw * 2, p[1], bw, size[1], flood([0.95, 0.55, 0.15]));
-    };
-    if (kind === 'mig21') {
-      const skin = [0.66, 0.68, 0.7], shade = [0.5, 0.52, 0.55], dark = [0.2, 0.2, 0.22];
-      g.rect(-22, -8, 42, 8, flood(shade));
-      g.rect(-22, -8, 42, 5, flood(skin));
-      g.rect(-22, -8, 42, 1, flood(lighter(skin, 0.15)));
-      g.rect(20, -7, 3, 7, flood(dark));
-      g.rect(-22, -8, 1, 8, flood(dark));
-      const f = [[-14, -8], [6, -31], [13, -31], [17, -8]];
-      g.poly(f, flood(skin));
-      g.line(f, flood(dark));
-      g.poly([[5, -30], [6, -31], [13, -31], [13.3, -28], [7.7, -28]], flood([0.45, 0.6, 0.35]));
-      g.line([[9, -27], [15, -10]], flood(shade));
-      fin([-1, -22], [9, 6]);
-    } else {
-      const skin = [0.56, 0.62, 0.68], patch = [0.44, 0.5, 0.58], shade = [0.4, 0.45, 0.5], dark = [0.18, 0.19, 0.22];
-      const far = [[-16, -9], [-1, -35], [5, -35], [9, -9]];
-      g.poly(far, flood(shade)); g.line([...far, far[0]], flood(dark));
-      g.rect(-26, -9, 50, 9, flood(shade));
-      g.rect(-26, -9, 50, 6, flood(skin));
-      g.rect(-10, -8, 14, 4, flood(patch));
-      g.rect(-26, -9, 1, 9, flood(dark));
-      g.rect(24, -8, 4, 4, flood(dark));
-      g.rect(24, -4, 4, 4, flood(lighter(dark, 0.1)));
-      g.poly([[12, -5], [30, -3], [30, -1], [12, -2]], flood(shade));
-      const f = [[-10, -9], [6, -37], [12, -37], [17, -9]];
-      g.poly(f, flood(skin));
-      g.poly([[-2, -20], [6, -32], [10, -24], [4, -16]], flood(patch));
-      g.line(f, flood(dark));
-      g.rect(7, -40, 1, 3, flood(dark));
-      fin([4, -27], [8, 5]);
+    // The real tail section, cut from the opponent sprite (owner's art), lit like the scene.
+    const art = TROPHY_ART[kind];
+    const img = images[art.sprite];
+    if (img) {
+      const lit = night ? [0.95, 0.88, 0.75] : L;
+      const [bx, by, bw, bh] = art.box;
+      const dh = art.h, dw = bw * dh / bh;
+      x.drawImage(tinted(img, lit), bx, by, bw, bh, -dw / 2, -dh, dw, dh);
     }
     x.restore();
     if (night) g.circle(-w / 2 + 3, -1, 1.5, 'rgb(255,230,150)');

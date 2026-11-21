@@ -2,6 +2,9 @@
 
 // Crash song (owner 2026-11-21): plays in the background after a crash. The owner
 // supplies the file (it is a commercial recording: not bundled); no file = no song.
+// Rounds hitting metal: volume, ring base frequency, partials [ratio, level, decay s],
+// and at most one hit sound per minGapS (a burst sounds like a rattle, not a buzz).
+export const METAL_HIT = { vol: 0.32, ringHz: 1900, minGapS: 0.045, partials: [[1, 0.5, 0.09], [1.47, 0.35, 0.07], [2.09, 0.25, 0.05], [2.83, 0.18, 0.04]] };
 export const CRASH_SONG = { url: '/audio/crash_song.mp3', vol: 0.55, fadeInS: 2.5, fadeOutS: 1.2 };
 
 export class Sound {
@@ -217,6 +220,31 @@ export class Sound {
   aaaThud(near) { this.tone(70, 0.12, 0.12 * near, 'sine', 0.6); this.burst({ freq: 500, dur: 0.1, vol: 0.12 * near }); }
   launch() { this.whoosh(); this.burst({ freq: 160, dur: 1.2, vol: 0.35, sweep: 0.5 }); }
   pop() { this.tone(900, 0.04, 0.08, 'square', 0.5); this.burst({ freq: 2500, type: 'bandpass', dur: 0.12, vol: 0.12 }); }
+  // A round hitting metal (owner 2026-11-21: "like proper bullets hitting metal"): a hard
+  // crack, a short inharmonic metallic ring and a dull body thunk. near: 1 = your own
+  // airframe (loud, heavy), less = hits you put on a bandit (lighter, further off).
+  metalHit(near = 1) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (now - (this.lastHitT || 0) < METAL_HIT.minGapS) return; // a burst: not one per round
+    this.lastHitT = now;
+    const c = this.ctx, t = now;
+    const v = METAL_HIT.vol * near;
+    // Crack: very short bright noise.
+    this.burst({ freq: 4200 + Math.random() * 1500, type: 'highpass', q: 0.8, dur: 0.035, vol: v * 1.1 });
+    // Ring: a few inharmonic partials, fast decay (thin sheet metal).
+    const base = METAL_HIT.ringHz * (0.85 + Math.random() * 0.3);
+    for (const [ratio, amp, dec] of METAL_HIT.partials) {
+      const o = this.osc('sine', base * ratio);
+      const g = this.gain(0, this.fxBus);
+      g.gain.setValueAtTime(v * amp, t);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + dec);
+      o.connect(g); o.start(t); o.stop(t + dec + 0.02);
+    }
+    // Thunk: the airframe taking it.
+    this.tone(150 + Math.random() * 60, 0.07, v * (0.4 + 0.6 * near), 'triangle', 0.5);
+    this.burst({ freq: 900, type: 'bandpass', q: 1.2, dur: 0.06, vol: v * 0.5 * near });
+  }
   clank() { this.tone(700, 0.08, 0.12, 'square', 0.6); this.burst({ freq: 3000, type: 'bandpass', q: 2, dur: 0.1, vol: 0.25 }); }
   chime(up = true) { this.tone(up ? 660 : 520, 0.15, 0.08); setTimeout(() => this.tone(up ? 990 : 390, 0.2, 0.08), 110); }
 }

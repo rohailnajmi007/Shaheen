@@ -99,6 +99,9 @@ export const COMMON = {
   // Moving foreplane layer (J-10C canards): sprite, hinge (texture px), max deflection.
   canardSprite: null, canardHinge: null, canardMaxDeg: 15,
   sound: 'jet',
+  // Smoky engine trail (renderer): kind 'smoke' grey / 'dark' black, puffs per frame and
+  // chance each, size (m), life (s), alpha, grow, from this throttle, dryOnly = not in afterburner.
+  engineSmoke: null,
 };
 
 export const AIRCRAFT = [
@@ -130,6 +133,7 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'mirage5',
+    engineSmoke: { kind: 'smoke', perFrame: 1, chance: 0.6, size: 1.6, life: 1.6, alpha: 0.18, grow: 3, minThrottle: 0.5, dryOnly: true },
     // Air to air only (owner 2026-11-21): power (thrust/weight) Mirage < JF-17 < F-16A <
     // F-16D = J-10C; J-10C and F-16s lightest and most agile, JF-17 a bit less, Mirage sluggish.
     airCombat: { maxThrustN: 60000, afterburnerN: 38000, pitchRateDeg: 23, pitchAccelDeg: 160 }, // T/W 1.00
@@ -153,6 +157,8 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'jf17',
+    // RD-93: famously smoky (owner 2026-11-21): a thin black trail, noticeable, not heavy.
+    engineSmoke: { kind: 'dark', perFrame: 3, chance: 1, size: 1.4, life: 2.2, alpha: 0.2, grow: 2.4, minThrottle: 0.3, dryOnly: false },
     airCombat: { maxThrustN: 68000, afterburnerN: 45400, pitchRateDeg: 30, pitchAccelDeg: 280 }, // T/W 1.07
 
     name: 'JF-17 Thunder',

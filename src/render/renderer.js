@@ -36,6 +36,16 @@ export const DOGFIGHT_CAM = {
   banditTint: null,           // multiply on the bandit's sprite ([r,g,b]); null: the owner's art as is
   markerPx: 9,                // bandit marker size (x screen height / 720)
 };
+// Battle-damage smoke (owner 2026-11-21): starts after fromDamage (a couple of hits),
+// always dark (light grey vanished against white clouds): thin and faint at first,
+// [light, heavy] ranges for puffs per second, size (m), life (s), alpha; grey turns
+// black past blackFrom and fire appears past fireFrom (shares of the way to destroyed).
+export const DAMAGE_SMOKE = { fromDamage: 0.03, ratePerS: [10, 60], size: [2, 6], life: [1.2, 3.2], alpha: [0.24, 0.7], blackFrom: 0, fireFrom: 0.7, solidFrom: 0.25, spacing: 0.7 };
+// The camera keeps a shot-down bandit in frame this long (to see it break up).
+const WATCH_KILL_S = 5;
+// Pieces off a bandit going down: count on the kill, extra while falling, chip size (tex px),
+// fling speed (m/s), air drag (1/s), how long they stay, and a cap.
+export const DEBRIS = { onKill: 12, fallingChipsPerS: 1, chipPx: [16, 40], flingMs: 18, airDrag: 0.6, lifeS: 30, max: 60 };
 // Near clouds are scattered over this much of the route, then repeat.
 const CLOUD_SPAN_M = 60000;
 // Tail strobe: flash starts (s) within each period.
@@ -109,6 +119,7 @@ export class Renderer {
     this.landmarks = buildLandmarks(world.bases, time, res);
     this.baseGfx = world.bases.map((b) => ({ base: b, builtX: b.x, ...buildBase(b, time, R) }));
     this.wrecks = [];
+    this.debris = []; // pieces off bandits (not the camera's crash wreck)
     this.truckGfx = buildFuelTruck(time, R);
     this.targetGfx = {};
     for (const k of Object.keys(GROUND_UNITS)) {
@@ -168,10 +179,10 @@ export class Renderer {
     // zoom = 42 / altitude kept the jet at one screen height whatever it did.
     if (attack) z = ATTACK_CAM.zoom;
     // Dogfight: frame both jets (centre between them, zoom to fit).
-    const pair = flight && flight.df && !flight.ac.crashed && !flight.eject && this.bst;
+    const pair = flight && flight.df && !flight.ac.crashed && !flight.eject && this.camB;
     let midX = st.x, midY = st.y;
     if (pair) {
-      const b = this.bst, C = DOGFIGHT_CAM;
+      const b = this.camB, C = DOGFIGHT_CAM;
       const base = (v.H / 720) * 7.2;
       const small = v.H / this.res < C.smallH;
       const fw = small ? C.smallFillW : C.fillW, fh = small ? C.smallFillH : C.fillH;
@@ -234,6 +245,9 @@ export class Renderer {
     // Dogfight: the bandit's state (the camera frames both jets).
     const df = flight.df;
     this.bst = df && df.b ? df.renderState(alpha) : null;
+    // Camera: the live bandit, or for a few seconds the one just shot down (break-up).
+    const fw = df && !df.b && df.falling.length ? df.falling[df.falling.length - 1] : null;
+    this.camB = this.bst || (fw && fw.t < WATCH_KILL_S ? df.renderState(alpha, fw.ac, fw.prev) : null);
     if (df) this.checkBases();
     // Ejected: the camera follows the pilot.
     const ej = flight.eject;
@@ -264,6 +278,7 @@ export class Renderer {
     if (!flight.ac.crashed) this.drawAircraft(ctx, v, flight.data, st);
     if (flight.armed && !flight.ac.crashed && flight.cb.firing) this.drawMuzzleAt(ctx, v, flight.data, st);
     this.drawShards(ctx, v);
+    if (this.debris.length) this.drawShards(ctx, v, this.debris);
     if (ej) this.drawEject(ctx, v, ej);
     this.drawRings(ctx, v);
     this.drawClouds(ctx, v, true);
@@ -1023,7 +1038,8 @@ export class Renderer {
         this.particles.spawn('glow', e.x, e.y + 1, 0, 0, 10, 0.3, { grow: 1.5, ground: false });
       } else if (e.type === 'countermeasure') {
         for (let i = 0; i < 14; i++) this.particles.spawn('white', e.x + (Math.random() - 0.5) * 4, e.y + (Math.random() - 0.5) * 4, flight.ac.vel.x * 0.2 + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, 1.2, 3 + Math.random() * 2, { grow: 3, alpha: 0.35, drag: 2.5, ground: false });
-      } else if (e.type === 'banditWreck') { this.wrecks.push({ x: e.x, t: 0 }); this.explode(e.x, 1, 1.3); }
+      } else if (e.type === 'banditDown' && flight.df) this.chips(flight.df.opp, { pos: { x: e.x, y: e.y }, vel: { x: e.vx, y: e.vy }, pitch: e.pitch }, DEBRIS.onKill, 1);
+      else if (e.type === 'banditWreck') { this.wrecks.push({ x: e.x, t: 0 }); this.explode(e.x, 1, 1.3); }
       else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
     }
   }
@@ -1276,8 +1292,18 @@ export class Renderer {
   }
 
   updateShards(dt) {
+    for (const s of this.shards) this.stepShard(s, dt);
+    for (let i = this.debris.length - 1; i >= 0; i--) {
+      const s = this.debris[i];
+      if (s.air && !s.landed) { s.vx *= Math.exp(-DEBRIS.airDrag * dt); s.vy *= Math.exp(-DEBRIS.airDrag * 0.5 * dt); }
+      this.stepShard(s, dt);
+      if (s.t > DEBRIS.lifeS) this.debris.splice(i, 1);
+    }
+  }
+
+  stepShard(s, dt) {
     const P = this.particles;
-    for (const s of this.shards) {
+    {
       s.t += dt;
       s.heat = Math.max(0, s.heat - dt / CRASH.emberCoolS);
       if (!s.rest) {
@@ -1313,8 +1339,8 @@ export class Renderer {
     }
   }
 
-  drawShards(ctx, v) {
-    for (const s of this.shards) {
+  drawShards(ctx, v, list = this.shards) {
+    for (const s of list) {
       // Same scale the aircraft was drawn at (it never shrinks below a minimum on screen).
       const k = Math.max(v.S * s.texM, (0.07 * v.W) / s.bodyW);
       const x = v.sx(s.x), y = v.sy(s.y);
@@ -1349,6 +1375,73 @@ export class Renderer {
     }
   }
 
+  // Battle-damage smoke (owner 2026-11-21): a couple of hits = a thin grey wisp; it
+  // grows thicker and blacker with the damage; heavy damage or falling: dense black
+  // smoke and fire. dmg: 0 intact .. 1 destroyed. Numbers: DAMAGE_SMOKE.
+  damageSmoke(ac, d, dmg, dt, falling) {
+    const Z = DAMAGE_SMOKE;
+    if (dmg < Z.fromDamage) return;
+    const P = this.particles;
+    const k = Math.min(1, (dmg - Z.fromDamage) / (1 - Z.fromDamage));
+    const rate = Z.ratePerS[0] + (Z.ratePerS[1] - Z.ratePerS[0]) * k;
+    const size = Z.size[0] + (Z.size[1] - Z.size[0]) * k;
+    let n = rate * dt;
+    // Past solidFrom: enough puffs for an unbroken trail at any speed (spacing x size apart).
+    if (k > Z.solidFrom) n = Math.max(n, (ac.speed * dt) / (size * Z.spacing));
+    const p = ac.pointM(d.pivot[0] - 20, d.pivot[1] - 40);
+    const black = k > Z.blackFrom;
+    for (let i = 0; n > 0; i++, n -= 1) {
+      if (n < 1 && Math.random() > n) break;
+      const f = Math.random();
+      P.spawn(black ? 'dark' : 'smoke', p.x - ac.vel.x * dt * f, p.y - ac.vel.y * dt * f, ac.vel.x * 0.1, 1,
+        size, Z.life[0] + (Z.life[1] - Z.life[0]) * k,
+        { grow: 3, alpha: Z.alpha[0] + (Z.alpha[1] - Z.alpha[0]) * k, ground: false, drag: 0.4 });
+    }
+    if ((falling || k > Z.fireFrom) && Math.random() < (falling ? 0.7 : 0.35)) P.spawn('fire', p.x, p.y, ac.vel.x * 0.3, 0, 3.5, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
+  }
+
+  // Pieces torn off a jet in the air (owner 2026-11-21: a bandit going down sheds bits):
+  // jagged chips cut from its sprite, charred at the edge, flung off and falling.
+  chips(d, ac, n, power = 1) {
+    const img = images[d.sprite];
+    if (!img) return;
+    const r = Math.random;
+    const L = this.lightBody;
+    const src = tinted(img, L);
+    for (let i = 0; i < n; i++) {
+      const rad = DEBRIS.chipPx[0] + r() * (DEBRIS.chipPx[1] - DEBRIS.chipPx[0]);
+      const cx = img.width * (0.15 + r() * 0.7), cy = img.height * (0.3 + r() * 0.45);
+      const cv = makeCanvas(rad * 2 + 2, rad * 2 + 2);
+      const g = cv.getContext('2d');
+      g.beginPath();
+      const pts = 7 + Math.floor(r() * 4);
+      for (let k = 0; k < pts; k++) {
+        const a = (k / pts) * Math.PI * 2, rr = rad * (0.45 + r() * 0.55);
+        const px = rad + 1 + Math.cos(a) * rr, py = rad + 1 + Math.sin(a) * rr;
+        if (k) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+      g.closePath();
+      g.save(); g.clip();
+      g.drawImage(src, cx - rad - 1, cy - rad - 1, rad * 2 + 2, rad * 2 + 2, 0, 0, rad * 2 + 2, rad * 2 + 2);
+      g.restore();
+      g.globalCompositeOperation = 'source-atop';
+      g.strokeStyle = 'rgba(25,18,12,0.85)'; g.lineWidth = 3; g.stroke();
+      // Empty (transparent) chips aren't worth keeping.
+      const lx = (cx - d.pivot[0]) * d.texM, ly = -(cy - d.pivot[1]) * d.texM;
+      const cosP = Math.cos(ac.pitch), sinP = Math.sin(ac.pitch);
+      const sp = DEBRIS.flingMs * power * (0.4 + r() * 0.8);
+      const ang = r() * Math.PI * 2;
+      this.debris.push({
+        cv, ox: rad + 1, oy: rad + 1,
+        x: ac.pos.x + lx * cosP - ly * sinP, y: Math.max(1, ac.pos.y + lx * sinP + ly * cosP),
+        vx: ac.vel.x * (0.55 + r() * 0.3) + Math.cos(ang) * sp, vy: ac.vel.y * 0.5 + Math.sin(ang) * sp,
+        rot: -ac.pitch, spin: (r() - 0.5) * 14, texM: d.texM, bodyW: img.width,
+        mu: 0.6, rest: false, heat: r() < 0.5 ? 0.6 : 0, fire: false, smoke: r() < 0.5, firePow: 0.5, t: 0, air: true,
+      });
+    }
+    if (this.debris.length > DEBRIS.max) this.debris.splice(0, this.debris.length - DEBRIS.max);
+  }
+
   emitContinuous(flight, st, dt) {
     const P = this.particles;
     const d = flight.data;
@@ -1363,9 +1456,15 @@ export class Renderer {
         const p = a.pointM(d.pivot[0] + 20, d.pivot[1] - 50);
         P.spawn('white', p.x, p.y, a.vel.x * 0.3, a.vel.y * 0.3, 1.5, 0.4, { grow: 3, alpha: 0.45, ground: false });
       }
-      if (d.id === 'mirage5' && a.rpm > 0.5 && a.throttle > 0.5 && a.afterburner === 0 && Math.random() < 0.6) {
+      // Smoky engines (data: engineSmoke): Mirage grey when not in afterburner, JF-17 a thin black trail.
+      const es = d.engineSmoke;
+      if (es && d.nozzle && a.rpm > 0.5 && a.throttle > es.minThrottle && !(es.dryOnly && a.afterburner > 0)) {
         const p = a.pointM(d.nozzle[0], d.nozzle[1]);
-        P.spawn('smoke', p.x, p.y, a.vel.x * 0.1, 0, 1.6, 1.6, { grow: 3, alpha: 0.18, ground: false });
+        for (let i = 0; i < es.perFrame; i++) {
+          if (Math.random() > es.chance) continue;
+          const f = i / es.perFrame;
+          P.spawn(es.kind, p.x - a.vel.x * dt * f, p.y - a.vel.y * dt * f, a.vel.x * 0.1, 0, es.size, es.life, { grow: es.grow, alpha: es.alpha, ground: false, drag: 0.3 });
+        }
       }
       if (a.onGround && a.braking && a.speedKt > 30 && Math.random() < 0.3) P.spawn('smoke', a.pos.x, 0.3, -2, 0.5, 1.5, 0.8, { grow: 2, alpha: 0.3 });
       if (d.hasPropeller && a.onGround && a.rpm > 0.8 && a.throttle > 0.6 && Math.random() < 0.3) P.spawn('dust', a.pos.x - 6, 0.3, -12, 0.5, 2, 1, { grow: 2, alpha: 0.35 });
@@ -1376,16 +1475,11 @@ export class Renderer {
     // Bandits: smoke when badly hit, fire while falling; wrecks burn on the ground.
     const df = flight.df;
     if (df) {
-      const trail = (b, hot) => {
-        const o = df.opp;
-        const p = b.pointM(o.pivot[0] - 20, o.pivot[1] - 40);
-        // One puff per frame (several falling bandits at once got heavy).
-        P.spawn('dark', p.x, p.y, b.vel.x * 0.1, 1, hot ? 5.5 : 4, hot ? 2.4 : 1.8, { grow: 3, alpha: hot ? 0.6 : 0.36, ground: false, drag: 0.4 });
-        if (hot && Math.random() < 0.5) P.spawn('fire', p.x, p.y, b.vel.x * 0.3, 0, 3.5, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
-      };
-      const hpF = df.b ? df.hp / df.opp.airframeHp * 100 : 100;
-      if (df.b && hpF < DAMAGE.smokeBelow) trail(df.b, hpF < DAMAGE.fireBelow);
-      for (const w of df.falling) trail(w.ac, true);
+      if (df.b) this.damageSmoke(df.b, df.opp, df.damage, dt, false);
+      for (const w of df.falling) {
+        this.damageSmoke(w.ac, df.opp, 1, dt, true);
+        if (Math.random() < dt * DEBRIS.fallingChipsPerS) this.chips(df.opp, w.ac, 1, 0.5);
+      }
       for (const w of this.wrecks) {
         if ((w.t += dt) > 40 || Math.random() > dt * 12) continue;
         P.spawn('dark', w.x + (Math.random() - 0.5) * 10, 1, 1, 4, 5, 4, { grow: 3.5, lift: 3, alpha: 0.6 });
@@ -1405,17 +1499,8 @@ export class Renderer {
       for (const dc of cb.decoys) {
         if (dc.kind === 'flare' && Math.random() < 0.8) P.spawn('smoke', dc.x, dc.y, 0, 0.5, 2.5, 1.8, { grow: 3, alpha: 0.4, ground: false, drag: 0.6 });
       }
-      // Battle damage on the jet: smoke, then fire.
-      if (!a.crashed && (cb.hp < DAMAGE.smokeBelow || a.shotDown)) {
-        const p = a.pointM(d.pivot[0] - 20, d.pivot[1] - 40);
-        const hot = cb.hp < DAMAGE.fireBelow || a.shotDown;
-        // Several puffs along this frame's path, so the trail is continuous at speed.
-        for (let i = 0; i < 3; i++) {
-          const f = i / 3;
-          P.spawn('dark', p.x - a.vel.x * dt * f, p.y - a.vel.y * dt * f, a.vel.x * 0.1, 1, hot ? 5 : 3.5, hot ? 3 : 2.2, { grow: 3, alpha: hot ? 0.55 : 0.32, ground: false, drag: 0.4 });
-        }
-        if (hot && Math.random() < 0.8) P.spawn('fire', p.x, p.y, a.vel.x * 0.3, 0, 3.5, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
-      }
+      // Battle damage on your jet: smoke that grows with the damage, then fire.
+      if (!a.crashed) this.damageSmoke(a, d, a.shotDown ? 1 : 1 - cb.hp / d.airframeHp, dt, a.shotDown);
     }
     // Burning targets and wreck.
     for (const t of flight.targets) {

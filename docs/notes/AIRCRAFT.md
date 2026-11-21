@@ -31,3 +31,6 @@ The flyable aircraft, their data and art, the sprite tool, ranks and lights. Mov
 ## Air-to-air handling (owner 2026-11-21)
 - `airCombat` on each jet in `src/data/aircraft.js` overrides its numbers **in the air-to-air mission only** (`Flight` merges it): thrust (power) and pitch rate / pitch acceleration (agility). Power (thrust/weight): Mirage V 1.00 < JF-17 1.07 < F-16A 1.12 < F-16D 1.19 = J-10C 1.19. Agility: F-16A/D and J-10C 35 deg/s, 360 deg/s^2 (lightest, most manoeuvrable, `stallMarginDeg` 11 like a fly-by-wire limiter); JF-17 30, 280; Mirage 23, 160 (sluggish, but has power).
 - Measured: level acceleration 300 to 500 kt: Mirage 22.7 s, JF-17 19.8 s, F-16A 16.9 s, F-16D 14.7 s, J-10C 13.8 s; nose-up after a 2 s full pull at 420 kt: Mirage 44 deg, JF-17 59, F-16s and J-10C 68 (none stalls).
+
+## Smoky engines (owner 2026-11-21)
+- `engineSmoke` (data, null = none): Mirage V grey puffs when not in afterburner (as before, now data); **JF-17** (RD-93, famously smoky) a thin black trail from 30% throttle, also in afterburner: noticeable, not heavy.

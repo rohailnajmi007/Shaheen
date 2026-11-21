@@ -21,3 +21,6 @@ The shared route world: bases, scenery, landmarks, the refuelling stop, night mo
 - **Parallax when climbing (owner fix, 2026-11-20):** each layer's base line = rest line + (ground line - rest line) x `LAYERS[].lift`, with no cap (the port capped the drop at 7-20% of the screen, so trees stayed on screen at any height). Now trees leave by ~800 ft, hills by ~2,600 ft, mountains by ~8,000 ft (720p, zoom 1); layers fully below the screen are skipped. The high-altitude sky darkening is a gradient (no hard edge at 60% height).
 
 - **Refuelling stop (owner 2026-11-20):** no T key. Stopping at a base that is not the destination brings the fuel truck on its own: it drives in from ahead, parks clear of the nose with a hose to the jet, fills the tanks, drives off (`REFUEL` in `src/data/world.js`). Rolling away early sends it off.
+
+## Mushaf captured-aircraft display (owner 2026-11-21)
+- The two tail sections on the plinths (MiG-21 Bison, Su-30MKI) are now cut from the owner's opponent sprites (`TROPHY_ART` in `src/render/scenery.js`: texture-px box + height), lit like the scene (warm floodlight at night). Was hand-drawn.

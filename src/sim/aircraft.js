@@ -69,6 +69,7 @@ export class Aircraft {
     this.time = 0;
     this.stick = 0;
     this.thrustFactor = 1;  // < 1 with a damaged engine (src/sim/combat.js)
+    this.controlFactor = 1; // < 1 with battle damage: slower pitch
     this.shotDown = false;  // shot down: no control, nose drops until it hits the ground
     this.burnScale = 1;     // fuel burn multiplier (dogfight: lower)
   }
@@ -187,7 +188,7 @@ export class Aircraft {
     const authority = clamp(speed / rotateMs, 0.25, 1);
     const stick = this.stick;
     this.elevator = moveToward(this.elevator, stick, d.elevatorSpeed * dt);
-    let target = stick * d.pitchRateDeg * D2R * authority;
+    let target = stick * d.pitchRateDeg * D2R * authority * this.controlFactor;
     if (this.onGround && this.landingRoll && stick <= 0) target = Math.min(target, -d.derotateDeg * D2R);
     const takeoffAttitude = (d.maxGroundPitchDeg - 2) * D2R;
     if (this.onGround && !this.landingRoll && stick >= 0 && this.pitch > D2R && speed >= rotateMs && this.pitch < takeoffAttitude) {

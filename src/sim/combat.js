@@ -441,7 +441,9 @@ export class Combat {
     if (this.hp <= 0 || !this.airborne()) return;
     this.hp = Math.max(0, this.hp - n);
     this.stats.damage += n;
-    a.thrustFactor = this.hp < DAMAGE.engineBelow ? DAMAGE.engineThrust : 1;
+    const lost = 1 - this.hp / f.data.airframeHp;
+    a.thrustFactor = 1 - (1 - DAMAGE.thrustAtZero) * lost;
+    a.controlFactor = 1 - (1 - DAMAGE.controlAtZero) * lost;
     if (this.hp <= 0) { this.killer = cause; f.shootDown(cause); return; }
     if (f.time - this.lastHitSay > 4) {
       this.lastHitSay = f.time;

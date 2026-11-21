@@ -78,8 +78,11 @@ export const COUNTERMEASURES = {
 export const DAMAGE = {
   smokeBelow: 60,     // hp: trails smoke
   fireBelow: 30,      // hp: on fire
-  engineBelow: 45,    // hp: engine damaged, thrust x engineThrust
-  engineThrust: 0.7,
+  engineBelow: 45,    // hp: ENGINE DAMAGE warning
+  // Battle damage takes performance away gradually (owner 2026-11-21, you and bandits):
+  // at 0 hp left the engine gives thrustAtZero and the jet pitches at controlAtZero.
+  thrustAtZero: 0.5,
+  controlAtZero: 0.55,
   shotDownCrashS: 20, // a shot-down jet that keeps gliding hits the ground after this
 };
 
@@ -113,7 +116,6 @@ export const DOGFIGHT = {
   hitRadiusMult: 2.4,      // jets' hit circles x this (rounds vs jets, both ways): the jets are drawn
                            // bigger than life when zoomed out, so a visual hit should count
   banditAmmoMult: 1.5,     // bandit rounds = its gun's rounds x this
-  banditDamagedThrust: 0.75, // below 45% airframe its engine gives this much
   banditDmgMult: 0.12,     // his rounds hurt you this much x the gun's dmg...
   playerDmgMult: 0.8,      // ... and yours hurt him this much (a kill takes a few good bursts)
   playerAmmoMult: 2.5,     // your gun carries this many times its rounds (2-3 bandits per load)
