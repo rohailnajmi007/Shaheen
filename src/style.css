@@ -316,6 +316,57 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .rscore b { font-size: 26px; color: var(--txt); letter-spacing: 0.05em; margin: 0 6px; }
 .nb { color: #ffd34d; font-size: 12px; padding: 3px 8px; border: 1px solid #ffd34d; border-radius: 6px; }
 
+/* Start screen revamp (owner 2026-11-21): the order sheet covers the whole screen, one
+   question per page, big boxes, nothing else. */
+#menu:has(.sheet.full) { background: #0c0e09; }
+.sheet.full { position: absolute; inset: 0; width: auto; margin: 0; border-radius: 0; padding: 0; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+.sheet.full .dhead { padding: 12px 28px; }
+.sheet.full .mform { color: var(--ink-dim); letter-spacing: 0.24em; }
+.sheet.full .mbody { padding: 24px 28px; align-content: center; justify-items: center; overflow-y: auto; gap: 26px; }
+.sheet.full .steptitle { font-size: clamp(20px, 3vw, 30px); letter-spacing: 0.3em; text-align: center; margin: 0; }
+.sheet.full .page { width: min(1080px, 100%); justify-items: center; }
+.sheet.full .pname { max-width: 420px; text-align: center; font-size: 26px; padding: 14px 18px; }
+.mplate { position: static; width: 220px; padding: 10px 14px 12px; opacity: 0; transform: translateY(8px) scale(0.96); transition: opacity 0.35s, transform 0.35s; }
+.mplate.on { opacity: 1; transform: none; }
+.mplate .wings { width: 176px; }
+.mplate .tagname { font-size: 26px; }
+.mplate .rank { font-size: 10px; }
+.mplate .rank:empty { display: none; }
+.mcards { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.mcards.acs { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.mcard { cursor: pointer; display: grid; justify-items: center; align-content: start; gap: 8px; padding: 22px 18px 20px; text-align: center; border-radius: 2px; border: 1px solid #3a3a2a; background: rgba(201,187,127,0.03); color: var(--ink); transition: border-color 0.15s, background 0.15s, transform 0.15s; }
+.mcard[hidden] { display: none; }
+.mcard:hover:not(:disabled) { background: rgba(201,187,127,0.08); transform: translateY(-2px); }
+.mcard.sel { border-color: var(--tone); background: rgba(201,187,127,0.13); box-shadow: 0 0 0 1px var(--tone) inset; }
+.mcard b { font-size: 18px; letter-spacing: 0.16em; text-transform: uppercase; }
+.mcard small { font-size: 13px; line-height: 1.4; color: var(--ink-dim); max-width: 30ch; }
+.micon { width: 96px; height: 64px; color: var(--tone); }
+.micon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.mcard .acimg { height: 84px; width: 100%; }
+.mcard .acimg img { max-height: 84px; }
+.mcard .acrole { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--tone); }
+.mcard .acwpn { font-size: 12px; color: #e0b84a; }
+.sheet.full .mfoot { justify-content: space-between; padding: 14px 28px; border-top: 1px solid var(--rule); background: #12150e; }
+.sheet.full .fly:disabled { opacity: 0.35; cursor: not-allowed; }
+/* The sortie order: a paper form with the pilot's name tag. */
+.order { width: min(640px, 100%); display: grid; gap: 16px; padding: 18px 22px 20px; border: 1px solid var(--rule); background: rgba(0,0,0,0.25); box-shadow: inset 0 0 0 3px #14170f, inset 0 0 0 4px #3a3a2a; }
+.odmeta { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 11px; letter-spacing: 0.2em; color: var(--ink-dim); }
+.order .stamp { margin: 0; justify-self: center; }
+.obody { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; }
+.obody .drows { padding: 0; }
+.osign { display: flex; align-items: baseline; gap: 10px; font-size: 11px; letter-spacing: 0.22em; color: var(--ink-dim); }
+.osign i { flex: 1; height: 26px; border-bottom: 1px solid var(--rule); background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 30'%3E%3Cpath d='M4 22 C14 4 20 4 18 18 S30 26 36 12 S44 6 46 18 S58 24 64 10 C68 4 72 26 80 16 S96 12 116 14' fill='none' stroke='%238fa6c9' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat 16% 70% / 110px 28px; }
+@media (max-width: 760px) {
+  .sheet.full .mbody { padding: 18px 14px; gap: 18px; align-content: start; }
+  .sheet.full .dhead { padding: 10px 14px; font-size: 10px; letter-spacing: 0.2em; }
+  .mcards, .mcards.acs { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mcard { padding: 14px 8px; }
+  .mcard b { font-size: 14px; letter-spacing: 0.08em; }
+  .mcard small { font-size: 11.5px; }
+  .obody { grid-template-columns: 1fr; justify-items: center; }
+  .obody .drows { width: 100%; font-size: 12px; }
+}
+
 @media (max-width: 1100px) {
   .hud-top { grid-template-columns: 1fr 1fr; }
   .radar { grid-column: 1 / -1; order: 3; }

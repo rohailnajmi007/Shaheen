@@ -22,24 +22,51 @@ export function setBest(s, v) {
   return false;
 }
 
-// Start screen in sequential steps (owner, like the Godot start screen): one question
-// per page, BACK / NEXT (Esc / Enter), left / right arrows change the choice.
-// PILOT -> AIRCRAFT -> MISSION -> ROUTE (ferry) / OPPONENT (air to air) -> TIME OF DAY (+ FLY).
+// Start screen (owner 2026-11-21 revamp): full screen, military report style, one
+// question per page and nothing else on it. NAME (wings appear) -> MISSION (three boxes)
+// -> AIRCRAFT (those that can fly it) -> ROUTE (ferry) / OPPONENT (air to air) -> TIME
+// -> the sortie order (wings, name, aircraft, mission, time) -> FLY.
+// Enter = next, Esc = back, left / right = change the choice.
 const STEPS = [
-  { id: 'pilot', title: 'Enter your name', tab: 'Pilot' },
-  { id: 'aircraft', title: 'Choose your aircraft', tab: 'Aircraft' },
-  { id: 'mode', title: 'Choose your mission', tab: 'Mission' },
-  { id: 'dest', title: 'Choose your route', tab: 'Route' },
-  { id: 'opponent', title: 'Choose your opponent', tab: 'Opponent' },
-  { id: 'time', title: 'Time of day', tab: 'Time' },
+  { id: 'pilot', title: 'Enter your name' },
+  { id: 'mode', title: 'Choose your mission' },
+  { id: 'aircraft', title: 'Choose your aircraft' },
+  { id: 'dest', title: 'Choose your destination' },
+  { id: 'opponent', title: 'Choose your opponent' },
+  { id: 'time', title: 'Time of day' },
+  { id: 'report', title: 'Sortie order' },
 ];
+// Simple line icons (stroke = currentColor).
+const ICON = {
+  // A jet on a dashed route from one base to another.
+  ferry: '<svg viewBox="0 0 96 64"><path d="M10 50 Q48 4 86 50" fill="none" stroke-dasharray="5 5"/><circle cx="10" cy="52" r="4"/><circle cx="86" cy="52" r="4"/><path d="M38 24 l16 0 l8 -6 l3 0 l-4 7 l7 1 l0 3 l-7 1 l4 7 l-3 0 l-8 -6 l-16 0 z" fill="currentColor" stroke="none"/></svg>',
+  // A bomb falling on a target on the ground.
+  strike: '<svg viewBox="0 0 96 64"><path d="M48 6 c6 0 9 6 9 14 c0 8 -4 14 -9 18 c-5 -4 -9 -10 -9 -18 c0 -8 3 -14 9 -14 z" fill="currentColor" stroke="none"/><path d="M42 8 l-5 -5 h22 l-5 5"/><path d="M14 58 h68"/><path d="M30 52 l6 -8 M66 52 l-6 -8 M48 50 v-6"/></svg>',
+  // A gunsight on an enemy jet.
+  dogfight: '<svg viewBox="0 0 96 64"><circle cx="48" cy="32" r="22"/><path d="M48 4 v12 M48 48 v12 M20 32 h12 M64 32 h12"/><path d="M36 33 l14 0 l6 -5 l3 0 l-3 6 l6 1 l0 2 l-6 1 l3 6 l-3 0 l-6 -5 l-14 0 z" fill="currentColor" stroke="none"/></svg>',
+};
+const TIME_ICON = {
+  dawn: '<svg viewBox="0 0 96 64"><path d="M8 48 h80"/><path d="M28 48 a20 20 0 0 1 40 0" fill="none"/><path d="M48 14 v8 M24 24 l5 5 M72 24 l-5 5"/></svg>',
+  day: '<svg viewBox="0 0 96 64"><circle cx="48" cy="32" r="12"/><path d="M48 6 v8 M48 50 v8 M22 32 h8 M66 32 h8 M30 14 l5 5 M66 14 l-5 5 M30 50 l5 -5 M66 50 l-5 -5"/></svg>',
+  dusk: '<svg viewBox="0 0 96 64"><path d="M8 48 h80 M20 56 h56"/><path d="M30 48 a18 18 0 0 1 36 0" fill="currentColor" stroke="none" opacity="0.5"/><path d="M30 48 a18 18 0 0 1 36 0"/></svg>',
+  night: '<svg viewBox="0 0 96 64"><path d="M54 10 a22 22 0 1 0 18 34 a18 18 0 0 1 -18 -34 z"/><path d="M22 14 l1 3 3 1 -3 1 -1 3 -1 -3 -3 -1 3 -1 z M78 16 l1 2 2 1 -2 1 -1 2 -1 -2 -2 -1 2 -1 z" fill="currentColor"/></svg>',
+};
 const MODES = [
-  { id: 'ferry', label: 'Ferry flight', note: 'Take off from your home base, fly to the base you pick, land and stop on the runway.' },
-  { id: 'strike', label: 'Air to ground', note: 'Jets only. Destroy 4-5 ground targets past SAMs, then land at the base that appears.' },
-  { id: 'dogfight', label: 'Air to air', note: 'Jets with a gun. Take off, shoot down 2-3 bandits with the gun, then land at the base that appears.' },
+  { id: 'ferry', label: 'Ferry', note: 'Take off from your home base and deliver the jet to another PAF base.' },
+  { id: 'strike', label: 'Air to ground', note: 'Destroy the enemy ground targets past their SAMs, then land.' },
+  { id: 'dogfight', label: 'Air to air', note: 'Shoot down the enemy fighters with your gun, then land.' },
 ];
+const MODE_NAME = { ferry: 'FERRY FLIGHT', strike: 'AIR TO GROUND', dogfight: 'AIR TO AIR' };
 // Which missions an aircraft can fly.
 const modeOk = (m, a) => m === 'ferry' || (m === 'strike' ? a.strikeCapable : !!a.gun);
+// What it carries, by kind ("4 laser guided bombs · 20 mm cannon").
+function armament(a) {
+  const out = [];
+  if (a.strikeCapable && a.weaponLabel) out.push(`${a.bombCount} ${a.weaponLabel.toLowerCase()}s`);
+  const cal = a.gun && /(\d+)\s*MM/i.exec(a.gun.name);
+  if (a.gun) out.push(cal ? `${cal[1]} mm cannon` : 'cannon');
+  return out.length ? out.join(' · ') : 'Unarmed';
+}
 
 export class Menu {
   constructor(root, settings, { onFly, onChange, sound }) {
@@ -50,70 +77,78 @@ export class Menu {
     this.sound = sound;
     this.step = 0;
     const base = import.meta.env.BASE_URL;
+    const wings = (c) => `${base}sprites/paf_pilot_wings_${c}.png`;
+    this.wingsSrc = wings;
     root.innerHTML = `
-      <div class="menu-wrap sheet">
-        <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>RESTRICTED</span></div>
+      <div class="menu-wrap sheet full">
+        <div class="dhead"><span>PAKISTAN AIR FORCE</span><span class="mform"></span><span>RESTRICTED</span></div>
         <div class="mbody">
-        <header class="brand"><div class="logo"><span>SHAHEEN</span><small>FLIGHT AUTHORISATION · SORTIE ORDER</small></div></header>
-        <nav class="steps">${STEPS.map((st, i) => `<button class="stepdot" data-i="${i}"><b>${String(i + 1).padStart(2, '0')}</b><span>${st.tab}</span></button>`).join('')}</nav>
-        <h2 class="steptitle"></h2>
-        <section class="page" data-step="pilot">
-          <input class="pname" maxlength="16" placeholder="Your name" spellcheck="false" autocomplete="off" />
-        </section>
-        <section class="page" data-step="aircraft">
-          <div class="acgrid">${AIRCRAFT.map((a) => `
-            <button class="accard" data-id="${a.id}">
-              <div class="acimg"><img src="${base}sprites/${a.sprite}.png" alt="" />${[a.elevatorSprite, a.canardSprite].filter(Boolean).map((l) => `<img src="${base}sprites/${l}.png" alt="" />`).join('')}</div>
-              <div class="acname">${a.name}</div>
-              <div class="acrole">${a.role}</div>
-              <div class="acwpn">${a.weaponLabel || 'No weapons'}</div>
-            </button>`).join('')}
-          </div>
-          <p class="hint achint"></p>
-        </section>
-        <section class="page" data-step="mode">
-          <div class="seg big mode">${MODES.map((m) => `<button data-v="${m.id}">${m.label}<small>${m.note}</small></button>`).join('')}</div>
-        </section>
-        <section class="page" data-step="dest">
-          <div class="seg big dest"></div>
-        </section>
-        <section class="page" data-step="opponent">
-          <div class="acgrid oppgrid">${OPPONENTS.map((o) => `
-            <button class="accard opcard" data-id="${o.id}">
-              <div class="acimg"><img src="${base}sprites/${o.sprite}.png" alt="" /></div>
-              <div class="acname">${o.name}</div>
-              <div class="acrole diff ${o.difficulty.toLowerCase()}">${o.difficulty}</div>
-              <div class="acwpn">${o.note}</div>
-            </button>`).join('')}
-          </div>
-          <p class="hint">2-3 of them, one after another. Guns only, both sides.</p>
-        </section>
-        <section class="page" data-step="time">
-          <div class="seg time">${Object.entries(TIMES).map(([k, t]) => `<button data-v="${k}">${t.label}</button>`).join('')}</div>
-        </section>
-        <div class="drows mlog"></div>
+          <h2 class="steptitle"></h2>
+          <section class="page" data-step="pilot">
+            <input class="pname" maxlength="16" placeholder="YOUR NAME" spellcheck="false" autocomplete="off" />
+            <div class="nameplate mplate"><div class="rank"></div><img class="wings" src="${wings('white')}" alt="" /><div class="tagname"></div></div>
+          </section>
+          <section class="page" data-step="mode">
+            <div class="mcards">${MODES.map((m) => `
+              <button class="mcard" data-v="${m.id}"><div class="micon">${ICON[m.id]}</div><b>${m.label}</b><small>${m.note}</small></button>`).join('')}
+            </div>
+          </section>
+          <section class="page" data-step="aircraft">
+            <div class="mcards acs">${AIRCRAFT.map((a) => `
+              <button class="mcard accard" data-id="${a.id}">
+                <div class="acimg"><img src="${base}sprites/${a.sprite}.png" alt="" />${[a.elevatorSprite, a.canardSprite].filter(Boolean).map((l) => `<img src="${base}sprites/${l}.png" alt="" />`).join('')}</div>
+                <b>${a.name}</b>
+                <span class="acrole">${a.role}</span>
+                <small class="acwpn">${armament(a)}</small>
+              </button>`).join('')}
+            </div>
+          </section>
+          <section class="page" data-step="dest"><div class="mcards dest"></div></section>
+          <section class="page" data-step="opponent">
+            <div class="mcards">${OPPONENTS.map((o) => `
+              <button class="mcard opcard" data-id="${o.id}">
+                <div class="acimg"><img src="${base}sprites/${o.sprite}.png" alt="" /></div>
+                <b>${o.name}</b>
+                <span class="acrole diff ${o.difficulty.toLowerCase()}">${o.difficulty}</span>
+              </button>`).join('')}
+            </div>
+          </section>
+          <section class="page" data-step="time">
+            <div class="mcards times">${Object.entries(TIMES).map(([k, t]) => `
+              <button class="mcard" data-v="${k}"><div class="micon">${TIME_ICON[k] || ''}</div><b>${t.label}</b></button>`).join('')}
+            </div>
+          </section>
+          <section class="page" data-step="report">
+            <div class="order">
+              <div class="odmeta"></div>
+              <div class="stamp"><div class="shead">SORTIE AUTHORISED</div><div class="ssub"></div></div>
+              <div class="obody">
+                <div class="nameplate mplate on"><div class="rank"></div><img class="wings" alt="" /><div class="tagname"></div></div>
+                <div class="drows olog"></div>
+              </div>
+              <div class="osign"><span>AUTHORISED</span><i></i><span>OC FLYING WING</span></div>
+            </div>
+          </section>
+        </div>
         <footer class="mfoot">
           <button class="ghost back">Back <kbd>Esc</kbd></button>
           <button class="fly next">Next <kbd>Enter</kbd></button>
-          <button class="ghost keysbtn">Controls</button>
         </footer>
-        <div class="keypop">${KEY_HELP.map(([k, t]) => `<div><kbd>${k}</kbd><span>${t}</span></div>`).join('')}<p>Gamepad: left stick pitch, triggers throttle, A fire, B brake, X flares, Y gear, LB engine.</p></div>
-        </div>
       </div>`;
     const name = $('.pname', root);
     name.value = settings.name;
-    name.addEventListener('input', () => { this.s.name = name.value; saveSettings(this.s); });
-    for (const b of root.querySelectorAll('.accard:not(.opcard)')) b.addEventListener('click', () => this.pick('aircraft', b.dataset.id));
+    name.addEventListener('input', () => { this.s.name = name.value; saveSettings(this.s); this.refresh(); });
+    for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => this.pick('aircraft', b.dataset.id));
     for (const b of root.querySelectorAll('.opcard')) b.addEventListener('click', () => this.pick('opponent', b.dataset.id));
-    for (const [cls, key] of [['mode', 'mode'], ['time', 'time']]) {
-      for (const b of root.querySelectorAll(`.seg.${cls} button`)) b.addEventListener('click', () => { if (!b.disabled) this.pick(key, b.dataset.v); });
+    for (const [sel, key] of [['[data-step="mode"] .mcard', 'mode'], ['.times .mcard', 'time']]) {
+      for (const b of root.querySelectorAll(sel)) b.addEventListener('click', () => { if (!b.disabled) this.pick(key, b.dataset.v); });
     }
-    // Route buttons depend on the aircraft's home base: rebuilt in refresh().
-    $('.seg.dest', root).addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) this.pick('dest', b.dataset.v); });
-    for (const b of root.querySelectorAll('.stepdot')) b.addEventListener('click', () => { const i = +b.dataset.i; if (i < this.step) this.go(i); });
+    // Route boxes depend on the aircraft's home base: rebuilt in refresh().
+    $('.mcards.dest', root).addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) this.pick('dest', b.dataset.v); });
+    // Double click / second tap on the chosen box = next.
+    root.addEventListener('dblclick', (e) => { if (e.target.closest('.mcard')) this.next(); });
     $('.next', root).addEventListener('click', () => this.next());
     $('.back', root).addEventListener('click', () => this.back());
-    $('.keysbtn', root).addEventListener('click', () => root.querySelector('.keypop').classList.toggle('show'));
     this.keyHandler = (e) => {
       if (!this.root.classList.contains('show')) return;
       if (e.code === 'Enter') { e.preventDefault(); this.next(); }
@@ -126,9 +161,10 @@ export class Menu {
     this.refresh();
   }
 
-  // Steps that apply: route for a ferry flight, opponent for air to air.
+  // Steps that apply: destination for a ferry flight, opponent for air to air.
   steps() { return STEPS.filter((st) => !(st.id === 'dest' && this.s.mode !== 'ferry') && !(st.id === 'opponent' && this.s.mode !== 'dogfight')); }
   current() { return this.steps()[Math.min(this.step, this.steps().length - 1)]; }
+  named() { return !!(this.s.name || '').trim(); }
 
   go(i) {
     this.step = Math.max(0, Math.min(i, this.steps().length - 1));
@@ -137,37 +173,40 @@ export class Menu {
     if (this.current().id === 'pilot') setTimeout(() => $('.pname', this.root).focus(), 0);
   }
   next() {
+    if (this.current().id === 'pilot' && !this.named()) { $('.pname', this.root).focus(); return; }
     if (this.step >= this.steps().length - 1) { this.fly(); return; }
     this.go(this.step + 1);
   }
   back() { if (this.step > 0) this.go(this.step - 1); }
 
+  // Aircraft that can fly the chosen mission.
+  fleet() { return AIRCRAFT.filter((a) => modeOk(this.s.mode, a)); }
+
   // Left / right on a choice page.
   cycle(dir) {
     const id = this.current().id;
     let opts;
-    if (id === 'aircraft') opts = AIRCRAFT.map((a) => a.id);
-    else if (id === 'mode') opts = MODES.filter((m) => modeOk(m.id, this.ac())).map((m) => m.id);
+    if (id === 'aircraft') opts = this.fleet().map((a) => a.id);
+    else if (id === 'mode') opts = MODES.map((m) => m.id);
     else if (id === 'dest') opts = this.routes().map((r) => r.id);
     else if (id === 'opponent') opts = OPPONENTS.map((o) => o.id);
     else if (id === 'time') opts = Object.keys(TIMES);
     else return;
-    const key = id === 'aircraft' ? 'aircraft' : id;
-    const i = opts.indexOf(this.s[key]);
-    this.pick(key, opts[(i + dir + opts.length) % opts.length]);
+    const i = opts.indexOf(this.s[id]);
+    this.pick(id, opts[(i + dir + opts.length) % opts.length]);
   }
 
   ac() { return AIRCRAFT.find((x) => x.id === this.s.aircraft); }
 
   // Ferry routes from the selected aircraft's home base.
-  routes() {
-    const a = AIRCRAFT.find((x) => x.id === this.s.aircraft);
-    return routesFrom(a.homeBase);
-  }
+  routes() { return routesFrom(this.ac().homeBase); }
 
   pick(key, v) {
     this.s[key] = v;
-    this.changed(key === 'aircraft' || key === 'time');
+    let visual = key === 'aircraft' || key === 'time';
+    // The mission comes first now: keep the aircraft one that can fly it.
+    if (!modeOk(this.s.mode, this.ac())) { this.s.aircraft = this.fleet()[0].id; visual = true; }
+    this.changed(visual);
   }
 
   fly() {
@@ -177,9 +216,7 @@ export class Menu {
 
   changed(visual) {
     this.sound.click();
-    const a = AIRCRAFT.find((x) => x.id === this.s.aircraft);
-    // The aircraft is picked first: one without weapons just can't fly air to ground.
-    if (!modeOk(this.s.mode, a)) this.s.mode = 'ferry';
+    if (!modeOk(this.s.mode, this.ac())) this.s.aircraft = this.fleet()[0].id;
     this.fixDest();
     saveSettings(this.s);
     this.refresh();
@@ -193,63 +230,65 @@ export class Menu {
   }
 
   refresh() {
+    if (!modeOk(this.s.mode, this.ac())) this.s.aircraft = this.fleet()[0].id;
     this.fixDest();
     const s = this.s;
     const r = this.root;
     const steps = this.steps();
     const cur = this.current();
-    const a = AIRCRAFT.find((x) => x.id === s.aircraft);
+    const a = this.ac();
     for (const p of r.querySelectorAll('.page')) p.classList.toggle('on', p.dataset.step === cur.id);
-    $('.steptitle', r).textContent = `SECTION ${String(this.step + 1).padStart(2, '0')} · ${cur.title}`;
-    // Tabs: ROUTE or OPPONENT (whichever this mission has; air to ground: ROUTE struck out).
-    let n = 0;
-    for (const b of r.querySelectorAll('.stepdot')) {
-      const st = STEPS[+b.dataset.i];
-      const idx = steps.indexOf(st);
-      const hide = (st.id === 'opponent' && s.mode !== 'dogfight') || (st.id === 'dest' && s.mode === 'dogfight');
-      b.hidden = hide;
-      if (!hide) b.firstElementChild.textContent = String(++n).padStart(2, '0');
-      b.classList.toggle('skip', idx < 0);
-      b.classList.toggle('done', idx >= 0 && idx < this.step);
-      b.classList.toggle('cur', st === cur);
+    $('.steptitle', r).textContent = cur.title;
+    $('.mform', r).textContent = `FORM ${String(this.step + 1).padStart(2, '0')} / ${String(steps.length).padStart(2, '0')}`;
+    const name = (s.name || '').trim().toUpperCase();
+    // Name page: the wings appear once there is a name.
+    const np = $('[data-step="pilot"] .mplate', r);
+    np.classList.toggle('on', !!name);
+    $('.tagname', np).textContent = name;
+    for (const b of r.querySelectorAll('[data-step="mode"] .mcard')) b.classList.toggle('sel', b.dataset.v === s.mode);
+    for (const b of r.querySelectorAll('.accard')) {
+      b.hidden = !modeOk(s.mode, AIRCRAFT.find((x) => x.id === b.dataset.id));
+      b.classList.toggle('sel', b.dataset.id === s.aircraft);
     }
-    for (const b of r.querySelectorAll('.accard:not(.opcard)')) b.classList.toggle('sel', b.dataset.id === s.aircraft);
     for (const b of r.querySelectorAll('.opcard')) b.classList.toggle('sel', b.dataset.id === s.opponent);
-    const name = (s.name || 'Shaheen').trim().toUpperCase();
-    $('.achint', r).textContent = `You fly as ${a.rank} ${name} from ${BASES[a.homeBase].name}.`;
+    for (const b of r.querySelectorAll('.times .mcard')) b.classList.toggle('sel', b.dataset.v === s.time);
     const routes = this.routes();
     const rk = routes.map((x) => x.id).join();
     if (this.routeKey !== rk) {
       this.routeKey = rk;
-      $('.seg.dest', r).innerHTML = routes.map((x) => `<button data-v="${x.id}">${x.label}<small>${x.km} km · ${x.note}</small></button>`).join('');
+      $('.mcards.dest', r).innerHTML = routes.map((x) => `<button class="mcard" data-v="${x.id}"><div class="micon">${ICON.ferry}</div><b>${BASES[x.id].name}</b><small>${x.km} km</small></button>`).join('');
     }
-    for (const [cls, key] of [['mode', 'mode'], ['dest', 'dest'], ['time', 'time']]) {
-      for (const b of r.querySelectorAll(`.seg.${cls} button`)) b.classList.toggle('sel', b.dataset.v === s[key]);
+    for (const b of r.querySelectorAll('.mcards.dest .mcard')) b.classList.toggle('sel', b.dataset.v === s.dest);
+    // The sortie order.
+    if (cur.id === 'report') {
+      const now = new Date();
+      const p2 = (n) => String(n).padStart(2, '0');
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      $('.odmeta', r).innerHTML = `<span>SORTIE NO. ${p2(now.getHours())}${p2(now.getMinutes())}/${p2(now.getDate())}</span><span>${p2(now.getDate())} ${months[now.getMonth()]} ${now.getFullYear()}</span>`;
+      $('.ssub', r).textContent = MODE_NAME[s.mode];
+      const op = $('[data-step="report"] .mplate', r);
+      $('.rank', op).textContent = a.rank;
+      $('.wings', op).src = this.wingsSrc(a.rankBadge);
+      $('.tagname', op).textContent = name;
+      const route = routes.find((x) => x.id === s.dest);
+      const o = opponentById(s.opponent);
+      const best = getBest(s);
+      const row = (k, v) => `<div class="drow"><span>${k}</span><i></i><b>${esc(v)}</b></div>`;
+      $('.olog', r).innerHTML = [
+        row('PILOT', `${a.rankFull} ${name}`.toUpperCase()),
+        row('AIRCRAFT', a.name.toUpperCase()),
+        row('MISSION', MODE_NAME[s.mode]),
+        s.mode === 'ferry' && route && row('DESTINATION', BASES[route.id].name.toUpperCase()),
+        s.mode === 'dogfight' && row('OPPONENT', `${o.name} · ${o.difficulty}`.toUpperCase()),
+        row('TIME OF DAY', TIMES[s.time].label.toUpperCase()),
+        best && row('BEST SCORE', String(best)),
+      ].filter(Boolean).join('');
     }
-    // Air to ground needs a strike-capable aircraft.
-    const sb = $('.seg.mode button[data-v="strike"]', r);
-    sb.disabled = !a.strikeCapable;
-    sb.querySelector('small').textContent = a.strikeCapable ? MODES[1].note : `Not available: the ${a.name} carries no weapons yet.`;
-    const db = $('.seg.mode button[data-v="dogfight"]', r);
-    db.disabled = !a.gun;
-    db.querySelector('small').textContent = a.gun ? MODES[2].note : `Not available: the ${a.name} has no gun.`;
-    // The order sheet fills in as you go: sections not reached yet read PENDING.
-    const route = routes.find((x) => x.id === s.dest);
-    const best = getBest(s);
-    const reached = (id) => steps.findIndex((st) => st.id === id) <= this.step;
-    const row = (k, id, v) => `<div class="drow${reached(id) ? '' : ' pend'}"><span>${k}</span><i></i><b>${esc(reached(id) ? v : 'PENDING')}</b></div>`;
-    $('.mlog', r).innerHTML = [
-      row('PILOT', 'pilot', `${a.rank} ${name}`),
-      row('AIRCRAFT', 'aircraft', a.name.toUpperCase()),
-      row('MISSION', 'mode', s.mode === 'strike' ? 'AIR TO GROUND' : s.mode === 'dogfight' ? 'AIR TO AIR' : 'FERRY FLIGHT'),
-      s.mode === 'ferry' && row('ROUTE', 'dest', route ? route.label.toUpperCase() : ''),
-      s.mode === 'dogfight' && row('OPPONENT', 'opponent', `${opponentById(s.opponent).name} · ${opponentById(s.opponent).difficulty}`.toUpperCase()),
-      row('TIME OF DAY', 'time', TIMES[s.time].label.toUpperCase()),
-      best && `<div class="drow"><span>BEST SCORE</span><i></i><b>${best}</b></div>`,
-    ].filter(Boolean).join('');
     const last = this.step >= steps.length - 1;
-    $('.next', r).innerHTML = last ? 'FLY <kbd>Enter</kbd>' : 'Next <kbd>Enter</kbd>';
-    $('.next', r).classList.toggle('go', last);
+    const nx = $('.next', r);
+    nx.innerHTML = last ? 'FLY <kbd>Enter</kbd>' : 'Next <kbd>Enter</kbd>';
+    nx.classList.toggle('go', last);
+    nx.disabled = cur.id === 'pilot' && !name;
     $('.back', r).style.visibility = this.step > 0 ? 'visible' : 'hidden';
   }
 

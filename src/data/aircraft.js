@@ -240,7 +240,7 @@ export const AIRCRAFT = [
     airCombat: { maxThrustN: 84000, afterburnerN: 62250, pitchRateDeg: 35, pitchAccelDeg: 360, stallMarginDeg: 11 }, // T/W 1.19 (= F-16D)
 
     name: 'J-10C Vigorous Dragon',
-    role: 'Multirole fighter',
+    role: 'Air superiority fighter', // owner 2026-11-21
     // Rank and home base: my picks (owner did not say). Real PAF J-10Cs fly from
     // Minhas (Kamra), not in the game yet, so Mushaf for now.
     rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'mushaf',
