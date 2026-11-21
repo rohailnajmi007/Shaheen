@@ -10,11 +10,10 @@
   font-display: swap;
 }
 @font-face {
-  /* Menus (owner 2026-11-21): Warband Stencil Regular by Sronstudio (commercial; the
-     file is not in the repo until the owner adds it). Until then: Chakra Petch. */
-  font-family: 'Warband Stencil';
-  src: url('/fonts/WarbandStencil-Regular.woff2') format('woff2'),
-       url('/fonts/WarbandStencil-Regular.otf') format('opentype');
+  /* Menus (owner 2026-11-21): Operation Napalm (public domain, CC0:
+     public/fonts/OperationNapalm-CC0.txt). Replaced the Warband Stencil plan. */
+  font-family: 'Operation Napalm';
+  src: url('/fonts/OperationNapalm-Regular.ttf') format('truetype');
   font-display: swap;
 }
 
@@ -39,8 +38,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1220; use
 .layer { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.35s ease; }
 .layer.show { opacity: 1; }
 #menu.show, .overlay.show { pointer-events: auto; }
-/* Menus and their pop-ups in the stencil face (one weight: no fake bold). */
-#menu, .overlay { font-family: 'Warband Stencil', 'Chakra Petch', system-ui, sans-serif; font-synthesis: none; }
+/* Menus and their pop-ups in the menu face (one weight: no fake bold). */
+#menu, .overlay { font-family: 'Operation Napalm', 'Chakra Petch', system-ui, sans-serif; font-synthesis: none; }
 button, input, select { font: inherit; color: inherit; }
 kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); margin: 0 0.35em; }
 
