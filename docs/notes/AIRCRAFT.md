@@ -35,3 +35,4 @@ The flyable aircraft, their data and art, the sprite tool, ranks and lights. Mov
 ## Smoky engines (owner 2026-11-21)
 - `engineSmoke` (data, null = none): Mirage V grey puffs when not in afterburner (as before, now data); **JF-17** (RD-93, famously smoky) a faint dark trail from 30% throttle, also in afterburner: thick at the nozzle, thinning out behind (`grow` < 1), low alpha (owner 2026-11-21: was too pronounced and too thin). Barely shows at dusk/night (particles dimmed, dark sky).
 - J-10C role: **Air superiority fighter** (owner 2026-11-21; was Multirole fighter).
+- **Afterburner flame length per aircraft (owner 2026-11-21):** `flameLength` (texture px, all sprites share `texM`): F-16A/D and J-10C 320 (longest), JF-17 250, Mirage V 190 (shortest). Full A/B draws the whole length; light A/B 55%.
