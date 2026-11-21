@@ -35,8 +35,12 @@ export class Sound {
     // Engine sound through a low-pass: wide open, closed down when supersonic (SONIC).
     this.muffle = c.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000;
     this.muffleG = c.createGain();
-    this.engineBus = c.createGain(); this.engineBus.connect(this.muffle).connect(this.muffleG).connect(this.master);
-    this.fxBus = c.createGain(); this.fxBus.connect(this.master);
+    // Supersonic (owner 2026-11-21): engine AND effects are muffled; the boom itself
+    // goes on its own bus (boomBus) straight to the master, so it stays loud and clear.
+    this.muffle.connect(this.muffleG).connect(this.master);
+    this.engineBus = c.createGain(); this.engineBus.connect(this.muffle);
+    this.fxBus = c.createGain(); this.fxBus.connect(this.muffle);
+    this.boomBus = c.createGain(); this.boomBus.connect(this.master);
     const len = c.sampleRate * 2;
     this.noise = c.createBuffer(1, len, c.sampleRate);
     const d = this.noise.getChannelData(0);
@@ -52,6 +56,7 @@ export class Sound {
     this.master.gain.setTargetAtTime(this.muted ? 0 : this.vol.master, t, 0.05);
     this.engineBus.gain.setTargetAtTime(this.vol.engine, t, 0.05);
     this.fxBus.gain.setTargetAtTime(this.vol.effects, t, 0.05);
+    this.boomBus.gain.setTargetAtTime(this.vol.effects, t, 0.05);
   }
 
   noiseSrc() {
@@ -147,6 +152,8 @@ export class Sound {
 
   stopFlight() {
     this.stopCrashSong();
+    // Never leave the menu muffled after a supersonic flight.
+    if (this.muffle) { const t = this.ctx.currentTime; this.muffle.frequency.setTargetAtTime(20000, t, 0.05); this.muffleG.gain.setTargetAtTime(1, t, 0.05); }
     if (!this.nodes) return;
     for (const s of this.nodes.srcs) { try { s.stop(); } catch { /* already stopped */ } }
     this.nodes = null;
@@ -203,24 +210,24 @@ export class Sound {
   }
 
   // --- one-shots ---
-  burst({ freq = 400, type = 'lowpass', q = 0.7, dur = 0.3, vol = 0.5, sweep = 0 } = {}) {
+  burst({ freq = 400, type = 'lowpass', q = 0.7, dur = 0.3, vol = 0.5, sweep = 0, bus = this.fxBus } = {}) {
     if (!this.ctx) return;
     const c = this.ctx, t = c.currentTime;
     const s = this.noiseSrc();
     const f = this.filter(type, freq, q);
     if (sweep) f.frequency.exponentialRampToValueAtTime(Math.max(30, freq * sweep), t + dur);
-    const g = this.gain(0, this.fxBus);
+    const g = this.gain(0, bus);
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     s.connect(f).connect(g);
     s.start(t); s.stop(t + dur + 0.05);
   }
-  tone(freq, dur, vol = 0.2, type = 'sine', slide = 1) {
+  tone(freq, dur, vol = 0.2, type = 'sine', slide = 1, bus = this.fxBus) {
     if (!this.ctx) return;
     const c = this.ctx, t = c.currentTime;
     const o = this.osc(type, freq);
     o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * slide), t + dur);
-    const g = this.gain(0, this.fxBus);
+    const g = this.gain(0, bus);
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     o.connect(g); o.start(t); o.stop(t + dur + 0.05);
@@ -237,14 +244,16 @@ export class Sound {
   }
   // Crossing Mach 1: a deep double "ba-boom" (the shock waves off the nose and the tail).
   sonicBoom() {
+    const B = SONIC.boom, bus = this.boomBus;
     const one = (v) => {
-      this.burst({ freq: 140, type: 'lowpass', q: 0.8, dur: 1.4, vol: 1.1 * v });
-      this.burst({ freq: 900, type: 'lowpass', q: 0.7, dur: 0.12, vol: 0.9 * v });
-      this.tone(55, 0.6, 0.35 * v, 'sine', 0.6);
+      this.burst({ freq: 140, type: 'lowpass', q: 0.8, dur: 1.6, vol: B.vol * v, bus });
+      this.burst({ freq: 1100, type: 'lowpass', q: 0.7, dur: 0.14, vol: B.vol * 0.85 * v, bus });
+      this.tone(50, 0.8, B.vol * 0.45 * v, 'sine', 0.55, bus);
     };
     one(1);
-    setTimeout(() => one(0.8), 130);
+    setTimeout(() => one(0.85), B.gapMs);
   }
+
   clunk() { this.tone(160, 0.12, 0.25, 'square', 0.5); this.burst({ freq: 900, dur: 0.08, vol: 0.2 }); }
   gearMotor(dur) { this.burst({ freq: 220, type: 'bandpass', q: 3, dur, vol: 0.12 }); }
   whoosh() { this.burst({ freq: 3000, type: 'bandpass', q: 0.8, dur: 1.5, vol: 0.4, sweep: 0.2 }); }

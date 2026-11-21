@@ -151,7 +151,6 @@ export class Renderer {
     this.baseGfx = world.bases.map((b) => ({ base: b, builtX: b.x, ...buildBase(b, time, R) }));
     this.wrecks = [];
     this.debris = []; // pieces off bandits (not the camera's crash wreck)
-    this.shocks = []; // sonic boom rings
     this.truckGfx = buildFuelTruck(time, R);
     this.targetGfx = {};
     for (const k of Object.keys(GROUND_UNITS)) {
@@ -308,7 +307,6 @@ export class Renderer {
       }
     }
     if (!flight.ac.crashed) this.drawAircraft(ctx, v, flight.data, st);
-    if (this.shocks.length) this.drawShocks(ctx, v, st);
     if (flight.armed && !flight.ac.crashed && flight.cb.firing) this.drawMuzzleAt(ctx, v, flight.data, st);
     this.drawShards(ctx, v);
     if (this.debris.length) this.drawShards(ctx, v, this.debris);
@@ -1061,26 +1059,6 @@ export class Renderer {
     ctx.restore();
   }
 
-  // Sonic boom: thin rings racing out from where Mach 1 was crossed.
-  drawShocks(ctx, v, st) {
-    for (let i = this.shocks.length - 1; i >= 0; i--) {
-      const s = this.shocks[i];
-      const k = (this.time - s.t0) / 0.9;
-      if (k > 1 || k < 0) { this.shocks.splice(i, 1); continue; }
-      for (const [off, w] of [[0, 1], [0.12, 0.6]]) {
-        const kk = Math.max(0, k - off);
-        const r = (8 + kk * 70) * v.S;
-        ctx.lineWidth = Math.max(1.5, 4 * (1 - k));
-        // Centred on the jet (the shock travels with it), shaded edge + white so it shows on cloud.
-        const cx = v.sx(st.x), cy = v.sy(st.y + 2);
-        ctx.strokeStyle = `rgba(120,135,155,${(1 - k) * 0.35 * w})`;
-        ctx.beginPath(); ctx.ellipse(cx, cy + 2, r, r * 0.8, 0, 0, Math.PI * 2); ctx.stroke();
-        ctx.strokeStyle = `rgba(255,255,255,${(1 - k) * 0.75 * w})`;
-        ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.8, 0, 0, Math.PI * 2); ctx.stroke();
-      }
-    }
-  }
-
   drawCodeGear(ctx, d, gearPos, light) {
     for (let i = 0; i < d.gearX.length; i++) {
       const gx = d.gearX[i], top = d.gearTopY[i], r = d.gearWheel[i] / 2;
@@ -1200,11 +1178,7 @@ export class Renderer {
         for (let i = 0; i < 14; i++) this.particles.spawn('white', e.x + (Math.random() - 0.5) * 4, e.y + (Math.random() - 0.5) * 4, flight.ac.vel.x * 0.2 + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, 1.2, 3 + Math.random() * 2, { grow: 3, alpha: 0.35, drag: 2.5, ground: false });
       } else if (e.type === 'banditDown' && flight.df) this.chips(flight.df.opp, { pos: { x: e.x, y: e.y }, vel: { x: e.vx, y: e.vy }, pitch: e.pitch }, DEBRIS.onKill, 1);
       else if (e.type === 'banditWreck') { this.wrecks.push({ x: e.x, t: 0 }); this.explode(e.x, 1, 1.3); }
-      else if (e.type === 'sonicBoom') {
-        // Mach 1: a shock ring off the jet and a jolt.
-        this.shocks.push({ x: e.x, y: e.y, t0: this.time });
-        this.cam.shake = Math.min(1.2, this.cam.shake + 0.45);
-      }
+      else if (e.type === 'sonicBoom') this.cam.shake = Math.min(1.2, this.cam.shake + 0.45); // Mach 1: a jolt
       else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
     }
   }

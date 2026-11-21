@@ -3,8 +3,10 @@
 
 // Going supersonic (owner 2026-11-21): a sonic boom when Mach 1 is crossed (again only
 // after dropping below resetBelow), the vapour cone from coneFrom, strongest at conePeak,
-// gone by coneTo; above muffleFrom the engine sound is muffled to muffleHz.
-export const SONIC = { boomAt: 1, resetBelow: 0.96, coneFrom: 0.92, conePeak: 0.995, coneTo: 1.05, coneAlpha: 0.75, muffleFrom: 1, muffleHz: 450, muffleGain: 0.55 };
+// gone by coneTo; above muffleFrom every sound but the boom (engine, wind, guns...) is
+// muffled to muffleHz at muffleGain. boom: loudness and the gap of the double boom.
+export const SONIC = { boomAt: 1, resetBelow: 0.96, coneFrom: 0.92, conePeak: 0.995, coneTo: 1.05, coneAlpha: 0.75,
+  muffleFrom: 1, muffleHz: 260, muffleGain: 0.35, boom: { vol: 2.2, gapMs: 130 } };
 
 export const COMMON = {
   thrustZeroSpeedKt: 0,
