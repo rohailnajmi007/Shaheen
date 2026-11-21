@@ -117,8 +117,8 @@ export class Dogfight {
       const drop = M.launch === 'drop';
       const burnFrom = drop ? M.dropS : 0;
       if (!m.motor && drop && m.t >= M.dropS && m.t < M.dropS + M.burnS) {
-        // Lights wherever it points (owner 2026-11-21: no snapping round); the body then
-        // turns at its turn rate and the flight path follows the body (AAM_SEEKER.alignPerS).
+        // Lights wherever it is going (owner 2026-11-21: no snapping or spinning round): the
+        // path curves toward the target and the body follows the path (AAM_SEEKER).
         m.motor = true; f.emit('aamIgnite', { x: m.x, y: m.y });
       }
       if (m.motor && m.t >= burnFrom + M.burnS) m.motor = false;
@@ -143,14 +143,15 @@ export class Dogfight {
           const tgo = dist / Math.max(sp, 50);
           aim = { x: c.x + b.vel.x * tgo, y: c.y + b.vel.y * tgo };
         }
-        // Body (ang): turns toward the intercept point at most turnDegS.
-        if (aim && sp > 120) {
+        // Flight path (hd): straight on for straightS after the motor lights (it pulls clear
+        // ahead first), then it curves toward the intercept point at most turnDegS.
+        if (aim && sp > 120 && m.t > burnFrom + AAM_SEEKER.straightS) {
           const want = Math.atan2(aim.y - m.y, aim.x - m.x);
-          m.ang += clamp(wrap(want - m.ang), -M.turnDegS * D2R * dt, M.turnDegS * D2R * dt);
-        } else m.ang -= 0.15 * dt * Math.cos(m.ang); // no target: noses over slowly
-        // Flight path: thrust and fins swing it smoothly onto the body's line.
-        const sw = wrap(m.ang - hd) * Math.min(1, AAM_SEEKER.alignPerS * dt), swMax = AAM_SEEKER.alignMaxDegS * D2R * dt;
-        hd += clamp(sw, -swMax, swMax);
+          hd += clamp(wrap(want - hd), -M.turnDegS * D2R * dt, M.turnDegS * D2R * dt);
+        } else if (!aim) hd -= 0.15 * dt * Math.cos(hd); // no target: noses over slowly
+        // Body (ang, what is drawn): eases onto the flight path, never spins on the spot.
+        const sw = wrap(hd - m.ang) * Math.min(1, AAM_SEEKER.alignPerS * dt), swMax = AAM_SEEKER.alignMaxDegS * D2R * dt;
+        m.ang += clamp(sw, -swMax, swMax);
         m.vx = Math.cos(hd) * sp; m.vy = Math.sin(hd) * sp;
       }
       m.x += m.vx * dt; m.y += m.vy * dt;
