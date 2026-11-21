@@ -88,9 +88,9 @@ const CLOUD_SPAN_M = 60000;
 // Tail strobe: flash starts (s) within each period.
 export const STROBE = { periodS: 1.6, flashes: [0, 0.2], flashS: 0.06 };
 // Wingtip nav lights (owner 2026-11-21): red on the near (left) wingtip, green on the far
-// (right) one, pulsing together: a smooth rise to full and back down every periodS (owner: 1.4 s too slow),
-// never quite out (min). Sizes in texture px (near, far: the far tip sits behind the jet).
-export const NAV_PULSE = { periodS: 0.6, min: 0.12, nearPx: 24, farPx: 18, farAlpha: 0.75 };
+// (right) one, blinking together: on for onS, then off, every periodS (owner: plain on /
+// off, no pulsing). Sizes in texture px (near, far: the far tip sits behind the jet).
+export const NAV_BLINK = { periodS: 1, onS: 0.5, nearPx: 24, farPx: 18, farAlpha: 0.75 };
 // Crash breakup (see crashFx). Shard sizes in aircraft texture px (1/16 m).
 export const CRASH = {
   bigSeverity: 0.6,     // from this severity: explosion, debris blasted out
@@ -1208,14 +1208,14 @@ export class Renderer {
     const t = this.time;
     ctx.globalCompositeOperation = 'lighter';
     const dot = (img, p, r) => ctx.drawImage(img, p[0] - r, p[1] - r, r * 2, r * 2);
-    // Nav lights: a slow, even breathing pulse (NAV_PULSE).
-    const N = NAV_PULSE;
-    const k = N.min + (1 - N.min) * (0.5 - 0.5 * Math.cos((t / N.periodS) * Math.PI * 2));
-    ctx.globalAlpha = k * N.farAlpha;
-    dot(SOFT.green, L.navFar, N.farPx * (0.75 + 0.25 * k));
-    ctx.globalAlpha = k;
-    dot(SOFT.red, L.navNear, N.nearPx * (0.75 + 0.25 * k));
-    ctx.globalAlpha = 1;
+    // Nav lights: on / off together (NAV_BLINK).
+    const N = NAV_BLINK;
+    if (t % N.periodS < N.onS) {
+      ctx.globalAlpha = N.farAlpha;
+      dot(SOFT.green, L.navFar, N.farPx);
+      ctx.globalAlpha = 1;
+      dot(SOFT.red, L.navNear, N.nearPx);
+    }
     dot(SOFT.white, L.tail, 22);
     // White anti-collision strobe on top of the tail (owner): two quick flashes, pause.
     const ph = t % STROBE.periodS;
