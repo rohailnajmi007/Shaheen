@@ -14,7 +14,7 @@ export const BASES = {
     runwayM: 1200, hangars: 3, towerM: 24, parked: 'k8_front_body', apron: [20, 300],
     boards: [],
     // "Falcons' Hearth" 1965 memorial (owner's art), seen from the take-off point; hM: height (m).
-    decor: [{ sprite: 'falcons_hearth_body', x: 4, hM: 11 }], welcome: ['PAF ACADEMY ASGHAR KHAN', 'FIRST OF THE FEW'], theme: 'kpk',
+    decor: [{ sprite: 'falcons_hearth_body', x: 4, hM: 11 }], theme: 'kpk',
   },
   masroor: {
     id: 'masroor', name: 'PAF Base Masroor', city: 'Karachi', short: 'MASROOR',
@@ -27,7 +27,7 @@ export const BASES = {
       { sprite: 'nishan_e_haider_body', board: 'NO. 2 MR SQN|MINHASIANS' },
       { sprite: 'emblem_no8_body', board: 'NO. 8 MR SQN|HAIDER' },
     ],
-    welcome: ['WELCOME TO MASROOR', 'THE HOME OF WARRIORS'], welcomeX: [1430], theme: 'coast',
+    theme: 'coast',
     // Background landmarks (src/render/landmarks.js), seen on the approach.
     landmarks: ['port_cranes', 'teen_talwar', 'bahria_icon', 'mazar_e_quaid', 'masjid_e_tooba', 'skyline'],
   },
@@ -69,7 +69,6 @@ export const BASES = {
       { sprite: 'emblem_no26_body', board: 'NO. 26 MR SQN|BLACK SPIDERS' },
       { sprite: 'emblem_no15_body', board: 'NO. 15 MR SQN|COBRAS' },
     ],
-    welcome: ['WELCOME TO KAMRA', 'PAF BASE KAMRA'],
   },
   // Owner 2026-11-21: home of the F-16D; Jacobabad desert, palms and sand. Parked: No. 5
   // Sqn "Falcons" F-16Cs (owner's front art), then No. 11 Sqn "Arrows" F-16As.
@@ -86,7 +85,6 @@ export const BASES = {
       { sprite: 'emblem_no5_body', board: 'NO. 5 MR SQN|FALCONS' },
       { sprite: 'emblem_no11_body', board: 'NO. 11 MR SQN|ARROWS' },
     ],
-    welcome: ['WELCOME TO SHAHBAZ', 'PAF BASE SHAHBAZ'],
   },
 };
 

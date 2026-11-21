@@ -57,7 +57,7 @@ const TIME_ICON = {
 const MODES = [
   { id: 'ferry', label: 'Ferry', note: 'Take off from your home base and deliver the jet to another PAF base.' },
   { id: 'strike', label: 'Air to ground', note: 'Destroy the enemy ground targets past their SAMs, then land.' },
-  { id: 'dogfight', label: 'Air to air', note: 'Shoot down the enemy fighters with your gun, then land.' },
+  { id: 'dogfight', label: 'Air to air', note: 'Intercept the incoming bandits, then land.' },
 ];
 // Name length (owner 2026-11-21): only what fits on the flying name tag (HUD .nameplate:
 // 168 px wide, 10 px padding each side; .tagname 20 px bold, 0.22em spacing plus a
