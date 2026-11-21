@@ -1,7 +1,7 @@
 // One flight: world layout, mission rules, landing judge, weapons, instructor.
 import { Aircraft, KT, FT, G, MACH_KT } from './aircraft.js';
 import { aircraftById, SONIC } from '../data/aircraft.js';
-import { BASES, ferryLayout, recoveryBases, REFUEL } from '../data/world.js';
+import { BASES, ferryLayout, recoveryBases, REFUEL, TAXI } from '../data/world.js';
 import { GROUND_UNITS, STRIKE, AIR_DEFENCE, EJECT, DOGFIGHT } from '../data/combat.js';
 import { Combat } from './combat.js';
 import { Dogfight } from './dogfight.js';
@@ -79,6 +79,9 @@ export class Flight {
     this.cb = new Combat(this);
     this.df = null;         // the dogfight (air to air): bandits, one at a time
     this.buildWorld();
+    // Taxi out first (TAXI): from the taxiway to the home base's holding point.
+    this.taxi = { done: false, doneAt: 0, holdX: this.bases[0].x + (this.bases[0].holdM ?? 60) };
+    this.ac.pos.x = this.bases[0].x + TAXI.startM;
     if (this.mode === 'dogfight') {
       this.df = new Dogfight(this, opponentById(opts.opponent));
       this.ac.burnScale = DOGFIGHT.burnScale;
@@ -189,7 +192,8 @@ export class Flight {
     if (this.state === 'done') return this.result?.grade === 'CRASH' ? 'CRASHED' : 'COMPLETE';
     if (this.state === 'stopover') return 'REFUEL STOP';
     if (this.state === 'rollout') return 'LANDED';
-    if (a.onGround) return a.speed > 1 ? 'TAKE OFF ROLL' : 'PRE-FLIGHT';
+    if (a.onGround && !this.taxi.done) return a.speed > 0.5 ? 'TAXI' : 'PRE-FLIGHT';
+    if (a.onGround) return a.speed > 1 ? 'TAKE OFF ROLL' : 'LINED UP';
     if (this.mode === 'strike' && !this.revealed) return a.bombsLeft > 0 ? 'ATTACK RUN' : 'EGRESS';
     if (this.df && !this.revealed) {
       const df = this.df;
@@ -385,6 +389,7 @@ export class Flight {
     a.step(dt, input);
     for (const e of a.events) this.onAircraftEvent(e);
     a.events.length = 0;
+    if (!this.taxi.done) this.stepTaxi();
     // Sonic boom on crossing Mach 1 (once, until slowed below resetBelow).
     const mach = a.speedKt / MACH_KT;
     if (!this.supersonic && mach >= SONIC.boomAt && !a.crashed) { this.supersonic = true; this.emit('sonicBoom', { x: a.pos.x, y: a.pos.y }); }
@@ -403,6 +408,31 @@ export class Flight {
     if (this.mode === 'strike') { this.stepSeeker(dt); this.stepStrike(); }
     // Too far past everything: fuel or not, end the misery.
     if (a.pos.x > this.lastX + 9000) this.crash('Lost. You flew right past the base.', -1);
+  }
+
+  // Taxi: speed held to TAXI.maxKt until you stop at the holding point; then cleared.
+  stepTaxi() {
+    const a = this.ac, T = TAXI, tx = this.taxi;
+    if (a.onGround && a.speedKt > T.maxKt) a.vel.x *= T.maxKt / a.speedKt;
+    const toHold = tx.holdX - a.pos.x;
+    if (a.engineOn && a.speedKt < T.stopKt && toHold < T.stopBeforeM && toHold > -T.stopAfterM) {
+      tx.done = true; tx.doneAt = this.time;
+      this.emit('cleared');
+      this.say(`${this.callsign()}, cleared for take-off! Full power!`, true);
+    } else if (toHold <= -T.stopAfterM) {
+      // Rolled well past the line: cleared anyway once stopped (no dead end).
+      if (a.speedKt < T.stopKt) { tx.done = true; tx.doneAt = this.time; this.emit('cleared'); this.say('Past the line! Fine. Cleared for take-off!', true); }
+    }
+  }
+
+  // On-screen taxi prompt for the HUD: { t: title, s: subline } or null.
+  get taxiCue() {
+    const tx = this.taxi, a = this.ac;
+    if (tx.done) return this.time - tx.doneAt < TAXI.clearedShowS ? { t: 'CLEARED FOR TAKE-OFF', s: 'FULL POWER', go: true } : null;
+    if (!a.engineOn) return { t: 'START THE ENGINE', s: 'PRESS E' };
+    const d = tx.holdX - a.pos.x;
+    if (d > TAXI.promptStopM) return { t: 'TAXI TO THE HOLDING POINT', s: `${Math.round(d)} M · A LITTLE THROTTLE` };
+    return { t: 'STOP AT THE LINE', s: d > 2 ? `${Math.round(d)} M · BRAKE: HOLD B` : 'BRAKE: HOLD B' };
   }
 
   onAircraftEvent(e) {
@@ -681,8 +711,8 @@ export class Flight {
   instructor() {
     const a = this.ac;
     const d = this.data;
-    if (a.engineOn && a.rpm > 0.9 && a.throttle < 0.3 && a.onGround && this.state === 'preflight') {
-      if (this.time > 6) this.say('Throttle UP! Hold the up arrow! Today, please!', false, 'throttle');
+    if (this.taxi.done && a.engineOn && a.rpm > 0.9 && a.throttle < 0.3 && a.onGround && this.state === 'preflight') {
+      if (this.time - this.taxi.doneAt > 6) this.say('Throttle UP! Hold the up arrow! Today, please!', false, 'throttle');
     }
     if (a.onGround && this.state === 'preflight' && a.speedKt > d.rotateKt * 0.75) {
       this.say(`Rotate at ${d.rotateKt} kt. Left arrow, gently!`, false, 'rotate');

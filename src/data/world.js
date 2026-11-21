@@ -10,6 +10,7 @@ export const BASES = {
   risalpur: {
     id: 'risalpur', name: 'PAF Academy Asghar Khan', city: 'Risalpur', short: 'RISALPUR',
     hangarName: 'PAFAA', // stencilled on the hangars (owner 2026-11-21)
+    holdM: 70, // taxi holding point (TAXI)
     runwayM: 1200, hangars: 3, towerM: 24, parked: 'k8_front_body', apron: [20, 300],
     boards: [],
     // "Falcons' Hearth" 1965 memorial (owner's art), seen from the take-off point; hM: height (m).
@@ -17,7 +18,7 @@ export const BASES = {
   },
   masroor: {
     id: 'masroor', name: 'PAF Base Masroor', city: 'Karachi', short: 'MASROOR',
-    runwayM: 1400, hangars: 2, towerM: 28, parked: 'jf17_front_body', apron: [-60, 520],
+    runwayM: 1400, hangars: 2, towerM: 28, parked: 'jf17_front_body', apron: [-60, 520], holdM: 135,
     boards: ['NO. 2 SQN|MINHASIANS', 'NO. 8 SQN|HAIDER'],
     welcome: ['WELCOME TO MASROOR', 'THE HOME OF WARRIORS'], welcomeX: [1430], theme: 'coast',
     // Background landmarks (src/render/landmarks.js), seen on the approach.
@@ -25,7 +26,7 @@ export const BASES = {
   },
   mushaf: {
     id: 'mushaf', name: 'PAF Base Mushaf', city: 'Sargodha', short: 'MUSHAF',
-    runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [32, 560],
+    runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [32, 560], holdM: 225,
     boards: ['NO. 9 SQN|GRIFFINS', 'NO. 29 SQN|AGGRESSORS'],
     welcome: ['WELCOME TO MUSHAF', 'THE HOME OF EAGLES'], theme: 'punjab',
     // Stone monument (dark blue, gold key-pattern border, crest) at both runway ends.
@@ -42,7 +43,7 @@ export const BASES = {
   // of J-10Cs, each squadron's board right next to its last jet.
   kamra: {
     id: 'kamra', name: 'PAF Base Kamra', city: 'Kamra', short: 'KAMRA',
-    runwayM: 1500, hangars: 2, towerM: 26, theme: 'north',
+    runwayM: 1500, hangars: 2, towerM: 26, theme: 'north', holdM: 240,
     parkedGroups: [
       { sprite: 'jf17_front_body', from: -20, count: 6, board: 'NO. 26 MR SQN|BLACK SPIDERS' },
       { sprite: 'j10c_front_body', from: 102, count: 6, board: 'NO. 15 MR SQN|COBRAS' },
@@ -57,6 +58,15 @@ export const BASES = {
 // world is laid out from the home base (x = 0) to the right: the near destination at
 // ROUTE_M[0], the far one at ROUTE_M[1] (refuelling stop at the near base on the way).
 export const ROUTE_M = [6500, 12500];
+
+// Taxi out (owner 2026-11-21): every flight starts on the taxiway before the runway
+// (startM, m from the threshold) so you roll slowly past the parked jets, squadron boards
+// and trophies, then stop at the base's holding point (holdM) before the take-off run.
+// maxKt: taxi speed limit; stop within [stopBeforeM before, stopAfterM past] the line
+// below stopKt to be cleared; the prompt changes to "stop" promptStopM before the line.
+// The holding point has a hold line, flashing amber guard lights and a HOLD sign;
+// green centre-line lights lead to it (lightEveryM).
+export const TAXI = { startM: -170, maxKt: 22, stopKt: 2, stopBeforeM: 30, stopAfterM: 60, promptStopM: 70, lightEveryM: 14, clearedShowS: 3 };
 
 // Fuel truck at a refuelling stop (owner 2026-11-20: comes on its own once the jet
 // stops at a base that is not the destination). Drives in, pumps, drives off.

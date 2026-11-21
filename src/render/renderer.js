@@ -3,7 +3,7 @@ import { images, tinted, SOFT, makeCanvas, rng } from './assets.js';
 import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget, buildFuelTruck, FLOODLIGHT } from './scenery.js';
 import { Particles } from './particles.js';
 import { buildLandmarks, LANDMARKS } from './landmarks.js';
-import { THEMES, TIMES, REFUEL } from '../data/world.js';
+import { THEMES, TIMES, REFUEL, TAXI } from '../data/world.js';
 import { GROUND_UNITS, AIR_DEFENCE, DAMAGE } from '../data/combat.js';
 import { KT } from '../sim/aircraft.js';
 import { SONIC } from '../data/aircraft.js';
@@ -292,6 +292,7 @@ export class Renderer {
     this.drawBackdrop(ctx, v);
     this.drawGround(ctx, v);
     this.drawBases(ctx, v, flight);
+    this.drawTaxi(ctx, v, flight);
     this.drawTargets(ctx, v, flight);
     this.drawFuelTruck(ctx, v, flight);
     this.drawAids(ctx, v, flight, st);
@@ -545,6 +546,53 @@ export class Renderer {
       const white = ang > limits[i];
       const s = Math.max(10, 3.6 * S);
       ctx.drawImage(white ? SOFT.white : SOFT.red, lx - s / 2, ly - s / 2, s, s);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  // Taxi out (owner 2026-11-21): taxiway before the threshold, green centre-line lights
+  // to the holding point, a yellow hold line, flashing amber guard lights and a HOLD sign.
+  drawTaxi(ctx, v, flight) {
+    const b = flight.bases[0];
+    if (!b || !flight.taxi) return;
+    const S = v.S, g = v.groundY;
+    const L = this.timeData.light, night = this.timeData.lights;
+    const hold = flight.taxi.holdX;
+    const x0 = v.sx(b.x + TAXI.startM - 40), x1 = v.sx(b.x);
+    if (x1 > -50 && x0 < v.W + 50) {
+      ctx.fillStyle = `rgb(${70 * L[0] | 0},${72 * L[1] | 0},${76 * L[2] | 0})`;
+      ctx.fillRect(x0, g, x1 - x0, 2 * S);
+    }
+    const hx = v.sx(hold);
+    if (hx < -100 || hx > v.W + 100) { if (!night) return; }
+    // Hold line: two solid and two dashed yellow bars across the runway.
+    ctx.fillStyle = `rgb(${235 * L[0] | 0},${190 * L[1] | 0},${40 * L[2] | 0})`;
+    for (let k = 0; k < 4; k++) ctx.fillRect(hx - (k * 0.9 + 0.5) * S, g + (k >= 2 ? 0.5 * S : 0), 0.45 * S, k >= 2 ? 1.2 * S : 2.2 * S);
+    // HOLD sign (red, white text) beside the line, guard-light poles either side.
+    const sw = 4 * S, sh = 1.6 * S, sy = g - 2.4 * S;
+    ctx.fillStyle = `rgb(${190 * L[0] | 0},${30 * L[1] | 0},${30 * L[2] | 0})`;
+    ctx.fillRect(hx + 1.5 * S, sy, sw, sh);
+    ctx.fillStyle = `rgb(${90 * L[0] | 0},${92 * L[1] | 0},${96 * L[2] | 0})`;
+    ctx.fillRect(hx + 1.5 * S + sw * 0.45, sy + sh, 0.25 * S, g - sy - sh);
+    if (S > 3) {
+      ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.round(1.1 * S)}px "Chakra Petch", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('HOLD', hx + 1.5 * S + sw / 2, sy + sh / 2 + 0.05 * S);
+    }
+    const t = this.time;
+    const on = (k) => (Math.floor(t * 2.4) + k) % 2 === 0; // wig-wag
+    ctx.fillStyle = `rgb(${60 * L[0] | 0},${62 * L[1] | 0},${66 * L[2] | 0})`;
+    for (const dx of [-4.5, 7]) ctx.fillRect(hx + dx * S - 0.15 * S, g - 1.2 * S, 0.3 * S, 1.2 * S);
+    ctx.globalCompositeOperation = 'lighter';
+    const sz = Math.max(10, (night ? 4.5 : 3) * S);
+    [-4.5, 7].forEach((dx, k) => {
+      if (on(k)) ctx.drawImage(SOFT.amber, hx + dx * S - sz / 2, g - 1.3 * S - sz / 2, sz, sz);
+    });
+    // Green taxi centre-line lights from the start to the holding point.
+    const gs = Math.max(6, (night ? 2 : 1.3) * S);
+    for (let x = b.x + TAXI.startM; x < hold - 3; x += TAXI.lightEveryM) {
+      const px = v.sx(x);
+      if (px < -20 || px > v.W + 20) continue;
+      ctx.drawImage(SOFT.green, px - gs / 2, g - 0.2 * S - gs / 2, gs, gs);
     }
     ctx.globalCompositeOperation = 'source-over';
   }

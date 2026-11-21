@@ -56,6 +56,7 @@ export class Hud {
       </div>
       <div class="warnings"></div>
       <div class="callout"></div>
+      <div class="taxicue"><b></b><small></small></div>
       <canvas class="cue-cv"></canvas>
       <button class="ejectcue">EJECT<small>PRESS E</small></button>
       <div class="card refuel"><label>FUEL TRUCK</label><div class="rbar"><i></i></div></div>
@@ -236,6 +237,15 @@ export class Hud {
 
     // Phase and distance.
     this.set('phase', this.el.phase, f.phase);
+    // Taxi prompt (owner 2026-11-21): taxi to the holding point, stop, cleared.
+    const tc = f.taxiCue;
+    const tq = this.taxiEl || (this.taxiEl = this.root.querySelector('.taxicue'));
+    this.set('taxiOn', tq, tc ? 'flex' : 'none', 'display');
+    if (tc) {
+      this.set('taxiT', tq.firstElementChild, tc.t);
+      this.set('taxiS', tq.lastElementChild, tc.s);
+      tq.classList.toggle('go', !!tc.go);
+    }
     this.cls('eject', this.el.ejectcue, 'show', !!a.shotDown && !f.eject && !a.crashed);
     const canEject = this.touch.on && f.armed && f.state === 'flying' && !a.onGround && !a.crashed && !f.eject;
     this.cls('ejbtn', this.el.tejectbtn, 'show', canEject);
