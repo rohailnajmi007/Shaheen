@@ -28,14 +28,14 @@ export const BASES = {
     landmarks: ['fields', 'orchard', 'banyan', 'village'],
   },
   // Owner 2026-11-21: the J-10C's home; snow and the northern mountains. Also a
-  // landing base after a mission. Parked: JF-17s with the No. 26 board beside them,
-  // J-10Cs (side view) with the No. 15 board in front of them.
+  // landing base after a mission. Parked (front views): a row of JF-17s, then a row
+  // of J-10Cs, each squadron's board right next to its last jet.
   kamra: {
     id: 'kamra', name: 'PAF Base Kamra', city: 'Kamra', short: 'KAMRA',
     runwayM: 1500, hangars: 2, towerM: 26, theme: 'north',
     parkedGroups: [
-      { sprite: 'jf17_front_body', apron: [300, 600], board: 'NO. 26 MR SQN|BLACK SPIDERS', boardX: 610 },
-      { side: 'j10c', apron: [690, 1080], spacingM: 40, board: 'NO. 15 MR SQN|COBRAS', boardX: 845 },
+      { sprite: 'jf17_front_body', from: 300, count: 6, board: 'NO. 26 MR SQN|BLACK SPIDERS' },
+      { sprite: 'j10c_front_body', from: 470, count: 6, board: 'NO. 15 MR SQN|COBRAS' },
     ],
     boards: [], boardColor: '#14181c', boardTrim: '#d9dde2',
     welcome: ['WELCOME TO KAMRA', 'PAF BASE KAMRA'],

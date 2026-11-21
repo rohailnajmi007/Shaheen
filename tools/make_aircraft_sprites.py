@@ -203,6 +203,11 @@ CONFIGS = {
         "erase": [(680, 0, 846, 50)],
         "gear_regions": [], "prop": None, "points": {},
     },
+    "j10c_front": {
+        "src": "docs/reference/j10c_front_source.png",  # owner's art 2026-11-21 (Kamra apron)
+        "display_width": 41,   # J-10C span 9.75 m incl. the wingtip rails
+        "gear_regions": [], "prop": None, "points": {},
+    },
     "f16_front": {
         "src": "docs/reference/f16_front_source.png",
         "display_width": 42,   # F-16 span 9.96 m incl. wingtip missiles
