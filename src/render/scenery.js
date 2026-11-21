@@ -274,7 +274,11 @@ function sprite(wM, hM, R, draw) {
   return { canvas: c, wM, hM };
 }
 
-function hangar(time, R, col) {
+// Base name stencilled across the top of the hangar front (owner 2026-11-21), in a
+// military stencil font (Black Ops One, public/fonts). Band = facade above the doors (m).
+const HANGAR_NAME = { font: '"Black Ops One", "Chakra Petch", sans-serif', bandTopM: 9, doorTopM: 13.5, textM: 3.1, maxWidth: 0.62, spacingM: 0.5, color: '#262a2e' };
+function hangar(time, R, col, name) {
+  const N = HANGAR_NAME;
   return sprite(64, 22, R, (x, W, H, R) => {
     const body = shade(col, time.light), roof = shade('#6c7178', time.light), dark = shade('#3a3f45', time.light);
     x.fillStyle = roof;
@@ -282,9 +286,21 @@ function hangar(time, R, col) {
     x.fillStyle = body;
     x.fillRect(2 * R, 9 * R, W - 4 * R, H - 9 * R);
     x.fillStyle = dark;
-    x.fillRect(6 * R, 12 * R, W - 12 * R, H - 12 * R);
+    x.fillRect(6 * R, N.doorTopM * R, W - 12 * R, H - N.doorTopM * R);
     x.fillStyle = shade('#80868d', time.light);
-    for (let i = 0; i < 6; i++) x.fillRect(6 * R + i * (W - 12 * R) / 6, 12 * R, (W - 12 * R) / 6 - 0.4 * R, H - 12 * R);
+    for (let i = 0; i < 6; i++) x.fillRect(6 * R + i * (W - 12 * R) / 6, N.doorTopM * R, (W - 12 * R) / 6 - 0.4 * R, H - N.doorTopM * R);
+    if (name) {
+      x.save();
+      x.font = `${N.textM * R}px ${N.font}`;
+      x.textAlign = 'center'; x.textBaseline = 'middle';
+      if ('letterSpacing' in x) x.letterSpacing = `${N.spacingM * R}px`;
+      const tw = x.measureText(name).width, fit = Math.min(1, W * N.maxWidth / tw);
+      x.translate(W / 2, (N.bandTopM + N.doorTopM) / 2 * R + 0.15 * R);
+      x.scale(fit, 1);
+      x.fillStyle = shade(N.color, time.light);
+      x.fillText(name, 0, 0);
+      x.restore();
+    }
     if (time.lights) { x.fillStyle = 'rgba(255,220,150,0.95)'; x.fillRect(W / 2 - 14 * R, H - 9 * R, 28 * R, 9 * R); }
   });
 }
@@ -533,7 +549,7 @@ export function buildBase(base, time, R) {
   const addC = (spr, cx) => add(spr, cx - spr.wM / 2);
   const col = '#e2d9c3';
   (base.banyanX || []).forEach((bx, i) => addC(banyanTree(time, R, i, THEMES[base.theme].trees), bx));
-  for (let i = 0; i < base.hangars; i++) add(hangar(time, R, col), 120 + i * 72);
+  for (let i = 0; i < base.hangars; i++) add(hangar(time, R, col, base.short), 120 + i * 72);
   add(admin(time, R, base.id === 'risalpur' ? 3 : 2, col), 120 + base.hangars * 72 + 20);
   const tw = tower(time, R, base.towerM);
   add(tw, 120 + base.hangars * 72 + 104);

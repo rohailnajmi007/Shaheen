@@ -24,3 +24,7 @@ The shared route world: bases, scenery, landmarks, the refuelling stop, night mo
 
 ## Mushaf captured-aircraft display (owner 2026-11-21)
 - The two tail sections on the plinths (MiG-21 Bison, Su-30MKI) are now cut from the owner's opponent sprites (`TROPHY_ART` in `src/render/scenery.js`: fin outline in texture px + height; **fin only, no fuselage**, owner 2026-11-21). Both fins stand **side by side on one black stone base** (one display, `trophies: [{ kinds, x }]` in `src/data/world.js`, at 520 m), each named in gold under it, lit like the scene (warm floodlight at night). Was hand-drawn.
+
+## Base name on the hangars (owner 2026-11-21)
+- Every big hangar has its base's short name (MUSHAF, MASROOR, RISALPUR) painted across the top of the front, above the doors, in a military stencil font: **Black Ops One** (SIL OFL, `public/fonts/BlackOpsOne-Regular.ttf` + licence; loaded before scenery is built in `src/main.js`). Numbers in `HANGAR_NAME` (`src/render/scenery.js`): band above the doors, letter height, spacing, max share of the width, colour. Drawn into the hangar sprite once (no per-frame cost).
+

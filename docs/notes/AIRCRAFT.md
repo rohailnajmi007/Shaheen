@@ -33,4 +33,4 @@ The flyable aircraft, their data and art, the sprite tool, ranks and lights. Mov
 - Measured: level acceleration 300 to 500 kt: Mirage 22.7 s, JF-17 19.8 s, F-16A 16.9 s, F-16D 14.7 s, J-10C 13.8 s; nose-up after a 2 s full pull at 420 kt: Mirage 44 deg, JF-17 59, F-16s and J-10C 68 (none stalls).
 
 ## Smoky engines (owner 2026-11-21)
-- `engineSmoke` (data, null = none): Mirage V grey puffs when not in afterburner (as before, now data); **JF-17** (RD-93, famously smoky) a thin black trail from 30% throttle, also in afterburner: noticeable, not heavy.
+- `engineSmoke` (data, null = none): Mirage V grey puffs when not in afterburner (as before, now data); **JF-17** (RD-93, famously smoky) a faint dark trail from 30% throttle, also in afterburner: thick at the nozzle, thinning out behind (`grow` < 1), low alpha (owner 2026-11-21: was too pronounced and too thin). Barely shows at dusk/night (particles dimmed, dark sky).

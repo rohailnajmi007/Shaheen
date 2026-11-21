@@ -206,7 +206,7 @@ function frame(now) {
 
 async function boot() {
   fpsEl = document.getElementById('fps');
-  await Promise.all([loadImages(), document.fonts.load('600 16px "Chakra Petch"').catch(() => {})]);
+  await Promise.all([loadImages(), document.fonts.load('600 16px "Chakra Petch"').catch(() => {}), document.fonts.load('16px "Black Ops One"').catch(() => {})]);
   buildSoftSprites();
   setupDemo(settings);
   document.getElementById('loading').remove();

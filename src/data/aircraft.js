@@ -158,7 +158,8 @@ export const AIRCRAFT = [
     ...COMMON,
     id: 'jf17',
     // RD-93: famously smoky (owner 2026-11-21): a thin black trail, noticeable, not heavy.
-    engineSmoke: { kind: 'dark', perFrame: 3, chance: 1, size: 1.4, life: 2.2, alpha: 0.2, grow: 2.4, minThrottle: 0.3, dryOnly: false },
+    // JF-17 (owner 2026-11-21): faint, thick at the nozzle and thinning out behind (grow < 1 shrinks).
+    engineSmoke: { kind: 'dark', perFrame: 3, chance: 1, size: 3, life: 1.8, alpha: 0.14, grow: 0.55, minThrottle: 0.3, dryOnly: false },
     airCombat: { maxThrustN: 68000, afterburnerN: 45400, pitchRateDeg: 30, pitchAccelDeg: 280 }, // T/W 1.07
 
     name: 'JF-17 Thunder',
