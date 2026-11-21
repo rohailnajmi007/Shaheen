@@ -70,10 +70,10 @@ let demoPlanes = [];
 function startFlight(o) {
   sound.unlock();
   flightOpts = o;
-  flight = new Flight({ aircraftId: o.aircraft, mode: o.mode, dest: o.dest, name: o.name });
+  flight = new Flight({ aircraftId: o.aircraft, mode: o.mode, dest: o.dest, name: o.name, opponent: o.opponent });
   renderer.setupWorld({ bases: flight.bases, themeStops: flight.themeStops, timeId: o.time });
   renderer.cam.zoom = 1; renderer.cam.look = 0; renderer.cam.lead = 0;
-  renderer.burnX = null; renderer.bwX = null;
+  renderer.burnX = null;
   sound.startFlight(flight.data);
   hud.start(flight, o);
   menu.hide(); result.hide(); pause.hide();

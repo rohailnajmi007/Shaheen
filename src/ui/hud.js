@@ -5,6 +5,7 @@ import { Cockpit } from './cockpit.js';
 import { TouchControls } from './touch.js';
 import { drawBombSight, ReleaseCue } from './weapon_aids.js';
 import { REFUEL } from '../data/world.js';
+import { predictImpact } from '../sim/flight.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -15,9 +16,12 @@ const NAMETAG_TEXT_W = 148;
 const EJECT_ARM_S = 2.5;
 // Touch screens: the instructor's line shows this long, then hides (the sight keeps his spot).
 const INSTRUCTOR_LIVE_S = 4;
-// Dogfight: radar shows this far either side of you (m); GUNS cue when the nose is this close to the lead point.
-const RADAR_DF_M = 2500;
+// GUNS cue when the nose is this close to the lead point (air to air).
 const GUN_SOLUTION = { rangeM: 900, coneDeg: 1.5 };
+// Radar (owner 2026-11-21): while your weapons, SAMs or a bandit are in the air it zooms
+// to a window around you (behindM behind, aheadM ahead; air to air: dogfightM each way)
+// and draws their trails and where they're going. zoomRate: how fast it switches (1/s).
+export const RADAR = { behindM: 800, aheadM: 2500, maxAheadM: 9000, marginM: 500, dogfightM: 2500, minAltM: 300, zoomRate: 3, trailEveryS: 0.08, trailMax: 120 };
 
 const HELMET = `<svg viewBox="0 0 64 64" aria-hidden="true">
   <defs><linearGradient id="hv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5d7da8"/><stop offset="1" stop-color="#0d1626"/></linearGradient></defs>
@@ -155,17 +159,20 @@ export class Hud {
     this.touch.update(f, dt);
 
     if (f.df) {
-      // Dogfight card: gun, the bandit (where, how far, his damage), your airframe.
-      const df = f.df, cb = f.cb;
+      // Air-to-air card: gun, the bandit (where, how far, his damage), kills, your airframe.
+      const df = f.df, cb = f.cb, b = df.b;
+      const name = df.opp.name.toUpperCase();
       this.set('wname', this.el.wname, d.gun ? d.gun.name : 'GUN');
       const r = df.range;
       const rs = r < 1000 ? `${Math.round(r)} M` : `${(r / 1000).toFixed(1)} KM`;
       const sol = this.gunSolution(f);
-      const state = df.down ? 'SPLASH ONE' : cb.ammo <= 0 ? 'WINCHESTER · NO ROUNDS'
-        : df.dx > 0 ? (sol ? `IN RANGE ${rs} · GUNS` : `BANDIT AHEAD ${rs}`) : `BANDIT ON YOUR SIX ${rs}`;
+      const state = f.revealed ? `RTB · ${f.dest.short}`
+        : b ? (df.fleeing ? `${name} LEAVING` : cb.ammo <= 0 ? 'WINCHESTER · NO ROUNDS' : df.dx > 0 ? (sol ? `IN RANGE ${rs} · GUNS` : `${name} AHEAD ${rs}`) : `${name} ON YOUR SIX ${rs}`)
+          : df.phase === 'inbound' ? `${df.total} x ${name} AHEAD` : 'NEXT BANDIT INBOUND';
       this.set('wstate', this.el.wstate, state);
       this.cls('wstate', this.el.weapon, 'hot', sol);
-      this.set('wsub', this.el.wsub, `GUN ${cb.ammo} · BANDIT DMG ${Math.round(100 - Math.max(0, df.hp))}%`);
+      const bd = b ? ` · ${name} DMG ${Math.round(100 - Math.max(0, df.hp) / df.opp.airframeHp * 100)}%` : '';
+      this.set('wsub', this.el.wsub, `GUN ${cb.ammo} · KILLS ${df.kills}/${df.total}${bd}`);
       const hp = Math.round(cb.hp);
       this.set('whp', this.el.whp, `${hp}%`, 'width');
       this.cls('whp', this.el.weapon, 'dmg', hp < 60);
@@ -215,7 +222,7 @@ export class Hud {
       else if (f.cb.radarLock) w.push(['SAM LOCK', 'amber']);
       if (f.cb.hp < 45 && f.cb.hp > 0) w.push(['ENGINE DAMAGE', 'amber']);
     }
-    if (f.df && !a.crashed && !a.shotDown && !f.df.down) {
+    if (f.df && f.df.fighting && !a.crashed && !a.shotDown) {
       if (f.df.firing && f.df.dx < 0) w.push(['GUNS · BREAK', 'red']);
       else if (f.df.dx < 0 && f.df.range < 900) w.push(['BANDIT SIX', 'amber']);
     }
@@ -236,7 +243,9 @@ export class Hud {
     this.set('ejtxt', this.el.tejectbtn.lastElementChild, armed ? 'TAP AGAIN' : 'EJECT');
     const toGo = f.dest.x - a.pos.x;
     const tgt = f.mode === 'strike' && !f.revealed ? f.targets.find((t) => t.objective && t.alive && t.x > a.pos.x) : null;
-    const togo = f.df ? `BANDIT ${f.df.down ? 'DOWN' : f.df.dx > 0 ? 'AHEAD' : 'BEHIND'} · ${(f.df.range / 1000).toFixed(1)} KM` : tgt ? `TARGET ${((tgt.x - a.pos.x) / 1000).toFixed(1)} KM` : f.revealed ? `${f.dest.short} ${toGo > 0 ? (toGo / 1000).toFixed(1) + ' KM' : 'BEHIND'}` : 'LANDING BASE: AFTER ATTACK';
+    const df = f.df && !f.revealed ? f.df : null;
+    const togo = df ? (df.b ? `${df.opp.name.toUpperCase()} ${df.dx > 0 ? 'AHEAD' : 'BEHIND'} · ${(df.range / 1000).toFixed(1)} KM`
+      : df.phase === 'inbound' ? `BANDITS ${(Math.max(0, df.fightX - a.pos.x) / 1000).toFixed(1)} KM` : 'NEXT BANDIT INBOUND') : tgt ? `TARGET ${((tgt.x - a.pos.x) / 1000).toFixed(1)} KM` : f.revealed ? `${f.dest.short} ${toGo > 0 ? (toGo / 1000).toFixed(1) + ' KM' : 'BEHIND'}` : 'LANDING BASE: AFTER ATTACK';
     this.set('togo', this.el.togo, togo);
 
     // Height callouts near the ground.
@@ -257,11 +266,12 @@ export class Hud {
 
     if (f.airborneOnce && !this.keysAuto && f.flightTime > 25) { this.keysAuto = true; if (!this.keysHidden) this.toggleKeys(); }
     // Guided weapons: the bomb sight takes the radar's place during the target run.
-    const sight = f.sightWanted();
+    // Something of yours or a SAM in the air: the radar shows its track (owner), not the sight.
+    const sight = f.sightWanted() && !f.weapons.length && !f.cb.incoming().length;
     this.cls('radar', this.el.radarCard, 'sight', sight);
     this.sizeRadar();
     if (sight) drawBombSight(this.radar, f, this.time);
-    else this.drawRadar(f);
+    else this.drawRadar(f, dt);
   }
 
   // Weapon cue lamp in the cockpit panel (took the flap box's place, owner 2026-11-20).
@@ -285,7 +295,7 @@ export class Hud {
   // Your nose is on the bandit, in gun range (same test the bandit uses on you).
   gunSolution(f) {
     const df = f.df, a = f.ac, b = df.b;
-    if (df.down || df.dx <= 0 || !f.data.gun || f.cb.ammo <= 0 || df.range > GUN_SOLUTION.rangeM) return false;
+    if (!df.b || df.fleeing || df.dx <= 0 || !f.data.gun || f.cb.ammo <= 0 || df.range > GUN_SOLUTION.rangeM) return false;
     const t = df.range / f.data.gun.muzzleMs;
     const ang = Math.atan2(b.pos.y - a.pos.y + (b.vel.y - a.vel.y) * t + 4.9 * t * t, b.pos.x - a.pos.x + (b.vel.x - a.vel.x) * t);
     let e = ang - a.pitch;
@@ -316,7 +326,9 @@ export class Hud {
     el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
 
-  drawRadar(f) {
+  // Side-view radar (top centre). Normally the whole route; while your weapons, SAMs
+  // or a bandit are in the air, a window around you with their tracks.
+  drawRadar(f, dt) {
     const cv = this.radar;
     const w = this.radarCss.w, h = this.radarCss.h;
     const dpr = cv.width / Math.max(w, 1);
@@ -324,12 +336,50 @@ export class Hud {
     x.setTransform(dpr, 0, 0, dpr, 0, 0);
     x.clearRect(0, 0, w, h);
     const a = f.ac;
+    const df = f.df;
+    const threats = f.armed ? f.cb.threats : [];
     const visBases = f.bases.filter((b) => b.visible);
-    const fx = !!f.df;
-    const x0 = fx ? a.pos.x - RADAR_DF_M : -600, x1 = fx ? a.pos.x + RADAR_DF_M : Math.max(f.revealed ? f.dest.x + f.dest.runwayM + 800 : 0, ...(f.targets.length ? [f.targets[f.targets.length - 1].x + 1500] : []), ...visBases.map((b) => b.x + b.runwayM + 800));
-    const maxAlt = Math.max(800, Math.ceil(Math.max(a.pos.y, fx ? f.df.b.pos.y : 0) / 500 + 0.6) * 500);
+    // Window: tactical (around you) or the whole route; eased between the two.
+    const tactical = f.weapons.length > 0 || threats.length > 0 || !!(df && (df.b || df.falling.length));
+    let t0, t1;
+    if (tactical && df && !f.weapons.length && !threats.length) { t0 = a.pos.x - RADAR.dogfightM; t1 = a.pos.x + RADAR.dogfightM; }
+    else if (tactical) {
+      // Just wide enough for you, your weapons' impact points and the SAMs.
+      t0 = a.pos.x - RADAR.behindM; t1 = a.pos.x + RADAR.aheadM;
+      const reach = (xx) => { t0 = Math.min(t0, xx - RADAR.marginM); t1 = Math.max(t1, xx + RADAR.marginM); };
+      for (const wp of f.weapons) { reach(wp.pos.x); reach(wp.guideX != null ? wp.guideX : wp.predX ?? wp.pos.x); }
+      for (const m of threats) reach(m.x);
+      t0 = Math.max(t0, a.pos.x - RADAR.maxAheadM); t1 = Math.min(t1, a.pos.x + RADAR.maxAheadM);
+    } else {
+      t0 = -600;
+      t1 = Math.max(f.revealed ? f.dest.x + f.dest.runwayM + 800 : 0, ...(f.targets.length ? [f.targets[f.targets.length - 1].x + 1500] : []),
+        ...visBases.map((b) => b.x + b.runwayM + 800), df && !f.revealed ? df.fightX + 3000 : 0, a.pos.x + 1500);
+    }
+    if (this.rx0 == null || this.radarFlight !== f) { this.rx0 = t0; this.rx1 = t1; this.radarFlight = f; this.objTrails = new WeakMap(); }
+    const k = 1 - Math.exp(-(dt || 0.016) * RADAR.zoomRate);
+    this.rx0 += (t0 - this.rx0) * k; this.rx1 += (t1 - this.rx1) * k;
+    const x0 = this.rx0, x1 = this.rx1;
+    let top = a.pos.y;
+    if (df && df.b) top = Math.max(top, df.b.pos.y);
+    for (const m of threats) top = Math.max(top, m.y);
+    for (const wp of f.weapons) top = Math.max(top, wp.pos.y);
+    const maxAlt = tactical ? Math.max(RADAR.minAltM, Math.ceil(top * 1.3 / 100) * 100) : Math.max(800, Math.ceil(top / 500 + 0.6) * 500);
     const px = (m) => 8 + ((m - x0) / (x1 - x0)) * (w - 16);
-    const py = (m) => h - 12 - (m / maxAlt) * (h - 22);
+    const py = (m) => h - 12 - (Math.max(0, m) / maxAlt) * (h - 22);
+    const line = (pts, col, dash, lw = 1) => {
+      if (pts.length < 2) return;
+      x.setLineDash(dash || []); x.strokeStyle = col; x.lineWidth = lw;
+      x.beginPath(); pts.forEach(([m, al], i) => (i ? x.lineTo(px(m), py(al)) : x.moveTo(px(m), py(al)))); x.stroke();
+      x.setLineDash([]); x.lineWidth = 1;
+    };
+    // Trail of a moving object (weapon, SAM, bandit): sampled every trailEveryS.
+    const trail = (o, X, Y) => {
+      let t = this.objTrails.get(o);
+      if (!t) { t = { pts: [], acc: 0 }; this.objTrails.set(o, t); }
+      t.acc += dt || 0.016;
+      if (t.acc >= RADAR.trailEveryS || !t.pts.length) { t.acc = 0; t.pts.push([X, Y]); if (t.pts.length > RADAR.trailMax) t.pts.shift(); }
+      return [...t.pts, [X, Y]];
+    };
     // Grid.
     x.strokeStyle = 'rgba(120,255,190,0.08)'; x.lineWidth = 1;
     for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo(0, py(maxAlt * i / 4)); x.lineTo(w, py(maxAlt * i / 4)); x.stroke(); }
@@ -355,9 +405,34 @@ export class Hud {
         else x.fillRect(cx - 2.5, cy - 2.5, 5, 5);
       }
     }
-    if (f.mode === 'strike') {
+    // Your weapons: trail (solid) and where they're going (dashed) with the impact mark.
+    for (const wp of f.weapons) {
+      line(trail(wp, wp.pos.x, wp.pos.y), 'rgba(255,214,90,0.75)');
+      let pts, ix;
+      if (wp.missile && wp.guideX != null) { ix = wp.guideX; pts = [[wp.pos.x, wp.pos.y], [ix, 0]]; }
+      else {
+        const out = [];
+        const hit = predictImpact(wp.pos, wp.vel, wp.k, out);
+        ix = wp.guideX != null ? wp.guideX : hit.x;
+        pts = [[wp.pos.x, wp.pos.y], ...out.filter((_, i) => i % 3 === 0).map((q) => [q.x, q.y]), [hit.x, 0]];
+        if (wp.guideX != null) pts.push([ix, 0]);
+      }
+      line(pts, 'rgba(255,214,90,0.6)', [3, 3]);
+      x.strokeStyle = '#ffd65a';
+      x.beginPath(); x.arc(px(ix), py(0) - 1, 4, 0, Math.PI * 2); x.stroke();
+      x.fillStyle = '#ffd65a';
+      x.beginPath(); x.arc(px(wp.pos.x), py(wp.pos.y), 2.2, 0, Math.PI * 2); x.fill();
+    }
+    // SAMs: trail and the line to what they're chasing (you, a decoy, or straight on).
+    for (const m of threats) {
+      line(trail(m, m.x, m.y), 'rgba(255,80,60,0.75)');
+      let tx, ty;
+      if (m.target === 'ac') { tx = a.pos.x; ty = a.pos.y; }
+      else if (m.target && m.target.x != null) { tx = m.target.x; ty = m.target.y; }
+      else { tx = m.x + m.vx * 2; ty = m.y + m.vy * 2; }
+      line([[m.x, m.y], [tx, ty]], 'rgba(255,80,60,0.6)', [3, 3]);
       x.fillStyle = '#ff3b30';
-      for (const m of f.cb.threats) { x.beginPath(); x.arc(px(m.x), py(m.y), 2.2, 0, Math.PI * 2); x.fill(); }
+      x.beginPath(); x.arc(px(m.x), py(m.y), 2.4, 0, Math.PI * 2); x.fill();
     }
     // Ideal 3 degree path into the destination.
     if (f.revealed) {
@@ -365,26 +440,32 @@ export class Hud {
       x.beginPath(); x.moveTo(px(f.dest.x + 300), py(0)); x.lineTo(px(f.dest.x + 300 - 4000), py(4000 * Math.tan(3 * Math.PI / 180))); x.stroke();
       x.setLineDash([]);
     }
-    if (fx && !f.df.wrecked) {
-      const b = f.df.b;
-      x.fillStyle = f.df.down ? 'rgba(255,90,70,0.4)' : '#ff4a3a';
-      x.save(); x.translate(px(clamp(b.pos.x, x0, x1)), py(b.pos.y)); x.rotate(-b.pitch);
+    // Bandits: the live one (red arrow, trail) and any still falling (dim).
+    const arrow = (o, col) => {
+      x.fillStyle = col;
+      x.save(); x.translate(px(clamp(o.pos.x, x0, x1)), py(o.pos.y)); x.rotate(-o.pitch);
       x.beginPath(); x.moveTo(6, 0); x.lineTo(-5, -3.5); x.lineTo(-3, 0); x.lineTo(-5, 3.5); x.closePath(); x.fill();
       x.restore();
+    };
+    if (df) {
+      for (const fw of df.falling) arrow(fw.ac, 'rgba(255,90,70,0.4)');
+      if (df.b) {
+        line(trail(df.b, df.b.pos.x, df.b.pos.y), 'rgba(255,80,60,0.45)');
+        arrow(df.b, '#ff4a3a');
+        x.fillStyle = 'rgba(255,120,100,0.9)';
+        x.fillText(df.opp.name.toUpperCase(), px(clamp(df.b.pos.x, x0, x1)), py(df.b.pos.y) - 7);
+      }
     }
-    // Trail and blip.
+    // Your trail and blip.
     const tr = this.trail;
-    if (!tr.length || Math.abs(tr[tr.length - 1][0] - a.pos.x) > (x1 - x0) / 300) { tr.push([a.pos.x, a.pos.y]); if (tr.length > 300) tr.shift(); }
-    x.strokeStyle = 'rgba(125,255,181,0.4)';
-    x.beginPath(); tr.forEach(([m, al], i) => (i ? x.lineTo(px(m), py(al)) : x.moveTo(px(m), py(al)))); x.stroke();
-    const bx = px(a.pos.x), by = py(a.pos.y);
-    x.fillStyle = '#ffffff';
-    x.save(); x.translate(bx, by); x.rotate(-a.pitch);
-    x.beginPath(); x.moveTo(6, 0); x.lineTo(-5, -3.5); x.lineTo(-3, 0); x.lineTo(-5, 3.5); x.closePath(); x.fill();
-    x.restore();
+    if (!tr.length || Math.abs(tr[tr.length - 1][0] - a.pos.x) > 25) { tr.push([a.pos.x, a.pos.y]); if (tr.length > 600) tr.shift(); }
+    line([...tr.filter(([m]) => m >= x0 - 50), [a.pos.x, a.pos.y]], 'rgba(125,255,181,0.4)');
+    arrow({ pos: a.pos, pitch: a.pitch }, '#ffffff');
     x.fillStyle = 'rgba(170,220,200,0.7)'; x.textAlign = 'left';
     x.fillText(`${Math.round(maxAlt * 3.28084 / 100) * 100} FT`, 4, 10);
+    if (tactical) { x.textAlign = 'right'; x.fillText(`${((x1 - x0) / 1000).toFixed(1)} KM`, w - 4, 10); }
   }
+
 }
 
 export { KT };

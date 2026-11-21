@@ -33,9 +33,11 @@ export const DOGFIGHT_CAM = {
   smallDrop: 0.13,            // ... and the instructor strip the middle: jets sit this share of the height lower
   minZoom: 0.08, maxZoom: 0.9,
   zoomRate: 3, panRate: 4,    // how fast the framing follows (1/s)
-  banditTint: [0.9, 0.6, 0.55], // multiply on the bandit's sprite (reads as the enemy)
+  banditTint: null,           // multiply on the bandit's sprite ([r,g,b]); null: the owner's art as is
   markerPx: 9,                // bandit marker size (x screen height / 720)
 };
+// Near clouds are scattered over this much of the route, then repeat.
+const CLOUD_SPAN_M = 60000;
 // Tail strobe: flash starts (s) within each period.
 export const STROBE = { periodS: 1.6, flashes: [0, 0.2], flashS: 0.06 };
 // Crash breakup (see crashFx). Shard sizes in aircraft texture px (1/16 m).
@@ -105,7 +107,8 @@ export class Renderer {
     this.stars = time.stars > 0 ? buildStars(res) : null;
     const R = Math.round(10 * res);
     this.landmarks = buildLandmarks(world.bases, time, res);
-    this.baseGfx = world.bases.map((b) => ({ base: b, ...buildBase(b, time, R) }));
+    this.baseGfx = world.bases.map((b) => ({ base: b, builtX: b.x, ...buildBase(b, time, R) }));
+    this.wrecks = [];
     this.truckGfx = buildFuelTruck(time, R);
     this.targetGfx = {};
     for (const k of Object.keys(GROUND_UNITS)) {
@@ -114,7 +117,7 @@ export class Renderer {
     // Cloud field: far (slow parallax) and near (world) clouds.
     const r = rng(7);
     this.cloudField = [];
-    const span = 60000;
+    const span = CLOUD_SPAN_M;
     for (let i = 0; i < 70; i++) {
       const near = i % 3 === 0;
       this.cloudField.push({
@@ -127,6 +130,15 @@ export class Renderer {
     this.lightBody = time.lights ? time.light.map((v) => Math.min(1, v * 1.9 + 0.12)) : time.light;
     this.particles = new Particles();
     this.rings = []; this.shards = []; this.flash = 0;
+  }
+
+  // A base moved (air to air: the landing base is placed when the fight is over):
+  // build its scenery again, once.
+  checkBases() {
+    if (this.baseGfx.every((bg) => bg.builtX === bg.base.x)) return;
+    const time = this.timeData, R = Math.round(10 * this.res);
+    this.baseGfx = this.world.bases.map((b) => ({ base: b, builtX: b.x, ...buildBase(b, time, R) }));
+    this.landmarks = buildLandmarks(this.world.bases, time, this.res);
   }
 
   themeAt(x) {
@@ -156,7 +168,7 @@ export class Renderer {
     // zoom = 42 / altitude kept the jet at one screen height whatever it did.
     if (attack) z = ATTACK_CAM.zoom;
     // Dogfight: frame both jets (centre between them, zoom to fit).
-    const pair = flight && flight.df && !flight.df.wrecked && !flight.ac.crashed && !flight.eject && this.bst;
+    const pair = flight && flight.df && !flight.ac.crashed && !flight.eject && this.bst;
     let midX = st.x, midY = st.y;
     if (pair) {
       const b = this.bst, C = DOGFIGHT_CAM;
@@ -221,7 +233,8 @@ export class Renderer {
     }
     // Dogfight: the bandit's state (the camera frames both jets).
     const df = flight.df;
-    this.bst = df && !df.wrecked ? df.renderState(alpha) : null;
+    this.bst = df && df.b ? df.renderState(alpha) : null;
+    if (df) this.checkBases();
     // Ejected: the camera follows the pilot.
     const ej = flight.eject;
     this.updateCamera(dt, ej ? { ...st, x: ej.x, y: ej.y, vx: ej.vx, vy: ej.vy } : st, flight);
@@ -241,9 +254,12 @@ export class Renderer {
     this.particles.draw(ctx, v, this.timeData.lights ? 0.6 : 1);
     this.drawWeapons(ctx, v, flight);
     if (flight.armed) this.drawCombat(ctx, v, flight);
-    if (this.bst) {
-      this.drawAircraft(ctx, v, flight.data, this.bst, DOGFIGHT_CAM.banditTint);
-      if (df.firing) this.drawMuzzleAt(ctx, v, flight.data, this.bst);
+    if (df) {
+      for (const w of df.falling) this.drawAircraft(ctx, v, df.opp, df.renderState(alpha, w.ac, w.prev), DOGFIGHT_CAM.banditTint);
+      if (this.bst) {
+        this.drawAircraft(ctx, v, df.opp, this.bst, DOGFIGHT_CAM.banditTint);
+        if (df.firing) this.drawMuzzleAt(ctx, v, df.opp, this.bst);
+      }
     }
     if (!flight.ac.crashed) this.drawAircraft(ctx, v, flight.data, st);
     if (flight.armed && !flight.ac.crashed && flight.cb.firing) this.drawMuzzleAt(ctx, v, flight.data, st);
@@ -252,7 +268,7 @@ export class Renderer {
     this.drawRings(ctx, v);
     this.drawClouds(ctx, v, true);
     if (flight.mode === 'strike') this.drawThreatArrows(ctx, v, flight);
-    if (this.bst && !df.down) this.drawBanditMarker(ctx, v, flight, this.bst);
+    if (this.bst && !df.fleeing) this.drawBanditMarker(ctx, v, flight, this.bst);
     this.drawScreenFx(ctx, v, flight.ac);
   }
 
@@ -383,7 +399,8 @@ export class Renderer {
       } else {
         const sc = v.S * c.scale / this.res;
         w = c.img.w * sc; h = c.img.h * sc;
-        x = v.sx(c.x) - w / 2; y = v.sy(c.y) - h / 2;
+        const wx = c.x + Math.round((this.cam.x - c.x) / CLOUD_SPAN_M) * CLOUD_SPAN_M; // the field repeats (long air-to-air flights)
+        x = v.sx(wx) - w / 2; y = v.sy(c.y) - h / 2;
       }
       if (x > v.W || x + w < 0 || y > v.H || y + h < 0) continue;
       ctx.globalAlpha = c.alpha * (front ? 0.85 : 1);
@@ -729,7 +746,7 @@ export class Renderer {
     ctx.font = `700 ${Math.round(12 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
     const a = flight.ac;
     const r = Math.hypot(b.x - a.pos.x, b.y - a.pos.y);
-    ctx.fillText(`BANDIT ${r < 1000 ? Math.round(r) + ' M' : (r / 1000).toFixed(1) + ' KM'}`, x, y - m * 0.6);
+    ctx.fillText(`${flight.df.opp.name.toUpperCase()} ${r < 1000 ? Math.round(r) + ' M' : (r / 1000).toFixed(1) + ' KM'}`, x, y - m * 0.6);
   }
 
   // Muzzle flash at the gun port while firing (yours or the bandit's).
@@ -1006,7 +1023,7 @@ export class Renderer {
         this.particles.spawn('glow', e.x, e.y + 1, 0, 0, 10, 0.3, { grow: 1.5, ground: false });
       } else if (e.type === 'countermeasure') {
         for (let i = 0; i < 14; i++) this.particles.spawn('white', e.x + (Math.random() - 0.5) * 4, e.y + (Math.random() - 0.5) * 4, flight.ac.vel.x * 0.2 + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, 1.2, 3 + Math.random() * 2, { grow: 3, alpha: 0.35, drag: 2.5, ground: false });
-      } else if (e.type === 'banditWreck') { this.bwX = e.x; this.bwT = 0; this.explode(e.x, 1, 1.3); }
+      } else if (e.type === 'banditWreck') { this.wrecks.push({ x: e.x, t: 0 }); this.explode(e.x, 1, 1.3); }
       else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
     }
   }
@@ -1356,21 +1373,24 @@ export class Renderer {
     for (const w of flight.weapons) {
       if (w.motor) P.spawn('smoke', w.pos.x, w.pos.y, w.vel.x * 0.05, 0, 1.2, 2.5, { grow: 4, alpha: 0.55 * (d.missile.trail ?? 1), ground: false, drag: 0.3 });
     }
-    // Bandit: afterburner-less smoke when hit, fire once shot down; its wreck burns.
+    // Bandits: smoke when badly hit, fire while falling; wrecks burn on the ground.
     const df = flight.df;
-    if (df && !df.wrecked && (df.hp < DAMAGE.smokeBelow || df.down)) {
-      const b = df.b;
-      const p = b.pointM(d.pivot[0] - 20, d.pivot[1] - 40);
-      const hot = df.hp < DAMAGE.fireBelow || df.down;
-      for (let i = 0; i < 3; i++) {
-        const f = i / 3;
-        P.spawn('dark', p.x - b.vel.x * dt * f, p.y - b.vel.y * dt * f, b.vel.x * 0.1, 1, hot ? 5 : 3.5, hot ? 3 : 2.2, { grow: 3, alpha: hot ? 0.55 : 0.32, ground: false, drag: 0.4 });
+    if (df) {
+      const trail = (b, hot) => {
+        const o = df.opp;
+        const p = b.pointM(o.pivot[0] - 20, o.pivot[1] - 40);
+        // One puff per frame (several falling bandits at once got heavy).
+        P.spawn('dark', p.x, p.y, b.vel.x * 0.1, 1, hot ? 5.5 : 4, hot ? 2.4 : 1.8, { grow: 3, alpha: hot ? 0.6 : 0.36, ground: false, drag: 0.4 });
+        if (hot && Math.random() < 0.5) P.spawn('fire', p.x, p.y, b.vel.x * 0.3, 0, 3.5, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
+      };
+      const hpF = df.b ? df.hp / df.opp.airframeHp * 100 : 100;
+      if (df.b && hpF < DAMAGE.smokeBelow) trail(df.b, hpF < DAMAGE.fireBelow);
+      for (const w of df.falling) trail(w.ac, true);
+      for (const w of this.wrecks) {
+        if ((w.t += dt) > 40 || Math.random() > dt * 12) continue;
+        P.spawn('dark', w.x + (Math.random() - 0.5) * 10, 1, 1, 4, 5, 4, { grow: 3.5, lift: 3, alpha: 0.6 });
+        if (Math.random() < 0.5) P.spawn('fire', w.x + (Math.random() - 0.5) * 8, 0.5, 0, 2, 3.5, 0.6, { lift: 4 });
       }
-      if (hot && Math.random() < 0.8) P.spawn('fire', p.x, p.y, b.vel.x * 0.3, 0, 3.5, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
-    }
-    if (this.bwX != null && df && (this.bwT += dt) < 40 && Math.random() < dt * 12) {
-      P.spawn('dark', this.bwX + (Math.random() - 0.5) * 10, 1, 1, 4, 5, 4, { grow: 3.5, lift: 3, alpha: 0.6 });
-      if (Math.random() < 0.5) P.spawn('fire', this.bwX + (Math.random() - 0.5) * 8, 0.5, 0, 2, 3.5, 0.6, { lift: 4 });
     }
     if (flight.armed) {
       const cb = flight.cb;

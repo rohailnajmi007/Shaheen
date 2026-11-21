@@ -95,24 +95,29 @@ export const EJECT = {
   resultWaitS: 14,    // the debrief waits at most this long for the pilot to land
 };
 
-// Air to air (owner 2026-11-21): 1 v 1 guns-only dogfight. Both jets fly right; the
-// bandit (same type as yours) starts ahead of you or on your six. Dodge his bursts by
-// climbing, diving, or changing speed so he overshoots. Missiles later.
+// Air to air (owner 2026-11-21): guns only. Take off as usual; past fightStartM the
+// bandits come one at a time (2-3, all of the type picked on the start screen:
+// src/data/opponents.js, whose `ai` blocks override the numbers below). Both jets fly
+// right. Dodge his bursts by climbing, diving, or changing speed so he overshoots.
+// When the fight is over the landing base appears recoveryGapM ahead. Missiles later.
 export const DOGFIGHT = {
-  startAltM: 900,          // both start airborne, gear up, this high...
-  startKt: 430,            // ... at this speed
-  startThrottle: 0.8,
-  spawnGapM: [450, 750],   // bandit this far ahead of or behind you
-  spawnAltM: [-60, 120],   // ... and this much higher
-  homeGapM: 3000,          // the fight starts this far past your home base
-  burnScale: 0.3,          // fuel burn x this (afterburner fights would empty the tanks)
+  bandits: [2, 3],         // bandits per mission (random in this range), one after another
+  fightStartM: 9000,       // the first one comes once you're this far from your home base
+  nextBanditS: 7,          // the next one comes this long after the last one went
+  spawnGapM: [450, 750],   // a bandit starts this far ahead of or behind you
+  spawnAltM: [-60, 120],   // ... this much higher than you
+  spawnMinAltM: 450,       // ... but at least this high
+  spawnMinKt: 380,         // ... at your speed, at least this
+  recoveryGapM: 9000,      // landing base this far ahead of you when the fight is over
+  burnScale: 0.5,          // fuel burn x this on this mission (afterburner fights empty the tanks)
   hitRadiusMult: 2.4,      // jets' hit circles x this (rounds vs jets, both ways): the jets are drawn
                            // bigger than life when zoomed out, so a visual hit should count
-  banditHp: 100,
-  banditAmmoMult: 1.5,     // bandit rounds = your gun's rounds x this
+  banditAmmoMult: 1.5,     // bandit rounds = its gun's rounds x this
+  banditDamagedThrust: 0.75, // below 45% airframe its engine gives this much
   banditDmgMult: 0.12,     // his rounds hurt you this much x the gun's dmg...
-  playerDmgMult: 0.3,      // ... and yours hurt him this much (a kill takes a few good bursts)
-  holdFireS: 3,            // he doesn't shoot in the first seconds
+  playerDmgMult: 0.8,      // ... and yours hurt him this much (a kill takes a few good bursts)
+  playerAmmoMult: 2.5,     // your gun carries this many times its rounds (2-3 bandits per load)
+  holdFireS: 3,            // a new bandit doesn't shoot in its first seconds
   // Bandit AI.
   reactionS: 0.35,         // aims at where you were this long ago (dodging works)
   aimErrDeg: 1.3,          // slow wandering aim error
@@ -138,8 +143,9 @@ export const DOGFIGHT = {
   catchUpM: 1100,          // further apart than this: it gets extra thrust to close up
   catchUpThrust: 1.3,
   // Rules.
-  endAfterKillS: 5,        // debrief this long after the bandit goes down
-  noAmmoEndS: 5,           // both guns empty (or yours) this long: fight over
-  outOfRangeM: 4000,       // further apart than this for outOfRangeS: he disengages
+  maxFallS: 40,            // a shot-down bandit is dropped after falling this long
+  noAmmoEndS: 5,           // your gun empty this long: fight over, he leaves, you go home
+  fleeGoneM: 3500,         // ... gone once this far away
+  outOfRangeM: 4000,       // further apart than this for outOfRangeS: he got away (next one comes)
   outOfRangeS: 12,
 };

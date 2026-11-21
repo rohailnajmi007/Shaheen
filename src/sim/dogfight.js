@@ -1,43 +1,64 @@
-// Air to air (owner 2026-11-21): 1 v 1 guns-only dogfight against one bandit of the
-// same type. Both jets fly right. Whoever is behind can shoot (guns fire along the
-// nose); the one in front dodges by climbing, diving, or changing speed so the
-// chaser overshoots and the roles swap. Numbers: DOGFIGHT in src/data/combat.js.
-// No DOM: runs in Node tests.
+// Air to air (owner 2026-11-21). Take off as usual; past DOGFIGHT.fightStartM the
+// bandits come, one at a time (2-3 per mission, all of the type picked on the start
+// screen = the difficulty: src/data/opponents.js). Each one starts ahead of you or on
+// your six; both jets fly right. Whoever is behind can shoot (guns fire along the
+// nose); the one in front dodges by climbing, diving, or changing speed so the chaser
+// overshoots and the roles swap. When the fight is over (all bandits down or gone, or
+// you're out of rounds) the landing base appears and you land as usual.
+// Numbers: DOGFIGHT in src/data/combat.js, per-opponent `ai` overrides. No DOM.
 import { Aircraft, KT, G } from './aircraft.js';
 import { DOGFIGHT } from '../data/combat.js';
 import { shellStep, segDist } from './combat.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rand = (a, b) => a + Math.random() * (b - a);
+const randInt = ([a, b]) => a + Math.floor(Math.random() * (b - a + 1));
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
 const D2R = Math.PI / 180;
 const wrap = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
 
 export class Dogfight {
-  constructor(flight) {
-    const D = DOGFIGHT;
+  constructor(flight, opp) {
     this.f = flight;
-    const d = flight.data;
-    const a = flight.ac;
-    const x0 = flight.bases[0].x + flight.bases[0].runwayM + D.homeGapM;
-    const v0 = D.startKt / KT;
-    a.setAirborne(x0, D.startAltM, v0, D.startThrottle);
-    a.burnScale = D.burnScale;
-    // Bandit: same type, ahead of you or on your six.
+    this.opp = opp;
+    this.D = { ...DOGFIGHT, ...(opp.ai || {}) };
+    this.total = randInt(this.D.bandits);
+    this.kills = 0;
+    this.escaped = 0;
+    this.phase = 'inbound';   // inbound (before the fight), fight, gap (next one coming), over
+    this.fightX = this.D.fightStartM;
+    this.gapT = 0;
+    this.b = null;            // the bandit in the air now
+    this.rounds = [];         // its rounds (stay alive after it goes)
+    this.falling = [];        // shot-down bandits still falling: { ac, prev, t }
+    this.firing = false;
+    this.hitsOnBandit = 0;
+    this.prevDx = 0;
+    this.noAmmoT = 0;
+    this.result = null;       // why the fight ended: 'done', 'winchester'
+  }
+
+  get active() { return !!this.b; }
+  get number() { return this.kills + this.escaped + 1; } // which bandit this is (1-based)
+
+  // A new bandit, ahead of you or on your six, near your height and speed.
+  spawn() {
+    const D = this.D;
+    const f = this.f;
+    const a = f.ac;
     this.ahead = Math.random() < 0.5;
     const gap = rand(D.spawnGapM[0], D.spawnGapM[1]);
-    const b = new Aircraft(d);
-    b.setAirborne(x0 + (this.ahead ? gap : -gap), D.startAltM + rand(D.spawnAltM[0], D.spawnAltM[1]), v0, D.startThrottle);
+    const v = Math.max(a.speed, D.spawnMinKt / KT);
+    const b = new Aircraft(this.opp);
+    b.setAirborne(a.pos.x + (this.ahead ? gap : -gap), clamp(a.pos.y + rand(D.spawnAltM[0], D.spawnAltM[1]), D.spawnMinAltM, D.ceilingM - 300), v, 0.85);
     b.burnScale = D.burnScale;
     this.b = b;
-    this.hp = D.banditHp;
-    this.ammo = d.gun ? Math.round(d.gun.rounds * D.banditAmmoMult) : 0;
-    this.rounds = [];      // the bandit's rounds
-    this.firing = false;
+    this.hp = this.opp.airframeHp;
+    this.ammo = Math.round(this.opp.gun.rounds * D.banditAmmoMult);
     this.wantFire = false;
-    this.prevDx = 0;
-    this.thr = DOGFIGHT.startThrottle;
-    this.estVx = v0;
+    this.firing = false;
+    this.thr = 0.85;
+    this.estVx = v;
     this.wasShotAt = false;
     this.gunAcc = 0;
     this.burstT = 0;       // > 0: in a burst; < 0: pause
@@ -45,107 +66,157 @@ export class Dogfight {
     this.aimErr = 0;
     this.jinkT = 0; this.jinkAlt = b.pos.y;
     this.overshootT = 0;
-    this.down = false;     // bandit shot down (falling)
-    this.downT = 0;
-    this.wrecked = false;  // ... and hit the ground
-    this.noAmmoT = 0;
+    this.fleeing = false;  // you're out of rounds: it leaves
     this.farT = 0;
-    this.hitsOnBandit = 0;
+    this.spawnT = f.time;
+    this.prevDx = b.pos.x - a.pos.x;
     this.prev = this.snap();
+    this.phase = 'fight';
+    const n = this.total > 1 ? ` ${this.number} of ${this.total}` : '';
+    f.say(this.ahead ? `Bandit${n}! ${this.opp.name} dead ahead! Get your nose on him! Guns!`
+      : `Bandit${n}! ${this.opp.name} on your SIX! Break! Climb, dive, make him overshoot!`, true);
+    f.emit('banditSpawn', { x: b.pos.x, y: b.pos.y });
   }
 
-  snap() {
-    const b = this.b;
+  snap(b = this.b) {
     return { x: b.pos.x, y: b.pos.y, pitch: b.pitch, vx: b.vel.x, vy: b.vel.y, elevator: b.elevator };
   }
 
   // Bandit state between the last two physics steps (same as Flight.renderState).
-  renderState(alpha) {
-    const b = this.b;
-    const p = this.prev, c = this.snap();
+  // No lights at night (blacked out).
+  renderState(alpha, b = this.b, prev = this.prev) {
+    const p = prev, c = this.snap(b);
     const l = (k) => p[k] + (c[k] - p[k]) * alpha;
     let dp = c.pitch - p.pitch;
     if (dp > Math.PI) dp -= Math.PI * 2;
     if (dp < -Math.PI) dp += Math.PI * 2;
     return {
       x: l('x'), y: l('y'), pitch: p.pitch + dp * alpha, vx: l('vx'), vy: l('vy'), elevator: l('elevator'),
-      gearPos: b.gearPos, onGround: false, afterburner: b.afterburner, rpm: b.rpm, propAngle: b.propAngle,
-      bombsLeft: 0, engineOn: b.engineOn,
+      gearPos: 0, onGround: false, afterburner: b.afterburner, rpm: b.rpm, propAngle: 0,
+      bombsLeft: 0, engineOn: false,
     };
   }
 
-  get alive() { return !this.down; }
-  get dx() { return this.b.pos.x - this.f.ac.pos.x; }   // + = bandit ahead of you
-  get range() { const a = this.f.ac, b = this.b; return Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y); }
+  get dx() { return this.b ? this.b.pos.x - this.f.ac.pos.x : 0; }   // + = bandit ahead of you
+  get range() { const a = this.f.ac, b = this.b; return b ? Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) : Infinity; }
+  get fighting() { return !!this.b && !this.fleeing; }
 
   centre(ac) {
-    const u = this.f.data.hitCenterUpM;
+    const u = ac.data.hitCenterUpM;
     return { x: ac.pos.x - Math.sin(ac.pitch) * u, y: ac.pos.y + Math.cos(ac.pitch) * u };
   }
-  get hitR() { return this.f.data.hitRadiusM * DOGFIGHT.hitRadiusMult; }
+  hitR(ac) { return ac.data.hitRadiusM * this.D.hitRadiusMult; }
 
   // One of your rounds: did it hit the bandit? (Called by Combat.stepRounds.)
   roundHits(r) {
-    if (this.down) return false;
-    const c = this.centre(this.b);
-    if (Math.abs(r.x - c.x) > 60 || segDist(r.px, r.py, r.x, r.y, c.x, c.y) > this.hitR) return false;
+    const b = this.b;
+    if (!b) return false;
+    const c = this.centre(b);
+    if (Math.abs(r.x - c.x) > 80 || segDist(r.px, r.py, r.x, r.y, c.x, c.y) > this.hitR(b)) return false;
     this.f.emit('acHit', { x: r.x, y: r.y });
     this.hitsOnBandit += 1;
-    this.hp -= r.dmg * DOGFIGHT.playerDmgMult;
+    this.hp -= r.dmg * this.D.playerDmgMult;
+    if (this.hp < this.opp.airframeHp * 0.45) b.thrustFactor = Math.min(b.thrustFactor, this.D.banditDamagedThrust);
     if (this.hp <= 0) this.shootDown();
     return true;
   }
 
+  // Killed: it falls (burning) on its own list; the next one can come meanwhile.
   shootDown() {
     const b = this.b;
-    this.down = true;
     this.hp = 0;
     b.shotDown = true; b.controls = false; b.engineOn = false;
-    this.firing = false;
     this.f.emit('airBurst', { x: b.pos.x, y: b.pos.y, power: 1.3 });
     this.f.emit('banditDown', { x: b.pos.x, y: b.pos.y });
-    this.f.say('SPLASH ONE! He\'s going down! Shabash, good kill!', true);
+    const left = this.total - this.kills - this.escaped - 1;
+    this.f.say(left > 0 ? `SPLASH ONE! ${this.opp.name} going down! ${left} more coming, stay sharp!` : "SPLASH! That's the last of them! Shabash!", true);
+    this.falling.push({ ac: b, prev: this.prev, t: 0 });
+    this.endBandit(true);
   }
 
+
   step(dt) {
-    const D = DOGFIGHT;
+    const D = this.D;
     const f = this.f;
     const a = f.ac;
+    if (this.phase === 'inbound' && f.state === 'flying' && !a.onGround && a.pos.x > this.fightX && a.altFt > 300) this.spawn();
+    else if (this.phase === 'gap' && (this.gapT -= dt) <= 0 && f.state === 'flying' && !a.shotDown) this.spawn();
     const b = this.b;
-    this.prev = this.snap();
-    this.hist.push({ t: f.time, x: a.pos.x, y: a.pos.y, vx: a.vel.x, vy: a.vel.y });
-    while (this.hist.length > 2 && this.hist[1].t < f.time - D.reactionS) this.hist.shift();
-    if (!this.wrecked) {
-      b.step(dt, this.down ? { pitch: 0, throttle: 0, brake: false } : this.think(dt));
+    if (b) {
+      this.prev = this.snap();
+      this.hist.push({ t: f.time, x: a.pos.x, y: a.pos.y, vx: a.vel.x, vy: a.vel.y });
+      while (this.hist.length > 2 && this.hist[1].t < f.time - D.reactionS) this.hist.shift();
+      b.step(dt, this.fleeing ? this.flee() : this.think(dt));
       b.events.length = 0;
-      if (this.down && b.pos.y <= 0.5) {
-        this.wrecked = true;
-        b.crashed = true;
-        f.emit('explosion', { x: b.pos.x, y: 0, big: true });
-        f.emit('banditWreck', { x: b.pos.x });
-      } else if (!this.down && b.pos.y <= 0.5) {
-        // Flew into the ground (shouldn't, it pulls up): counts as your kill.
-        this.shootDown();
-        this.wrecked = true; b.crashed = true;
-        f.emit('explosion', { x: b.pos.x, y: 0, big: true });
+      if (b.pos.y <= 0.5) this.shootDown(); // flew into the ground: your kill
+      else this.stepGun(dt);
+    }
+    // Shot-down bandits fall until they hit the ground (or for maxFallS at most).
+    for (let i = this.falling.length - 1; i >= 0; i--) {
+      const w = this.falling[i];
+      w.prev = this.snap(w.ac);
+      w.ac.step(dt, { pitch: 0, throttle: 0, brake: false });
+      w.ac.events.length = 0;
+      w.t += dt;
+      if (w.ac.pos.y <= 0.5 || w.t > D.maxFallS) {
+        if (w.ac.pos.y <= 0.5) { f.emit('explosion', { x: w.ac.pos.x, y: 0, big: true }); f.emit('banditWreck', { x: w.ac.pos.x }); }
+        this.falling.splice(i, 1);
       }
     }
-    if (this.down) this.downT += dt;
-    this.stepGun(dt);
     this.stepRounds(dt);
     this.rules(dt);
   }
 
+  // This bandit is finished with (killed, or got away): the next one, or the end.
+  endBandit(killed) {
+    if (killed) this.kills += 1; else this.escaped += 1;
+    this.b = null;
+    this.firing = false;
+    if (this.kills + this.escaped >= this.total) this.over('done');
+    else { this.phase = 'gap'; this.gapT = this.D.nextBanditS; }
+  }
+
+  over(why) {
+    if (this.phase === 'over') return;
+    this.phase = 'over';
+    this.result = why;
+    this.f.dogfightOver(why);
+  }
+
+  rules(dt) {
+    const D = this.D;
+    const f = this.f;
+    const a = f.ac;
+    if (f.state === 'done' || a.shotDown || a.crashed) return;
+    const b = this.b;
+    if (!b) return;
+    if (this.fleeing) { if (this.range > D.fleeGoneM) { this.b = null; this.escaped += 1; } return; }
+    // Out of rounds: the fight's over, the bandit leaves, you go home.
+    const out = f.cb.ammo <= 0 && f.cb.rounds.length === 0;
+    this.noAmmoT = out ? this.noAmmoT + dt : 0;
+    if (this.noAmmoT > D.noAmmoEndS) { this.fleeing = true; this.firing = false; this.over('winchester'); return; }
+    this.farT = this.range > D.outOfRangeM ? this.farT + dt : 0;
+    if (this.farT > D.outOfRangeS) { f.say(`The ${this.opp.name} got away!`, true); this.endBandit(false); }
+  }
+
+  // Leaving: climb away at full power, no shooting.
+  flee() {
+    const b = this.b;
+    this.wantFire = false;
+    const err = wrap(10 * D2R - b.pitch);
+    return { pitch: clamp(err * 3, -1, 1), throttle: 0, throttleSet: 1, brake: false, gun: false };
+  }
+
   // The bandit's stick, throttle, brake and trigger.
   think(dt) {
-    const D = DOGFIGHT;
+    const D = this.D;
     const f = this.f;
     const a = f.ac;
     const b = this.b;
-    const d = f.data;
+    const d = b.data;
     const q = this.hist[0];                    // where you were reactionS ago
     const relX = q.x - b.pos.x, relY = q.y - b.pos.y;
-    const playerDead = a.shotDown || a.crashed;
+    const playerDead = a.shotDown || a.crashed || a.onGround;
     const attack = relX > 0 && !playerDead;    // you're in front of its nose
     const speed = b.speed;
     let targetPitch;
@@ -158,7 +229,7 @@ export class Dogfight {
       // Lead the shot: rounds inherit the bandit's velocity, fly at muzzle speed, drop.
       const g = d.gun;
       const dist = Math.hypot(relX, relY);
-      const t = dist / ((g ? g.muzzleMs : 900) + 1);
+      const t = dist / (g.muzzleMs + 1);
       const ax = relX + (q.vx - b.vel.x) * t;
       const ay = relY + (q.vy - b.vel.y) * t + 0.5 * G * t * t;
       const aimAng = Math.atan2(ay, ax);
@@ -168,7 +239,7 @@ export class Dogfight {
       const vErr = (relX - D.chaseGapM) * 0.12 + (this.estVx - b.vel.x);
       throttle = clamp(0.7 + vErr * 0.04, 0, 1);
       brake = this.estVx - b.vel.x < -D.chaseBrakeMs;
-      this.wantFire = !!g && f.time > D.holdFireS && dist < D.fireRangeM && Math.abs(wrap(b.pitch - aimAng)) < D.fireConeDeg * D2R;
+      this.wantFire = f.time - this.spawnT > D.holdFireS && dist < D.fireRangeM && Math.abs(wrap(b.pitch - aimAng)) < D.fireConeDeg * D2R;
     } else {
       // You're behind it: jink up and down, sometimes chop the throttle so you overshoot.
       this.jinkT -= dt;
@@ -204,7 +275,7 @@ export class Dogfight {
     const lim = d.stallAoaDeg * D2R * D.aoaLimit;
     targetPitch = path + clamp(wrap(targetPitch - path), -lim, lim);
     // Far behind you: extra thrust so it can close up.
-    b.thrustFactor = relX > D.catchUpM ? D.catchUpThrust : 1;
+    b.thrustFactor = (relX > D.catchUpM ? D.catchUpThrust : 1) * (this.hp < this.opp.airframeHp * 0.45 ? D.banditDamagedThrust : 1);
 
     // Pitch controller: wanted pitch rate from the error, as a stick deflection.
     const err = wrap(targetPitch - b.pitch);
@@ -218,20 +289,20 @@ export class Dogfight {
 
   // Angle of attack for 1 G level flight at this speed (same lift model as Aircraft).
   trimAoa(speed) {
-    const d = this.f.data;
+    const d = this.opp;
     const cl = ((d.stallKt / KT) / Math.max(speed, 1)) ** 2;
     return clamp((cl - d.zeroAoaLift) / (1 - d.zeroAoaLift), 0, 0.8) * d.stallAoaDeg * D2R;
   }
 
   // Bandit gun: bursts with pauses while its nose is on you.
   stepGun(dt) {
-    const D = DOGFIGHT;
-    const g = this.f.data.gun;
+    const D = this.D;
+    const g = this.opp.gun;
     // burstT > 0: in a burst; < 0: pausing; 0: ready.
     if (this.burstT > 0) { this.burstT -= dt; if (this.burstT <= 0) this.burstT = -rand(D.burstGapS[0], D.burstGapS[1]); }
     else if (this.burstT < 0) this.burstT = Math.min(0, this.burstT + dt);
-    else if (this.wantFire && !this.down) this.burstT = rand(D.burstS[0], D.burstS[1]);
-    this.firing = !!g && !this.down && this.burstT > 0 && this.ammo > 0 && this.wantFire;
+    else if (this.wantFire) this.burstT = rand(D.burstS[0], D.burstS[1]);
+    this.firing = !this.fleeing && this.burstT > 0 && this.ammo > 0 && this.wantFire;
     if (!this.firing) { this.gunAcc = 0; return; }
     const b = this.b;
     this.gunAcc += g.rps * dt;
@@ -257,14 +328,14 @@ export class Dogfight {
     const cb = f.cb;
     const live = cb.airborne();
     const c = this.centre(f.ac);
-    const R = this.hitR;
+    const R = this.hitR(f.ac);
     for (let i = this.rounds.length - 1; i >= 0; i--) {
       const r = this.rounds[i];
       shellStep(r, dt);
       let gone = r.t > 4;
       if (live && Math.abs(r.x - c.x) < 60 && segDist(r.px, r.py, r.x, r.y, c.x, c.y) <= R) {
         f.emit('acHit', { x: r.x, y: r.y });
-        cb.damage(r.dmg * DOGFIGHT.banditDmgMult, 'the bandit');
+        cb.damage(r.dmg * this.D.banditDmgMult, `a ${this.opp.name}`);
         gone = true;
       } else if (r.y <= 0) {
         f.emit('roundGround', { x: r.px });
@@ -272,21 +343,5 @@ export class Dogfight {
       }
       if (gone) this.rounds.splice(i, 1);
     }
-  }
-
-  // Win, lose, or a draw.
-  rules(dt) {
-    const D = DOGFIGHT;
-    const f = this.f;
-    if (f.state === 'done') return;
-    const a = f.ac;
-    if (a.shotDown || a.crashed) return; // Flight.crash ends it
-    if (this.down && this.downT > D.endAfterKillS) { f.finishDogfight('KILL'); return; }
-    if (this.down) return;
-    const out = f.cb.ammo <= 0 && f.cb.rounds.length === 0;
-    this.noAmmoT = out ? this.noAmmoT + dt : 0;
-    if (this.noAmmoT > D.noAmmoEndS) { f.finishDogfight('WINCHESTER'); return; }
-    this.farT = this.range > D.outOfRangeM ? this.farT + dt : 0;
-    if (this.farT > D.outOfRangeS) f.finishDogfight('DISENGAGED');
   }
 }

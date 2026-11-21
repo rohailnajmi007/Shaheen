@@ -7,7 +7,7 @@
 // dispersion) with the jet's own velocity added, so where they go depends on the
 // jet's position, attitude and speed, nothing else.
 import { G } from './aircraft.js';
-import { AIR_DEFENCE, COUNTERMEASURES, DAMAGE, GROUND_UNITS, STRIKE } from '../data/combat.js';
+import { AIR_DEFENCE, COUNTERMEASURES, DAMAGE, GROUND_UNITS, STRIKE, DOGFIGHT } from '../data/combat.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -54,7 +54,9 @@ export class Combat {
     this.f = flight;
     const d = flight.data;
     this.hp = d.airframeHp;
-    this.ammo = d.gun ? d.gun.rounds : 0;
+    // Air to air: a bigger load (2-3 bandits on one load), DOGFIGHT.playerAmmoMult.
+    this.ammoMax = d.gun ? Math.round(d.gun.rounds * (flight.mode === 'dogfight' ? DOGFIGHT.playerAmmoMult : 1)) : 0;
+    this.ammo = this.ammoMax;
     this.cm = d.countermeasures; // flare + chaff cartridges
     this.rounds = [];   // the jet's gun rounds
     this.shells = [];   // AAA shells

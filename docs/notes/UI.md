@@ -93,8 +93,7 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 - `.mlog`: the order fills in as dotted rows (PILOT, AIRCRAFT · home base, MISSION, ROUTE (ferry), TIME OF DAY, BEST SCORE); sections not reached yet read PENDING. Hidden on short screens (phones sideways), where the aircraft grid goes 3 wide.
 
 ## Air to air screens (owner 2026-11-21)
-- Start screen MISSION step has a third choice, **Air to air** (greyed out for an aircraft without a gun); no ROUTE step; the order sheet's MISSION row reads AIR TO AIR. Best score kept per aircraft for it.
-- Briefing: AIR COMBAT stamp, 1 V 1 · GUNS ONLY; rows AREA, START (airborne, height, speed), BANDIT (type, ahead / on your six), WEAPONS, DODGE; one line of orders.
-- In flight: weapon card turns into the gun card (see COMBAT.md "Air to air"); phase line DOGFIGHT · ON HIS TAIL / BANDIT BEHIND / SPLASH ONE; distance line BANDIT AHEAD / BEHIND · km; key list shows V gun, not Space or X.
-- Debrief: SPLASH ONE / NO KILL / MISSION FAILED stamp; rows BANDIT (destroyed or damaged %), BANDIT STARTED, HITS ON BANDIT, GUN ROUNDS FIRED, BATTLE DAMAGE, FIGHT TIME. Score: kill 1500 + 10 per % airframe left + up to 300 for rounds saved; no kill: 3 per % damage done to him.
-
+- Start screen: MISSION step has **Air to air** (greyed out for an aircraft without a gun); then an **OPPONENT** step with three cards (owner's art): MiG-21 EASY, Su-30 MEDIUM, Rafale HARD, a line about each. The tab bar shows ROUTE or OPPONENT (whichever the mission has; air to ground keeps ROUTE struck out) and renumbers. Order sheet row OPPONENT. Best score kept per aircraft and opponent.
+- Briefing: AIR COMBAT stamp, `n BANDITS · GUNS ONLY`; rows TAKE OFF FROM, BANDITS (n x type · difficulty), INTERCEPT (km out, one at a time), WEAPONS (gun, rounds), DODGE, LAND AT (shown after the fight).
+- In flight: see COMBAT.md "Air to air" (gun card, warnings, phase line INTERCEPT / DOGFIGHT · ON HIS TAIL / BANDIT BEHIND / NEXT BANDIT INBOUND, then the usual phases to the landing).
+- Debrief: MISSION SUCCESSFUL (all down) / PARTIAL SUCCESS / MISSION FAILED; rows BANDITS DESTROYED, OPPONENT, HITS ON BANDITS, GUN ROUNDS FIRED, BATTLE DAMAGE, RECOVERY (base · landing grade), FLIGHT TIME, FUEL USED. Score: landing + fuel as usual + per kill 400 (MiG-21) / 600 (Su-30) / 900 (Rafale).

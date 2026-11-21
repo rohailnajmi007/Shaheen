@@ -19,7 +19,8 @@ npm run build    # static site in dist/
 - Four times of day: dawn, day, dusk, night.
 - Camera zooms out with speed; the bomb run zooms out to show the ground.
 - Height callouts on final (100 ... 10 FLARE).
-- Air to air: a 1 v 1 guns-only dogfight against one bandit, both jets kept on screen.
+- Air to air: take off, shoot down 2-3 bandits (MiG-21 easy, Su-30 medium, Rafale hard) with the gun, land at the base that appears.
+- Radar shows your weapons' and the SAMs' tracks.
 - Glide-path lights (PAPI) at the destination runway.
 - One-page start menu, score and best score per aircraft and route.
 - Touch controls on phones, gamepad support.

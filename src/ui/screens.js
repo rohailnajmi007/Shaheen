@@ -3,17 +3,18 @@ import { AIRCRAFT } from '../data/aircraft.js';
 import { BASES, routesFrom, TIMES } from '../data/world.js';
 import { KEY_HELP } from '../input.js';
 import { GROUND_UNITS } from '../data/combat.js';
+import { OPPONENTS, opponentById } from '../data/opponents.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export function loadSettings() {
   try {
-    return { name: '', aircraft: 'mushshak', mode: 'ferry', dest: 'masroor', time: 'day', quality: 'high', vol: { master: 0.8, engine: 0.7, effects: 0.8 }, ...JSON.parse(localStorage.getItem('shaheen.settings') || '{}') };
-  } catch { return { name: '', aircraft: 'mushshak', mode: 'ferry', dest: 'masroor', time: 'day', quality: 'high', vol: { master: 0.8, engine: 0.7, effects: 0.8 } }; }
+    return { name: '', aircraft: 'mushshak', mode: 'ferry', dest: 'masroor', opponent: 'mig21', time: 'day', quality: 'high', vol: { master: 0.8, engine: 0.7, effects: 0.8 }, ...JSON.parse(localStorage.getItem('shaheen.settings') || '{}') };
+  } catch { return { name: '', aircraft: 'mushshak', mode: 'ferry', dest: 'masroor', opponent: 'mig21', time: 'day', quality: 'high', vol: { master: 0.8, engine: 0.7, effects: 0.8 } }; }
 }
 export function saveSettings(s) { localStorage.setItem('shaheen.settings', JSON.stringify(s)); }
-const bestKey = (s) => `${s.aircraft}|${s.mode}|${s.mode === 'ferry' ? s.dest : s.mode}`;
+const bestKey = (s) => `${s.aircraft}|${s.mode}|${s.mode === 'ferry' ? s.dest : s.mode === 'dogfight' ? s.opponent : s.mode}`;
 export function getBest(s) { try { return JSON.parse(localStorage.getItem('shaheen.best') || '{}')[bestKey(s)] || 0; } catch { return 0; } }
 export function setBest(s, v) {
   let all = {};
@@ -24,18 +25,19 @@ export function setBest(s, v) {
 
 // Start screen in sequential steps (owner, like the Godot start screen): one question
 // per page, BACK / NEXT (Esc / Enter), left / right arrows change the choice.
-// PILOT -> AIRCRAFT -> MISSION -> ROUTE (ferry only) -> TIME OF DAY (+ FLY).
+// PILOT -> AIRCRAFT -> MISSION -> ROUTE (ferry) / OPPONENT (air to air) -> TIME OF DAY (+ FLY).
 const STEPS = [
-  { id: 'pilot', title: 'Enter your name' },
-  { id: 'aircraft', title: 'Choose your aircraft' },
-  { id: 'mode', title: 'Choose your mission' },
-  { id: 'dest', title: 'Choose your route' },
-  { id: 'time', title: 'Time of day' },
+  { id: 'pilot', title: 'Enter your name', tab: 'Pilot' },
+  { id: 'aircraft', title: 'Choose your aircraft', tab: 'Aircraft' },
+  { id: 'mode', title: 'Choose your mission', tab: 'Mission' },
+  { id: 'dest', title: 'Choose your route', tab: 'Route' },
+  { id: 'opponent', title: 'Choose your opponent', tab: 'Opponent' },
+  { id: 'time', title: 'Time of day', tab: 'Time' },
 ];
 const MODES = [
   { id: 'ferry', label: 'Ferry flight', note: 'Take off from your home base, fly to the base you pick, land and stop on the runway.' },
   { id: 'strike', label: 'Air to ground', note: 'Jets only. Destroy 4-5 ground targets past SAMs, then land at the base that appears.' },
-  { id: 'dogfight', label: 'Air to air', note: 'Jets with a gun. Start airborne, one bandit ahead or on your six. Guns only: get behind him, dodge his bursts.' },
+  { id: 'dogfight', label: 'Air to air', note: 'Jets with a gun. Take off, shoot down 2-3 bandits with the gun, then land at the base that appears.' },
 ];
 // Which missions an aircraft can fly.
 const modeOk = (m, a) => m === 'ferry' || (m === 'strike' ? a.strikeCapable : !!a.gun);
@@ -54,7 +56,7 @@ export class Menu {
         <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>RESTRICTED</span></div>
         <div class="mbody">
         <header class="brand"><div class="logo"><span>SHAHEEN</span><small>FLIGHT AUTHORISATION · SORTIE ORDER</small></div></header>
-        <nav class="steps">${STEPS.map((st, i) => `<button class="stepdot" data-i="${i}"><b>${String(i + 1).padStart(2, '0')}</b><span>${st.id === 'dest' ? 'Route' : st.id === 'mode' ? 'Mission' : st.id === 'time' ? 'Time' : st.id[0].toUpperCase() + st.id.slice(1)}</span></button>`).join('')}</nav>
+        <nav class="steps">${STEPS.map((st, i) => `<button class="stepdot" data-i="${i}"><b>${String(i + 1).padStart(2, '0')}</b><span>${st.tab}</span></button>`).join('')}</nav>
         <h2 class="steptitle"></h2>
         <section class="page" data-step="pilot">
           <input class="pname" maxlength="16" placeholder="Your name" spellcheck="false" autocomplete="off" />
@@ -76,6 +78,17 @@ export class Menu {
         <section class="page" data-step="dest">
           <div class="seg big dest"></div>
         </section>
+        <section class="page" data-step="opponent">
+          <div class="acgrid oppgrid">${OPPONENTS.map((o) => `
+            <button class="accard opcard" data-id="${o.id}">
+              <div class="acimg"><img src="${base}sprites/${o.sprite}.png" alt="" /></div>
+              <div class="acname">${o.name}</div>
+              <div class="acrole diff ${o.difficulty.toLowerCase()}">${o.difficulty}</div>
+              <div class="acwpn">${o.note}</div>
+            </button>`).join('')}
+          </div>
+          <p class="hint">2-3 of them, one after another. Guns only, both sides.</p>
+        </section>
         <section class="page" data-step="time">
           <div class="seg time">${Object.entries(TIMES).map(([k, t]) => `<button data-v="${k}">${t.label}</button>`).join('')}</div>
         </section>
@@ -91,7 +104,8 @@ export class Menu {
     const name = $('.pname', root);
     name.value = settings.name;
     name.addEventListener('input', () => { this.s.name = name.value; saveSettings(this.s); });
-    for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => this.pick('aircraft', b.dataset.id));
+    for (const b of root.querySelectorAll('.accard:not(.opcard)')) b.addEventListener('click', () => this.pick('aircraft', b.dataset.id));
+    for (const b of root.querySelectorAll('.opcard')) b.addEventListener('click', () => this.pick('opponent', b.dataset.id));
     for (const [cls, key] of [['mode', 'mode'], ['time', 'time']]) {
       for (const b of root.querySelectorAll(`.seg.${cls} button`)) b.addEventListener('click', () => { if (!b.disabled) this.pick(key, b.dataset.v); });
     }
@@ -113,8 +127,8 @@ export class Menu {
     this.refresh();
   }
 
-  // Steps that apply (no route step on an air-to-ground mission).
-  steps() { return STEPS.filter((st) => !(st.id === 'dest' && this.s.mode !== 'ferry')); }
+  // Steps that apply: route for a ferry flight, opponent for air to air.
+  steps() { return STEPS.filter((st) => !(st.id === 'dest' && this.s.mode !== 'ferry') && !(st.id === 'opponent' && this.s.mode !== 'dogfight')); }
   current() { return this.steps()[Math.min(this.step, this.steps().length - 1)]; }
 
   go(i) {
@@ -136,6 +150,7 @@ export class Menu {
     if (id === 'aircraft') opts = AIRCRAFT.map((a) => a.id);
     else if (id === 'mode') opts = MODES.filter((m) => modeOk(m.id, this.ac())).map((m) => m.id);
     else if (id === 'dest') opts = this.routes().map((r) => r.id);
+    else if (id === 'opponent') opts = OPPONENTS.map((o) => o.id);
     else if (id === 'time') opts = Object.keys(TIMES);
     else return;
     const key = id === 'aircraft' ? 'aircraft' : id;
@@ -187,16 +202,20 @@ export class Menu {
     const a = AIRCRAFT.find((x) => x.id === s.aircraft);
     for (const p of r.querySelectorAll('.page')) p.classList.toggle('on', p.dataset.step === cur.id);
     $('.steptitle', r).textContent = `SECTION ${String(this.step + 1).padStart(2, '0')} · ${cur.title}`;
+    // Tabs: ROUTE or OPPONENT (whichever this mission has; air to ground: ROUTE struck out).
+    let n = 0;
     for (const b of r.querySelectorAll('.stepdot')) {
       const st = STEPS[+b.dataset.i];
       const idx = steps.indexOf(st);
+      const hide = (st.id === 'opponent' && s.mode !== 'dogfight') || (st.id === 'dest' && s.mode === 'dogfight');
+      b.hidden = hide;
+      if (!hide) b.firstElementChild.textContent = String(++n).padStart(2, '0');
       b.classList.toggle('skip', idx < 0);
       b.classList.toggle('done', idx >= 0 && idx < this.step);
       b.classList.toggle('cur', st === cur);
     }
-    for (const b of r.querySelectorAll('.accard')) {
-      b.classList.toggle('sel', b.dataset.id === s.aircraft);
-    }
+    for (const b of r.querySelectorAll('.accard:not(.opcard)')) b.classList.toggle('sel', b.dataset.id === s.aircraft);
+    for (const b of r.querySelectorAll('.opcard')) b.classList.toggle('sel', b.dataset.id === s.opponent);
     const name = (s.name || 'Shaheen').trim().toUpperCase();
     $('.achint', r).textContent = `You fly as ${a.rank} ${name} from ${BASES[a.homeBase].name}.`;
     const routes = this.routes();
@@ -225,6 +244,7 @@ export class Menu {
       row('AIRCRAFT', 'aircraft', `${a.name} · ${BASES[a.homeBase].short}`.toUpperCase()),
       row('MISSION', 'mode', s.mode === 'strike' ? 'AIR TO GROUND' : s.mode === 'dogfight' ? 'AIR TO AIR' : 'FERRY FLIGHT'),
       s.mode === 'ferry' && row('ROUTE', 'dest', route ? route.label.toUpperCase() : ''),
+      s.mode === 'dogfight' && row('OPPONENT', 'opponent', `${opponentById(s.opponent).name} · ${opponentById(s.opponent).difficulty}`.toUpperCase()),
       row('TIME OF DAY', 'time', TIMES[s.time].label.toUpperCase()),
       best && `<div class="drow"><span>BEST SCORE</span><i></i><b>${best}</b></div>`,
     ].filter(Boolean).join('');
@@ -302,18 +322,18 @@ export class Briefing {
     let rows, order, head, sub;
     const air = f.mode === 'dogfight';
     if (air) {
-      const df = f.df;
+      const df = f.df, o = df.opp;
       head = 'AIR COMBAT';
-      sub = '1 V 1 · GUNS ONLY';
+      sub = `${df.total} BANDITS · GUNS ONLY`;
       rows = [
-        row('AREA', `EAST OF ${dep.short}`),
-        row('START', `AIRBORNE · ${Math.round(f.ac.altFt / 100) * 100} FT · ${Math.round(f.ac.speedKt)} KT`),
-        row('BANDIT', `1 x ${d.name.toUpperCase()} · ${df.ahead ? 'AHEAD OF YOU' : 'ON YOUR SIX'}`),
-        row('WEAPONS', `${d.gun.name} · ${d.gun.rounds} ROUNDS`),
+        row('TAKE OFF FROM', dep.short),
+        row('BANDITS', `${df.total} x ${o.name.toUpperCase()} · ${o.difficulty}`),
+        row('INTERCEPT', `${Math.round(df.fightX / 1000)} KM OUT · ONE AT A TIME`),
+        row('WEAPONS', `${d.gun.name} · ${f.cb.ammoMax} ROUNDS`),
         row('DODGE', 'CLIMB, DIVE, OR CHOP THROTTLE + AIR BRAKE'),
+        row('LAND AT', 'SHOWN AFTER THE FIGHT'),
       ];
-      order = df.ahead ? "Close in behind him, nose on him, short bursts. Don't overshoot."
-        : 'Shake him off your six: make him overshoot, then get on his tail and gun him.';
+      order = 'Take off, get behind each bandit and gun him down, then land at the base that appears.';
     } else if (strike) {
       const objs = f.objectives;
       const sams = f.defences.filter((t) => t.role === 'sam').length;
@@ -383,9 +403,11 @@ export class Result {
     const shot = crash && r.reasons.some((x) => x.startsWith('Shot down'));
     const air = r.mode === 'dogfight';
     if (air) {
+      const { kills, total } = r.dogfight;
       if (crash) { head = 'MISSION FAILED'; sub = shot ? (r.ejected ? 'SHOT DOWN · PILOT EJECTED' : 'SHOT DOWN · PILOT LOST') : r.ejected ? 'AIRCRAFT LOST · PILOT EJECTED' : 'AIRCRAFT LOST'; tone = 'bad'; }
-      else if (r.grade === 'KILL') { head = 'SPLASH ONE'; sub = 'BANDIT DESTROYED'; tone = 'ok'; }
-      else { head = 'NO KILL'; sub = r.title; tone = 'warn'; }
+      else if (kills === total) { head = 'MISSION SUCCESSFUL'; sub = 'ALL BANDITS DESTROYED'; tone = 'ok'; }
+      else if (kills > 0) { head = 'PARTIAL SUCCESS'; sub = `${total - kills} BANDIT${total - kills > 1 ? 'S' : ''} GOT AWAY`; tone = 'warn'; }
+      else { head = 'MISSION FAILED'; sub = 'NO KILLS'; tone = 'bad'; }
     } else if (strike) {
       const { hit, total } = r.targets;
       if (crash) { head = 'MISSION FAILED'; sub = shot ? (r.ejected ? 'SHOT DOWN · PILOT EJECTED' : 'SHOT DOWN · PILOT LOST') : r.ejected ? 'AIRCRAFT LOST · PILOT EJECTED' : 'AIRCRAFT LOST'; tone = 'bad'; }
@@ -399,12 +421,14 @@ export class Result {
     const row = (k, v, cls = '') => `<div class="drow ${cls}"><span>${k}</span><i></i><b>${esc(v)}</b></div>`;
     const dfr = r.dogfight;
     const rows = air ? [
-      row('BANDIT', dfr.kill ? 'DESTROYED' : `DAMAGED ${100 - dfr.banditHp}%`, dfr.kill ? 'ok' : dfr.banditHp < 100 ? 'warn' : 'bad'),
-      row('BANDIT STARTED', dfr.start),
-      row('HITS ON BANDIT', String(dfr.hits)),
+      row('BANDITS DESTROYED', `${dfr.kills} / ${dfr.total} ${dfr.opponent.toUpperCase()}`, dfr.kills === dfr.total ? 'ok' : dfr.kills ? 'warn' : 'bad'),
+      row('OPPONENT', `${dfr.opponent} · ${dfr.difficulty}`.toUpperCase()),
+      row('HITS ON BANDITS', String(dfr.hits)),
       r.gun && row('GUN ROUNDS FIRED', `${r.gun.fired} / ${r.gun.total}`),
       row('BATTLE DAMAGE', `${r.damage}%`, r.damage >= 100 ? 'bad' : r.damage >= 50 ? 'warn' : r.damage > 0 ? '' : 'ok'),
-      row('FIGHT TIME', `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`),
+      row('RECOVERY', !crash ? `${r.dest.toUpperCase()} · ${landing}` : landing, crash ? 'bad' : ''),
+      row('FLIGHT TIME', `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`),
+      row('FUEL USED', `${Math.round(r.fuelUsedKg)} KG`),
     ].filter(Boolean).join('') : [
       strike && row('TARGETS DESTROYED', `${r.targets.hit} / ${r.targets.total}`, r.targets.hit === r.targets.total ? 'ok' : r.targets.hit ? 'warn' : 'bad'),
       strike && row('WEAPONS DEPLOYED', `${r.weapons.used} / ${r.weapons.total} ${r.weapons.name}`),

@@ -124,6 +124,25 @@ CONFIGS = {
                    "poly_src": [(384, 141), (428, 142), (448, 143), (468, 145), (495, 150), (495, 157),
                                 (483, 160), (472, 166), (440, 171), (404, 171), (401, 160), (393, 151)]},
     },
+    # Air-to-air opponents (owner 2026-11-21): bandit art, no gear (always airborne).
+    # MiG-21 and Rafale art points left: flipped to fly right like everything else.
+    "mig21": {
+        "src": "docs/reference/mig21_opponent_source.png", "flip": True,
+        "display_width": 118,  # 15.8 m incl. the pitot, about the F-16's length
+        "unflip": [(698, 92, 741, 109)],  # serial CU251
+        "gear_regions": [], "prop": None, "points": {},  # nozzle etc.: read off the output (flipped)
+    },
+    "su30": {
+        "src": "docs/reference/su30_opponent_source.png",
+        "display_width": 160,  # 21.9 m: much bigger than the others
+        "gear_regions": [], "prop": None, "points": {"nozzle": (60, 190)},
+    },
+    "rafale": {
+        "src": "docs/reference/rafale_opponent_source.png", "flip": True,
+        "display_width": 116,  # 15.3 m
+        "unflip": [(691, 83, 736, 99)],  # serial RB001
+        "gear_regions": [], "prop": None, "points": {},  # nozzle etc.: read off the output (flipped)
+    },
     # Weapons (owner's art, 2026-11-18), drawn under the jets on a strike
     # mission and when falling/flying. display_width is in world px like the
     # aircraft (aircraft art is ~2x true scale; so are these): texture width =
@@ -208,6 +227,10 @@ def build(name, cfg):
     im = Image.open(cfg["src"]).convert("RGBA")
     if cfg.get("flip"):
         im = im.transpose(Image.FLIP_LEFT_RIGHT)
+        # Text (serials) inside these SOURCE boxes is flipped back so it reads correctly.
+        for x0, y0, x1, y1 in cfg.get("unflip", []):
+            bx = (im.width - x1, y0, im.width - x0, y1)
+            im.paste(im.crop(bx).transpose(Image.FLIP_LEFT_RIGHT), bx[:2])
     for box in cfg.get("erase", []):
         im.paste((255, 255, 255, 255), box)
     remove_background(im)

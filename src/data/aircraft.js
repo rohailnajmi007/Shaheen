@@ -1,7 +1,7 @@
 // Aircraft data, ported from the Godot project's .tres files.
 // Physics in SI units. Sprite numbers are texture pixels (nose points right).
 
-const COMMON = {
+export const COMMON = {
   thrustZeroSpeedKt: 0,
   speedResponse: 1.2,
   engineSpoolS: 4,

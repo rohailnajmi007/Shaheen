@@ -23,7 +23,7 @@ out of scope until the owner says otherwise.
 - End of each chunk: summarise, say how to test (keys, what should happen), stop.
 - Keep the game runnable (`npm run dev`, `npm run build` clean) at every step.
 - Feel over realism: arcade flight model, believable but fun and readable.
-- Data-driven: aircraft in `src/data/aircraft.js`, bases/routes/themes/times of
+- Data-driven: aircraft in `src/data/aircraft.js` (air-to-air opponents in `src/data/opponents.js`), bases/routes/themes/times of
   day in `src/data/world.js`, not hard-coded in sim or render code.
 - Every tunable number is exposed: a data field, or a named constant at the top
   of its module.
