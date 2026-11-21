@@ -201,6 +201,11 @@ CONFIGS = {
     "emblem_no26": {"src": "docs/reference/squadron_emblems_source.png", "crop": (252, 143, 533, 433), "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
     "emblem_no29": {"src": "docs/reference/squadron_emblems_source.png", "crop": (534, 287, 782, 527), "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
     "emblem_no15": {"src": "docs/reference/squadron_emblems_source.png", "crop": (32, 289, 233, 527), "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
+    "emblem_no11": {"src": "docs/reference/emblem_no11_arrows_source.png", "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
+    "emblem_no5": {"src": "docs/reference/emblem_no5_falcons_source.png", "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
+    # F-16C front view (owner's art 2026-11-21), parked on No. 5 Sqn's line at Shahbaz.
+    "f16c_front": {"src": "docs/reference/f16c_front_source.png", "erase": [(680, 0, 833, 55)],
+                   "display_width": 42, "gear_regions": [], "prop": None, "points": {}},
     "nishan_e_haider": {"src": "docs/reference/nishan_e_haider_source.png", "display_width": 30, "gear_regions": [], "prop": None, "points": {}},
     # Front views for parked aircraft (base scenery, not flyable). "erase" blanks
     # the phone share/copy/download buttons in the top-right of the screenshots.

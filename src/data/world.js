@@ -65,13 +65,29 @@ export const BASES = {
     ],
     welcome: ['WELCOME TO KAMRA', 'PAF BASE KAMRA'],
   },
+  // Owner 2026-11-21: home of the F-16D; Jacobabad desert, palms and sand. Parked: No. 5
+  // Sqn "Falcons" F-16Cs (owner's front art), then No. 11 Sqn "Arrows" F-16As.
+  shahbaz: {
+    id: 'shahbaz', name: 'PAF Base Shahbaz', city: 'Jacobabad', short: 'SHAHBAZ',
+    runwayM: 1500, hangars: 2, towerM: 26, theme: 'sindh', taxiFromM: 5, holdM: 240,
+    parkedGroups: [
+      { sprite: 'f16c_front_body', from: -20, count: 6, board: 'NO. 5 MR SQN|FALCONS' },
+      { sprite: 'f16_front_body', from: 102, count: 6, board: 'NO. 11 MR SQN|ARROWS' },
+    ],
+    boards: [], boardColor: '#16181c', boardTrim: '#f0a020',
+    billboards: [
+      { sprite: 'emblem_no5_body', board: 'NO. 5 MR SQN|FALCONS' },
+      { sprite: 'emblem_no11_body', board: 'NO. 11 MR SQN|ARROWS' },
+    ],
+    welcome: ['WELCOME TO SHAHBAZ', 'PAF BASE SHAHBAZ'],
+  },
 };
 
 // Home base per aircraft (owner, 2026-11-19): the Mushshak flies from Risalpur, the
 // F-16s and Mirage from Mushaf (Sargodha), the JF-17 from Masroor (Karachi). The ferry
 // world is laid out from the home base (x = 0) to the right: the near destination at
 // ROUTE_M[0], the far one at ROUTE_M[1] (refuelling stop at the near base on the way).
-export const ROUTE_M = [6500, 12500, 18500];
+export const ROUTE_M = [6500, 12500, 18500, 24500];
 
 // Taxi out (owner 2026-11-21): every flight starts where the base's decorations begin
 // (base taxiFromM, else startM; m from the threshold; owner: "not a mile back") and you
@@ -92,12 +108,13 @@ export const REFUEL = {
   driveInM: 70,     // arrives from this far ahead
   cancelKt: 3,      // the jet rolling faster than this sends the truck away
 };
-// Ferry destinations, nearest first (owner 2026-11-21: Kamra too, so three each).
+// Ferry destinations, nearest first: every other base (owner 2026-11-21).
 export const ROUTES_FROM = {
-  risalpur: ['kamra', 'mushaf', 'masroor'],
-  mushaf: ['kamra', 'risalpur', 'masroor'],
-  masroor: ['mushaf', 'risalpur', 'kamra'],
-  kamra: ['risalpur', 'mushaf', 'masroor'],
+  risalpur: ['kamra', 'mushaf', 'shahbaz', 'masroor'],
+  mushaf: ['kamra', 'risalpur', 'shahbaz', 'masroor'],
+  masroor: ['shahbaz', 'mushaf', 'kamra', 'risalpur'],
+  kamra: ['risalpur', 'mushaf', 'shahbaz', 'masroor'],
+  shahbaz: ['masroor', 'mushaf', 'kamra', 'risalpur'],
 };
 // Landing bases after a mission (strike, air to air): any base but home, at random.
 export const recoveryBases = (home) => Object.keys(BASES).filter((id) => id !== home);
@@ -107,6 +124,7 @@ const ROUTE_NOTE = {
   masroor: 'Coast, sea and the Karachi skyline',
   mushaf: 'Green Punjab plains and Sargodha',
   kamra: 'Snow and the northern mountains',
+  shahbaz: 'Sindh desert, sand and palms',
 };
 
 // [base id, threshold x in m] for a ferry flight from this home base.
@@ -158,6 +176,14 @@ export const THEMES = {
     trees: '#26443a',
     ground: '#e8edf2', groundDark: '#c3cdd8',
     sea: false, city: false, pines: true,
+  },
+  // Jacobabad (Shahbaz, owner 2026-11-21): flat Sindh desert, low dunes, palm groves.
+  sindh: {
+    mountains: '#b59a7c', mountainsHi: 0.05, snow: false,
+    hills: '#d9bf8c', hillsHi: 0.06,
+    trees: '#5f6e34',
+    ground: '#dcc28e', groundDark: '#c4a874',
+    sea: false, city: false, palms: true,
   },
   desert: {
     mountains: '#9c8574', mountainsHi: 0.3, snow: false,

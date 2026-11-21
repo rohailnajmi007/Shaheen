@@ -132,12 +132,12 @@ export function buildLayer(slot, themeId, time, res) {
     const dark = shade(th.trees, light.map((v) => v * 0.85), time.haze, L.haze);
     const lit = shade(th.trees, light.map((v) => Math.min(1, v * 1.15)), time.haze, L.haze);
     const trunk = shade('#4a3a2a', light, time.haze, L.haze);
-    const count = themeId === 'desert' ? 40 : themeId === 'coast' ? 70 : 170;
+    const count = themeId === 'desert' ? 40 : themeId === 'coast' ? 70 : th.palms ? 55 : 170;
     for (let i = 0; i < count; i++) {
       const px = r() * W;
       const kind = r();
       const s = (0.6 + r() * 0.8) * res;
-      if (themeId === 'coast' && kind < 0.45) drawPalm(x, px, H, s * 1.2, dark, trunk);
+      if ((themeId === 'coast' || th.palms) && kind < (th.palms ? 0.7 : 0.45)) drawPalm(x, px, H, s * 1.2, dark, trunk);
       else if (themeId === 'kpk' && kind < 0.3) drawPoplar(x, px, H, s, dark, lit);
       else if (themeId === 'punjab' && kind < 0.25) drawBanyan(x, px, H, s * 1.3, dark, lit, trunk);
       else if (th.pines) drawPine(x, px, H, s * (0.8 + kind * 0.6), dark, lit, trunk, shade('#f2f5f9', light, time.haze, L.haze));

@@ -271,7 +271,7 @@ export const AIRCRAFT = [
 
     name: 'F-16D Fighting Falcon',
     role: 'Multirole fighter',
-    rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'mushaf',
+    rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'shahbaz',
     stats: { speed: 1, agility: 0.9, difficulty: 0.7 },
     massKg: 12000, maxThrustN: 76000, afterburnerN: 53000,
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,
