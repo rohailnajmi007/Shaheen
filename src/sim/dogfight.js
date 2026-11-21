@@ -7,7 +7,7 @@
 // you're out of rounds) the landing base appears and you land as usual.
 // Numbers: DOGFIGHT in src/data/combat.js, per-opponent `ai` overrides. No DOM.
 import { Aircraft, KT, G } from './aircraft.js';
-import { DOGFIGHT, DAMAGE, AAMS } from '../data/combat.js';
+import { DOGFIGHT, DAMAGE, AAMS, BANDIT_AAMS, COUNTERMEASURES, AAM_SEEKER } from '../data/combat.js';
 import { shellStep, segDist } from './combat.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -56,13 +56,21 @@ export class Dogfight {
   // Seeker: the bandit inside the cone ahead of your nose and within range builds the lock.
   stepSeeker(dt) {
     const M = this.aamType, a = this.f.ac, b = this.b;
+    this.seekWhy = null;
     if (!M || this.missiles <= 0 || !b || this.fleeing || a.onGround || a.shotDown || a.crashed) { this.lockT = 0; return; }
     const c = this.centre(b);
     const dx = c.x - a.pos.x, dy = c.y - a.pos.y, dist = Math.hypot(dx, dy);
     const off = Math.abs(wrap(Math.atan2(dy, dx) - a.pitch));
-    const inside = dist >= M.rangeM[0] && dist <= M.rangeM[1] && off <= M.coneDeg * D2R;
-    const was = this.locked;
-    this.lockT = inside ? Math.min(M.lockS, this.lockT + dt) : Math.max(0, this.lockT - dt * 2);
+    const was = this.locked, K = AAM_SEEKER;
+    // Already tracking: a wider cone and a little more range keep it (a jinking bandit
+    // slipping out for a moment doesn't throw the lock away).
+    const cone = M.coneDeg * D2R * (this.lockT > 0 ? K.holdConeMult : 1);
+    const maxR = M.rangeM[1] * (this.lockT > 0 ? K.holdRangeMult : 1);
+    const inCone = off <= cone;
+    const inside = dist >= M.rangeM[0] && dist <= maxR && inCone;
+    // Why it can't lock (HUD): 'close' / 'far' with the bandit in the cone.
+    this.seekWhy = inCone && !inside ? (dist < M.rangeM[0] ? 'close' : 'far') : null;
+    this.lockT = inside ? Math.min(M.lockS, this.lockT + dt) : Math.max(0, this.lockT - dt * K.decayPerS);
     if (!was && this.locked) this.f.emit('aamLocked');
   }
 
@@ -79,10 +87,10 @@ export class Dogfight {
     // The missile leaves lined up with the jet's body (ang = its attitude, drawn by the
     // renderer). A rail shot goes off along the nose; a drop keeps that attitude while it
     // falls clear (owner 2026-11-21: it spun comically when climbing or diving).
-    const ang = a.pitch, spd = Math.hypot(a.vel.x, a.vel.y);
+    const ang = a.pitch, spd = Math.hypot(a.vel.x, a.vel.y), ej = M.ejectMs ?? 5;
     const m = {
       M, x: p.x, y: p.y, px: p.x, py: p.y, t: 0, ang,
-      vx: drop ? a.vel.x + Math.sin(ang) * 5 : Math.cos(ang) * spd, vy: drop ? a.vel.y - Math.cos(ang) * 5 : Math.sin(ang) * spd,
+      vx: drop ? a.vel.x + Math.sin(ang) * ej : Math.cos(ang) * spd, vy: drop ? a.vel.y - Math.cos(ang) * ej : Math.sin(ang) * spd,
       motor: !drop, target: this.b, decoyAt: Math.random() < M.flareChance ? 0.6 + Math.random() * 0.8 : null,
       decoy: null, // a flare / chaff point it went for instead
     };
@@ -156,7 +164,7 @@ export class Dogfight {
           this.hp -= M.dmg * this.D.playerDmgMult;
           b.controlFactor = 1 - (1 - DAMAGE.controlAtZero) * this.damage;
           this.dropAam(i);
-          if (this.hp <= 0) this.shootDown();
+          if (this.hp <= 0) this.shootDown(true);
           else f.say(`Hit! The ${this.opp.name} is still flying! Finish him!`, true);
           continue;
         }
@@ -198,6 +206,13 @@ export class Dogfight {
     this.aimErr = 0;
     this.jinkT = 0; this.jinkAlt = b.pos.y;
     this.overshootT = 0;
+    this.yoyoT = 0;
+    this.jinkThr = null;   // speed jink: throttle it holds until the next jink (null: normal)
+    // Its missiles (owner 2026-11-21): seeker lock on you, launches.
+    this.bm = this.opp.aam ? BANDIT_AAMS[this.opp.aam.type] : null;
+    this.bmLeft = this.bm ? this.opp.aam.count : 0;
+    this.bmLockT = 0;
+    this.bmLastT = -99;
     this.fleeing = false;  // you're out of rounds: it leaves
     this.farT = 0;
     this.spawnT = f.time;
@@ -254,16 +269,78 @@ export class Dogfight {
   }
 
   // Killed: it falls (burning) on its own list; the next one can come meanwhile.
-  shootDown() {
+  // byMissile: a missile made the kill, so it breaks up into sections (owner 2026-11-21).
+  shootDown(byMissile = false) {
     const b = this.b;
     this.hp = 0;
+    this.bmLockT = 0;
     b.shotDown = true; b.controls = false; b.engineOn = false;
-    this.f.emit('airBurst', { x: b.pos.x, y: b.pos.y, power: 1.3 });
-    this.f.emit('banditDown', { x: b.pos.x, y: b.pos.y, vx: b.vel.x, vy: b.vel.y, pitch: b.pitch });
+    const pieces = byMissile && this.opp.breakup && b.pos.y > 30 ? this.breakUp(b) : null;
+    this.f.emit('airBurst', { x: b.pos.x, y: b.pos.y, power: pieces ? 1.7 : 1.3 });
+    this.f.emit('banditDown', { x: b.pos.x, y: b.pos.y, vx: b.vel.x, vy: b.vel.y, pitch: b.pitch, broken: !!pieces });
     const left = this.total - this.kills - this.escaped - 1;
     this.f.say(left > 0 ? `SPLASH ONE! ${this.opp.name} going down! ${left} more coming, stay sharp!` : "SPLASH! That's the last of them! Shabash!", true);
-    this.falling.push({ ac: b, prev: this.prev, t: 0 });
+    this.falling.push({ ac: b, prev: this.prev, t: 0, pieces });
     this.endBandit(true);
+  }
+
+  // The sections a missile kill tears the bandit into: 2 or 3, cut across the fuselage at
+  // random points inside the opponent's `breakup.cuts` ranges. Each piece is a rigid body
+  // (x, y in m, rot = its pitch) holding the strip [u0, u1] of the sprite (fractions of
+  // the width from the tail); the renderer cuts its picture once and draws it there.
+  breakUp(b) {
+    const B = this.opp.breakup, K = this.D.breakup, d = this.opp;
+    const three = Math.random() < K.threeChance;
+    const cuts = three ? [rand(...B.cuts[0]), rand(...B.cuts[1])] : [rand(B.cuts[0][0], B.cuts[1][1])];
+    const us = [0, ...cuts, 1];
+    const [W, H] = B.sizePx;
+    const cosP = Math.cos(b.pitch), sinP = Math.sin(b.pitch);
+    const pieces = [];
+    for (let i = 0; i < us.length - 1; i++) {
+      const u0 = us[i], u1 = us[i + 1];
+      const ox = (u0 + u1) / 2 * W, oy = H * 0.5;            // piece origin (texture px)
+      const lx = (ox - d.pivot[0]) * d.texM, ly = -(oy - d.pivot[1]) * d.texM;
+      // Pushed apart along the body (tail back, nose on), a kick up from the blast.
+      const along = (i - (us.length - 2) / 2) * rand(...K.sepMs);
+      const up = rand(...K.upMs);
+      const x = b.pos.x + lx * cosP - ly * sinP, y = b.pos.y + lx * sinP + ly * cosP;
+      pieces.push({
+        i, u0, u1, ox, oy, x, y, px: x, py: y, rot: b.pitch, prot: b.pitch,
+        vx: b.vel.x + along * cosP - up * sinP + rand(-1.5, 1.5), vy: b.vel.y + along * sinP + up * cosP,
+        spin: (Math.random() < 0.5 ? -1 : 1) * rand(...K.spinDegS) * D2R * (1.2 - (u1 - u0)),
+        mass: u1 - u0, landed: false,
+      });
+    }
+    return pieces;
+  }
+
+  // Pieces fall: gravity, air drag (no lift), tumbling. The biggest drives the camera.
+  stepPieces(w, dt) {
+    const K = this.D.breakup, f = this.f;
+    const biggest = w.pieces.reduce((m, q) => (q.mass > m.mass ? q : m));
+    let main = null;
+    for (const p of w.pieces) {
+      p.px = p.x; p.py = p.y; p.prot = p.rot;
+      if (p.landed) continue;
+      p.vy -= G * dt;
+      p.vx *= Math.exp(-K.dragX * dt / (0.4 + p.mass));
+      p.vy *= Math.exp(-K.dragY * dt);
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.rot += p.spin * dt;
+      if (p.y <= 0.5) {
+        p.landed = true; p.y = 0.5;
+        const big = p === biggest;
+        f.emit('explosion', { x: p.x, y: 0, big });
+        if (big) f.emit('banditWreck', { x: p.x });
+        continue;
+      }
+      if (!main || p.mass > main.mass) main = p;
+    }
+    if (main) {
+      const a = w.ac;
+      a.pos.x = main.x; a.pos.y = main.y; a.vel.x = main.vx; a.vel.y = main.vy; a.pitch = main.rot;
+    }
+    return !main; // all down
   }
 
 
@@ -281,12 +358,17 @@ export class Dogfight {
       b.step(dt, this.fleeing ? this.flee() : this.think(dt));
       b.events.length = 0;
       if (b.pos.y <= 0.5) this.shootDown(); // flew into the ground: your kill
-      else this.stepGun(dt);
+      else { this.stepGun(dt); this.stepBanditAam(dt); }
     }
     // Shot-down bandits fall until they hit the ground (or for maxFallS at most).
     for (let i = this.falling.length - 1; i >= 0; i--) {
       const w = this.falling[i];
       w.prev = this.snap(w.ac);
+      if (w.pieces) {
+        w.t += dt;
+        if (this.stepPieces(w, dt) || w.t > D.maxFallS) this.falling.splice(i, 1);
+        continue;
+      }
       w.ac.step(dt, { pitch: 0, throttle: 0, brake: false });
       w.ac.events.length = 0;
       w.t += dt;
@@ -377,32 +459,42 @@ export class Dogfight {
     } else {
       // You're behind it: jink up and down, sometimes chop the throttle so you overshoot.
       this.jinkT -= dt;
-      // Your gun opens up: it breaks the other way at once.
-      if (f.cb.firing && !this.wasShotAt) this.jinkT = 0;
+      // Your gun opens up: it breaks the other way at once, hard.
+      const shotAt = f.cb.firing && !this.wasShotAt;
+      if (shotAt) this.jinkT = 0;
       this.wasShotAt = f.cb.firing;
       if (this.jinkT <= 0) {
         this.jinkT = rand(D.jinkEveryS[0], D.jinkEveryS[1]);
         const dir = this.jinkAlt > b.pos.y ? -1 : 1; // alternate up / down
         const base = Math.max((b.pos.y + a.pos.y) / 2, D.jinkBaseMinM); // stays near your height
-        this.jinkAlt = clamp(base + dir * rand(0.4, 1) * D.jinkAltM, D.floorM + 120, D.ceilingM - 200);
+        this.jinkAlt = clamp(base + dir * rand(shotAt ? D.breakJink : 0.4, 1) * D.jinkAltM, D.floorM + 120, D.ceilingM - 200);
+        // Speed jink: surge or chop with it, so you can't just sit on its speed.
+        this.jinkThr = Math.random() < D.speedJinkChance ? (Math.random() < 0.5 ? 1 : D.chopThrottle) : null;
       }
       const close = !playerDead && -relX < D.overshootRangeM && Math.abs(relY) < 150;
       if (this.overshootT > 0) this.overshootT -= dt;
       else if (close && Math.random() < D.overshootPerS * dt) this.overshootT = rand(D.overshootS[0], D.overshootS[1]);
-      if (this.overshootT > 0) { throttle = 0; brake = true; }
+      // Yo-yo: nose up hard with the power back; you fly on underneath and past it.
+      if (this.yoyoT > 0) this.yoyoT -= dt;
+      else if (close && this.overshootT <= 0 && speed * KT > d.stallKt * 2 && Math.random() < D.yoyoPerS * dt) {
+        this.yoyoT = rand(D.yoyoS[0], D.yoyoS[1]); this.yoyoDeg = rand(D.yoyoDeg[0], D.yoyoDeg[1]);
+      }
+      if (this.overshootT > 0 || this.yoyoT > 0) { throttle = this.yoyoT > 0 ? 0.25 : 0; brake = true; }
       // Too far ahead: ease off so you can close (it wants the fight).
       else if (-relX > D.waitGapM) throttle = clamp(0.5 + (this.estVx - 20 - b.vel.x) * 0.05, 0, 1);
-      const wantVs = clamp((this.jinkAlt - b.pos.y) * 0.8, -70, 70);
-      targetPitch = Math.asin(clamp(wantVs / Math.max(speed, 1), -0.7, 0.7)) + this.trimAoa(speed);
+      else if (this.jinkThr != null) throttle = this.jinkThr;
+      const wantVs = clamp((this.jinkAlt - b.pos.y) * 0.8, -D.jinkVsMs, D.jinkVsMs);
+      targetPitch = this.yoyoT > 0 ? this.yoyoDeg * D2R
+        : Math.asin(clamp(wantVs / Math.max(speed, 1), -0.7, 0.7)) + this.trimAoa(speed);
     }
 
     // Safety: ground, ceiling, stall.
     const sinkTo = b.pos.y + Math.min(b.vel.y, 0) * 3.5;
-    if (b.pos.y < D.floorM || sinkTo < D.floorM) { targetPitch = Math.max(targetPitch, 18 * D2R); this.overshootT = 0; throttle = 1; brake = false; }
+    if (b.pos.y < D.floorM || sinkTo < D.floorM) { targetPitch = Math.max(targetPitch, 18 * D2R); this.overshootT = 0; this.yoyoT = 0; throttle = 1; brake = false; }
     if (b.pos.y > D.ceilingM) targetPitch = Math.min(targetPitch, -5 * D2R);
     if (speed * KT < d.stallKt * 1.35) {
       targetPitch = Math.min(targetPitch, Math.atan2(b.vel.y, b.vel.x));
-      throttle = 1; brake = false; this.overshootT = 0;
+      throttle = 1; brake = false; this.overshootT = 0; this.yoyoT = 0;
     }
     // Angle-of-attack limit: never pulls (or pushes) into a stall.
     const path = Math.atan2(b.vel.y, b.vel.x);
@@ -426,6 +518,42 @@ export class Dogfight {
     const d = this.opp;
     const cl = ((d.stallKt / KT) / Math.max(speed, 1)) ** 2;
     return clamp((cl - d.zeroAoaLift) / (1 - d.zeroAoaLift), 0, 0.8) * d.stallAoaDeg * D2R;
+  }
+
+  // Bandit missiles (owner 2026-11-21): its seeker needs you inside coneDeg of its nose and
+  // within range for lockS (MISSILE LOCK warning, RWR tone), then it fires one into
+  // Combat.threats, where it flies like a SAM missile and your flares work on it.
+  stepBanditAam(dt) {
+    const M = this.bm, f = this.f, cb = f.cb, b = this.b, a = f.ac;
+    if (!M || this.bmLeft <= 0 || this.fleeing || !cb.airborne()) { this.bmLockT = 0; return; }
+    const c = cb.hitCentre();
+    const dx = c.x - b.pos.x, dy = c.y - b.pos.y, dist = Math.hypot(dx, dy);
+    const off = Math.abs(wrap(Math.atan2(dy, dx) - b.pitch));
+    const ready = f.time - this.spawnT > M.holdS && f.time - this.bmLastT > M.gapS
+      && !cb.threats.some((m) => m.src === this);
+    const inside = ready && dist >= M.rangeM[0] && dist <= M.rangeM[1] && off <= M.coneDeg * D2R && !a.shotDown;
+    this.bmLockT = inside ? this.bmLockT + dt : Math.max(0, this.bmLockT - dt * 2);
+    if (this.bmLockT > 0) {
+      cb.radarLock = true;
+      f.say(`He's locking you up! ${this.opp.name} has you in his nose! Get out of it!`, true, `bmlock${this.number}`);
+    }
+    if (this.bmLockT < M.lockS) return;
+    // Launch: off its rail along the nose, the motor lit.
+    const p = b.pointM(this.opp.pivot[0], this.opp.pivot[1] - 18);
+    cb.threats.push({
+      x: p.x, y: p.y, vx: b.vel.x + Math.cos(b.pitch) * 25, vy: b.vel.y + Math.sin(b.pitch) * 25, t: 0,
+      M, src: this, target: 'ac', alive: true, closest: Infinity, by: `a ${this.opp.name}'s ${M.short}`,
+    });
+    this.bmLeft -= 1;
+    this.bmLastT = f.time;
+    this.bmLockT = 0;
+    f.emit('banditAam', { x: p.x, y: p.y });
+    f.say(`MISSILE LAUNCH! ${M.short} in the air! FLARES, X, and BREAK hard! NOW!`, true);
+  }
+
+  // A flare salvo from you may spoil its seeker before it fires.
+  flaresOut() {
+    if (this.bmLockT > 0 && Math.random() < COUNTERMEASURES.breaksLock) this.bmLockT = 0;
   }
 
   // Bandit gun: bursts with pauses while its nose is on you.

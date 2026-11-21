@@ -121,11 +121,8 @@ export class Sound {
     n.gunAm = this.gain(0);
     n.gunLfo.connect(n.gunAm); n.gunAm.connect(n.gunG.gain);
     // Radar warning receiver: lock beeps, missile-launch warble.
-    // Missile seeker tone (owner 2026-11-21): a low growl while tracking, a steady high
-    // tone when locked.
-    n.seek = start(this.osc('triangle', 520));
-    n.seekG = this.gain(0, this.fxBus);
-    n.seek.connect(this.filter('lowpass', 3000)).connect(n.seekG);
+    // Missile seeker (owner 2026-11-21): the growl sounded comical, so no tone while it
+    // searches; a short soft double beep when it locks (lockBeep, from main.js).
     n.rwr = start(this.osc('square', 1100));
     n.rwrG = this.gain(0, this.fxBus);
     n.rwr.connect(this.filter('lowpass', 2500)).connect(n.rwrG);
@@ -205,9 +202,6 @@ export class Sound {
     set(n.warnG.gain, alarms.gear && beat ? 0.06 : 0, 0.01);
     set(n.gunG.gain, alarms.gun ? 0.22 : 0, 0.01);
     set(n.gunAm.gain, alarms.gun ? 0.2 : 0, 0.01);
-    if (alarms.seek === 'lock') { set(n.seek.frequency, 1320, 0.01); set(n.seekG.gain, 0.05, 0.02); }
-    else if (alarms.seek === 'seek') { set(n.seek.frequency, 430 + 200 * (alarms.seekFrac || 0) + 40 * Math.sin(t * 31), 0.01); set(n.seekG.gain, 0.035, 0.02); }
-    else set(n.seekG.gain, 0, 0.03);
     if (alarms.missile) {
       const hi = (t * 8) % 1 < 0.5;
       set(n.rwr.frequency, hi ? 1450 : 950, 0.005);
@@ -287,5 +281,7 @@ export class Sound {
   }
 
   clank() { this.tone(700, 0.08, 0.12, 'square', 0.6); this.burst({ freq: 3000, type: 'bandpass', q: 2, dur: 0.1, vol: 0.25 }); }
+  // Missile lock made: two short soft sine beeps.
+  lockBeep() { this.tone(1046, 0.07, 0.035, 'sine'); setTimeout(() => this.tone(1046, 0.09, 0.035, 'sine'), 120); }
   chime(up = true) { this.tone(up ? 660 : 520, 0.15, 0.08); setTimeout(() => this.tone(up ? 990 : 390, 0.2, 0.08), 110); }
 }

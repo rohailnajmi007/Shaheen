@@ -72,6 +72,12 @@ export const DAMAGE_SMOKE = { fromDamage: 0.03, ratePerS: [10, 60], size: [2, 6]
 const WATCH_KILL_S = 5;
 // Pieces off a bandit going down: count on the kill, extra while falling, chip size (tex px),
 // fling speed (m/s), air drag (1/s), how long they stay, and a cap.
+// Missile-kill break-up (owner 2026-11-21: realistic, no cartoon jagged edges): each cut
+// is a smooth line across the fuselage, slanted up to slantH x the sprite height and
+// waving wobbleH; the break edge is charred with soft dark bands (char: [width px, alpha])
+// and a faint hot rim. Burning sections: smoke size (m) by piece size, fire chance per frame.
+export const BREAKUP_VIEW = { slantH: 0.5, wobbleH: 0.035, points: 9,
+  char: [[22, 0.12], [12, 0.22], [6, 0.35], [2.5, 0.5]], rim: [1.6, 0.4], smokeM: [2.5, 5.5], fireChance: 0.85, chipsOnKill: 5 };
 export const DEBRIS = { onKill: 12, fallingChipsPerS: 1, chipPx: [16, 40], flingMs: 18, airDrag: 0.6, lifeS: 30, max: 80,
   // Each round that hits any jet (you or a bandit) may knock off a small bit near the hit.
   hitChance: 0.7, hitChips: [1, 2], hitChipPx: [4, 10], hitFlingMs: 12 };
@@ -166,6 +172,7 @@ export class Renderer {
     this.imgVer = imageState.version;
     this.wrecks = [];
     this.debris = []; // pieces off bandits (not the camera's crash wreck)
+    this.breakCache = new WeakMap(); // missile-kill break-up: falling entry -> cut pictures
     this.truckGfx = buildFuelTruck(time, R);
     this.targetGfx = {};
     for (const k of Object.keys(GROUND_UNITS)) {
@@ -323,7 +330,10 @@ export class Renderer {
     this.drawWeapons(ctx, v, flight);
     if (flight.armed) this.drawCombat(ctx, v, flight);
     if (df) {
-      for (const w of df.falling) this.drawAircraft(ctx, v, df.opp, df.renderState(alpha, w.ac, w.prev), DOGFIGHT_CAM.banditTint);
+      for (const w of df.falling) {
+        if (w.pieces) this.drawBreakup(ctx, v, df.opp, w, alpha);
+        else this.drawAircraft(ctx, v, df.opp, df.renderState(alpha, w.ac, w.prev), DOGFIGHT_CAM.banditTint);
+      }
       if (this.bst) {
         this.drawAircraft(ctx, v, df.opp, this.bst, DOGFIGHT_CAM.banditTint);
         if (df.firing) this.drawMuzzleAt(ctx, v, df.opp, this.bst);
@@ -337,7 +347,8 @@ export class Renderer {
     if (ej) this.drawEject(ctx, v, ej);
     this.drawRings(ctx, v);
     this.drawClouds(ctx, v, true);
-    if (flight.mode === 'strike') { this.drawTargetMarker(ctx, v, flight); this.drawThreatArrows(ctx, v, flight); }
+    if (flight.mode === 'strike') this.drawTargetMarker(ctx, v, flight);
+    if (flight.armed) this.drawThreatArrows(ctx, v, flight);
     if (df) this.drawAamLock(ctx, v, flight); // over the clouds: the seeker box must always show
     if (this.bst && !df.fleeing) this.drawBanditMarker(ctx, v, flight, this.bst);
     this.drawScreenFx(ctx, v, flight.ac);
@@ -1370,7 +1381,11 @@ export class Renderer {
         this.particles.spawn('glow', e.x, e.y + 1, 0, 0, 10, 0.3, { grow: 1.5, ground: false });
       } else if (e.type === 'countermeasure') {
         for (let i = 0; i < 14; i++) this.particles.spawn('white', e.x + (Math.random() - 0.5) * 4, e.y + (Math.random() - 0.5) * 4, flight.ac.vel.x * 0.2 + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, 1.2, 3 + Math.random() * 2, { grow: 3, alpha: 0.35, drag: 2.5, ground: false });
-      } else if (e.type === 'banditDown' && flight.df) this.chips(flight.df.opp, { pos: { x: e.x, y: e.y }, vel: { x: e.vx, y: e.vy }, pitch: e.pitch }, DEBRIS.onKill, 1);
+      } else if (e.type === 'banditDown' && flight.df) this.chips(flight.df.opp, { pos: { x: e.x, y: e.y }, vel: { x: e.vx, y: e.vy }, pitch: e.pitch }, e.broken ? BREAKUP_VIEW.chipsOnKill : DEBRIS.onKill, e.broken ? 1.6 : 1);
+      else if (e.type === 'banditAam') {
+        this.puffs(e.x, e.y, 6, 'smoke', 2.5);
+        this.particles.spawn('glow', e.x, e.y, 0, 0, 6, 0.25, { grow: 1.5, ground: false });
+      }
       else if (e.type === 'banditWreck') { this.wrecks.push({ x: e.x, t: 0 }); this.explode(e.x, 1, 1.3); }
       else if (e.type === 'sonicBoom') this.cam.shake = Math.min(1.2, this.cam.shake + 0.45); // Mach 1: a jolt
       else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
@@ -1733,6 +1748,110 @@ export class Renderer {
     if ((falling || k > Z.fireFrom) && Math.random() < (falling ? 0.7 : 0.35)) P.spawn('fire', p.x, p.y, ac.vel.x * 0.3, 0, 3.5, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
   }
 
+  // Missile kill: the bandit's sections (sim: Dogfight.breakUp), each cut once from the
+  // sprite. Drawn at the bandit's on-screen size; when that is bigger than life (zoomed
+  // out) their spacing grows with it, so the jet looks whole at the moment it breaks.
+  drawBreakup(ctx, v, d, w, alpha) {
+    const img = images[d.sprite];
+    if (!img) return;
+    let cache = this.breakCache.get(w);
+    if (!cache) { cache = this.cutPieces(img, w.pieces); this.breakCache.set(w, cache); }
+    const k = Math.max(v.S * d.texM, (0.07 * v.W) / img.width);
+    const ratio = k / (v.S * d.texM);
+    const ps = w.pieces.map((p) => {
+      let dr = p.rot - p.prot;
+      if (dr > Math.PI) dr -= Math.PI * 2; else if (dr < -Math.PI) dr += Math.PI * 2;
+      return { x: p.px + (p.x - p.px) * alpha, y: p.py + (p.y - p.py) * alpha, rot: p.prot + dr * alpha };
+    });
+    let ax = 0, ay = 0;
+    for (const q of ps) { ax += q.x; ay += q.y; }
+    ax /= ps.length; ay /= ps.length;
+    cache.ratio = ratio;
+    ps.forEach((q, i) => {
+      const c = cache.pieces[i];
+      // Where it is drawn, in world m (the smoke and fire come from there).
+      c.x = ax + (q.x - ax) * ratio; c.y = Math.max(0.5, ay + (q.y - ay) * ratio); c.rot = q.rot;
+      ctx.save();
+      ctx.translate(v.sx(c.x), v.sy(c.y));
+      ctx.rotate(-q.rot);
+      ctx.scale(k, k);
+      ctx.drawImage(c.cv, -c.ox, -c.oy);
+      ctx.restore();
+    });
+  }
+
+  // Cut the sprite into the break-up sections along smooth, slanted, slightly wavy lines
+  // (shared by the two pieces either side, so they fit together), charred softly at the break.
+  cutPieces(img, pieces) {
+    const B = BREAKUP_VIEW, W = img.width, H = img.height, r = Math.random;
+    const src = tinted(img, this.lightBody);
+    const line = (u) => {
+      const slant = (r() - 0.5) * 2 * B.slantH * H, ph = r() * 6.3, ph2 = r() * 6.3, pts = [];
+      for (let i = 0; i < B.points; i++) {
+        const t = i / (B.points - 1), y = -4 + t * (H + 8);
+        const wob = (Math.sin(ph + t * 5.1) * 0.65 + Math.sin(ph2 + t * 11.7) * 0.35) * B.wobbleH * H;
+        pts.push([u * W + slant * (0.5 - t) + wob, y]);
+      }
+      return pts;
+    };
+    const edge = (x) => [[x, -4], [x, H + 4]];
+    const cuts = pieces.slice(1).map((p) => line(p.u0));
+    const along = (g, pts) => { // smooth curve from pts[0] (current point) to the last point
+      for (let i = 1; i < pts.length - 1; i++) g.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+      g.lineTo(...pts[pts.length - 1]);
+    };
+    const out = pieces.map((p, i) => {
+      const L = i ? cuts[i - 1] : edge(-4), R = i < pieces.length - 1 ? cuts[i] : edge(W + 4);
+      const cv = makeCanvas(W, H), g = cv.getContext('2d');
+      g.beginPath();
+      g.moveTo(...L[0]); g.lineTo(...R[0]);
+      along(g, R);
+      g.lineTo(...L[L.length - 1]);
+      along(g, [...L].reverse());
+      g.closePath();
+      g.save(); g.clip(); g.drawImage(src, 0, 0); g.restore();
+      // Charred break: soft dark bands along each cut edge (only on the metal: source-atop).
+      g.globalCompositeOperation = 'source-atop';
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      const edges = [i ? cuts[i - 1] : null, i < pieces.length - 1 ? cuts[i] : null].filter(Boolean);
+      for (const e of edges) {
+        const stroke = (lw, col) => { g.beginPath(); g.moveTo(...e[0]); along(g, e); g.strokeStyle = col; g.lineWidth = lw; g.stroke(); };
+        for (const [lw, al] of B.char) stroke(lw, `rgba(22,15,10,${al})`);
+        stroke(B.rim[0], `rgba(255,130,50,${B.rim[1]})`);
+      }
+      const ox = (p.u0 + p.u1) / 2 * W, oy = H * 0.5;
+      // The break edges, in px from the piece origin (smoke and fire come out of them).
+      const holes = [i ? p.u0 : null, i < pieces.length - 1 ? p.u1 : null].filter((u) => u != null).map((u) => [u * W - ox, 0]);
+      return { cv, ox, oy, holes, x: null, y: null, rot: 0 };
+    });
+    return { pieces: out, ratio: 1, texM: null };
+  }
+
+  // Burning sections: thick black smoke and fire out of each break, a continuous trail.
+  breakupSmoke(d, w, dt) {
+    const cache = this.breakCache.get(w);
+    if (!cache) return;
+    const B = BREAKUP_VIEW, P = this.particles;
+    w.pieces.forEach((p, i) => {
+      const c = cache.pieces[i];
+      if (p.landed || c.x == null) return;
+      const size = B.smokeM[0] + (B.smokeM[1] - B.smokeM[0]) * p.mass;
+      const sp = Math.hypot(p.vx, p.vy);
+      const cs = Math.cos(c.rot), sn = Math.sin(c.rot), m = d.texM * cache.ratio;
+      for (const [hx, hy] of c.holes) {
+        const lx = hx * m, ly = -hy * m;
+        const x = c.x + lx * cs - ly * sn, y = c.y + lx * sn + ly * cs;
+        let n = Math.max(12 * dt, (sp * dt) / (size * 0.6));
+        for (; n > 0; n -= 1) {
+          if (n < 1 && Math.random() > n) break;
+          const f = Math.random();
+          P.spawn('dark', x - p.vx * dt * f, y - p.vy * dt * f, p.vx * 0.08, 1, size, 2.5 + Math.random() * 1.5, { grow: 3, alpha: 0.7, ground: false, drag: 0.4 });
+        }
+        if (Math.random() < B.fireChance) P.spawn('fire', x, y, p.vx * 0.3, p.vy * 0.3, size * 0.8, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
+      }
+    });
+  }
+
   // Pieces torn off a jet in the air (owner 2026-11-21: a bandit going down sheds bits):
   // jagged chips cut from its sprite, charred at the edge, flung off and falling.
   // at: a round's hit point (m) -> small bits cut from the sprite near it, flung from there.
@@ -1758,19 +1877,27 @@ export class Renderer {
       const cy = at ? hy + (r() - 0.5) * 12 : img.height * (0.3 + r() * 0.45);
       const cv = makeCanvas(rad * 2 + 2, rad * 2 + 2);
       const g = cv.getContext('2d');
-      g.beginPath();
-      const pts = 7 + Math.floor(r() * 4);
-      for (let k = 0; k < pts; k++) {
-        const a = (k / pts) * Math.PI * 2, rr = rad * (0.45 + r() * 0.55);
-        const px = rad + 1 + Math.cos(a) * rr, py = rad + 1 + Math.sin(a) * rr;
-        if (k) g.lineTo(px, py); else g.moveTo(px, py);
+      // A smooth irregular outline (curves through the midpoints of a few random points),
+      // a soft charred edge, no hard outline (owner 2026-11-21: no cartoon jagged edges).
+      const pts = [];
+      const np = 5 + Math.floor(r() * 3), squash = 0.55 + r() * 0.45, tilt = r() * Math.PI;
+      for (let k = 0; k < np; k++) {
+        const a = (k / np) * Math.PI * 2, rr = rad * (0.72 + r() * 0.28);
+        const ex = Math.cos(a) * rr, ey = Math.sin(a) * rr * squash;
+        pts.push([rad + 1 + ex * Math.cos(tilt) - ey * Math.sin(tilt), rad + 1 + ex * Math.sin(tilt) + ey * Math.cos(tilt)]);
       }
+      const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+      g.beginPath();
+      g.moveTo(...mid(pts[np - 1], pts[0]));
+      for (let k = 0; k < np; k++) g.quadraticCurveTo(pts[k][0], pts[k][1], ...mid(pts[k], pts[(k + 1) % np]));
       g.closePath();
       g.save(); g.clip();
       g.drawImage(src, cx - rad - 1, cy - rad - 1, rad * 2 + 2, rad * 2 + 2, 0, 0, rad * 2 + 2, rad * 2 + 2);
       g.restore();
       g.globalCompositeOperation = 'source-atop';
-      g.strokeStyle = 'rgba(25,18,12,0.85)'; g.lineWidth = 3; g.stroke();
+      for (const [lw, al] of [[Math.max(2, rad * 0.5), 0.18], [Math.max(1, rad * 0.2), 0.3]]) {
+        g.strokeStyle = `rgba(25,18,12,${al})`; g.lineWidth = lw; g.stroke();
+      }
       // Empty (transparent) chips aren't worth keeping.
       const lx = (cx - d.pivot[0]) * d.texM, ly = -(cy - d.pivot[1]) * d.texM;
       const sp = (at ? DEBRIS.hitFlingMs : DEBRIS.flingMs) * power * (0.4 + r() * 0.8);
@@ -1834,6 +1961,7 @@ export class Renderer {
     if (df) {
       if (df.b) this.damageSmoke(df.b, df.opp, df.damage, dt, false);
       for (const w of df.falling) {
+        if (w.pieces) { this.breakupSmoke(df.opp, w, dt); continue; }
         this.damageSmoke(w.ac, df.opp, 1, dt, true);
         if (Math.random() < dt * DEBRIS.fallingChipsPerS) this.chips(df.opp, w.ac, 1, 0.5);
       }

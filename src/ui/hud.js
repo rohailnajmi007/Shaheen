@@ -168,11 +168,12 @@ export class Hud {
           : df.phase === 'inbound' ? `${df.total} x ${name} AHEAD` : 'NEXT BANDIT INBOUND';
       // Seeker state overrides while it matters (owner 2026-11-21).
       const sk = df.seeker;
-      const st2 = f.revealed ? state : sk === 'lock' ? `LOCKED ${rs} · FIRE (SPACE)` : sk === 'seek' ? `SEEKING… ${Math.round(df.lockFrac * 100)}%` : state;
+      const st2 = f.revealed ? state : sk === 'lock' ? `LOCKED ${rs} · FIRE (SPACE)` : sk === 'seek' ? `SEEKING… ${Math.round(df.lockFrac * 100)}%`
+        : sk === 'search' && df.seekWhy === 'close' ? `TOO CLOSE FOR ${df.aamType.short} · GUNS` : sk === 'search' && df.seekWhy === 'far' ? `OUT OF ${df.aamType.short} RANGE ${rs}` : state;
       this.set('wstate', this.el.wstate, st2);
       this.cls('wstate', this.el.weapon, 'hot', sol || sk === 'lock');
       const bd = b ? ` · ${name} DMG ${Math.round(100 - Math.max(0, df.hp) / df.opp.airframeHp * 100)}%` : '';
-      this.set('wsub', this.el.wsub, `GUN ${cb.ammo} · KILLS ${df.kills}/${df.total}${bd}`);
+      this.set('wsub', this.el.wsub, `GUN ${cb.ammo} · FLR ${cb.cm} · KILLS ${df.kills}/${df.total}${bd}`);
       const hp = Math.round(cb.hp);
       this.set('whp', this.el.whp, `${hp}%`, 'width');
       this.cls('whp', this.el.weapon, 'dmg', hp < 60);
@@ -216,10 +217,10 @@ export class Hud {
     else if (!a.onGround && a.pos.y < 8 && a.pitch * 57.3 > d.tailStrikeDeg - 3 && a.pitch < 1.5) w.push(['NOSE HIGH', 'amber']);
     if (a.lowFuel) w.push([a.fuel <= 0 ? 'NO FUEL' : 'LOW FUEL', 'amber']);
     if (a.speedKt > d.maxSpeedKt * 1.02) w.push(['OVERSPEED', 'amber']);
-    if (f.mode === 'strike' && !a.crashed) {
+    if (f.armed && !a.crashed) {
       const inc = f.cb.incoming();
       if (inc.length) w.push(['MISSILE · FLARES X + BREAK', 'red']);
-      else if (f.cb.radarLock) w.push(['SAM LOCK', 'amber']);
+      else if (f.cb.radarLock) w.push([f.df ? 'MISSILE LOCK' : 'SAM LOCK', 'amber']);
       if (f.cb.hp < 45 && f.cb.hp > 0) w.push(['ENGINE DAMAGE', 'amber']);
     }
     if (f.df && f.df.fighting && !a.crashed && !a.shotDown) {

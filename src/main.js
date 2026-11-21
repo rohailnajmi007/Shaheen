@@ -126,6 +126,8 @@ function soundFx(f) {
       case 'cleared': sound.chime(true); break;
       case 'aamLaunch': sound.whoosh(); if (e.rail) sound.burst({ freq: 700, dur: 0.5, vol: 0.5 }); break;
       case 'aamIgnite': sound.burst({ freq: 600, dur: 0.6, vol: 0.45 }); break;
+      case 'aamLocked': sound.lockBeep(); break;
+      case 'banditAam': sound.launch(); break;
       case 'aamNoLock': sound.tone(300, 0.12, 0.08, 'square'); break;
       case 'smokeOn': sound.burst({ freq: 2500, type: 'highpass', dur: 0.4, vol: 0.15 }); break;
       case 'acHit': sound.metalHit(e.bandit ? 0.45 : 1); break;

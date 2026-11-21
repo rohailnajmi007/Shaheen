@@ -111,16 +111,38 @@ export const EJECT = {
 // it slows by dragMs2; it turns at most turnDegS toward the intercept point; proximity
 // fuse fuseM; dmg against the bandit's hit points; flareChance: the bandit's flares (IR)
 // or chaff and notching (radar) pull it off; it self-destructs after lifeS.
+// Seeker (owner 2026-11-21: "sometimes it won't lock"): min range cut (gun-range fights
+// were under it), and once it has the bandit it keeps tracking inside holdConeMult x the
+// cone and holdRangeMult x the max range; out of that the lock drains at decayPerS.
+export const AAM_SEEKER = { holdConeMult: 1.8, holdRangeMult: 1.15, decayPerS: 1 };
 export const AAMS = {
   aim9: { name: 'AIM-9M SIDEWINDER', short: 'AIM-9M', fox: 'FOX TWO', sprite: 'aim9_body', launch: 'rail',
-    rangeM: [300, 2800], coneDeg: 22, lockS: 0.9, dropS: 0, speedMs: 620, accel: 420, burnS: 2.2, dragMs2: 70,
+    rangeM: [150, 2800], coneDeg: 22, lockS: 0.9, dropS: 0, speedMs: 620, accel: 420, burnS: 2.2, dragMs2: 70,
     turnDegS: 42, fuseM: 9, dmg: 90, flareChance: 0.3, lifeS: 9, smoke: 0.9 },
+  // ejectMs: a drop launch is pushed down off the rack at this speed (default 5); the AMRAAM
+  // falls a long way clear before the motor lights (owner 2026-11-21: was 0.45 s, 5 m/s).
   aim120: { name: 'AIM-120 AMRAAM', short: 'AIM-120', fox: 'FOX THREE', sprite: 'aim120_body', launch: 'drop',
-    rangeM: [500, 4000], coneDeg: 30, lockS: 1.4, dropS: 0.45, speedMs: 800, accel: 330, burnS: 3.5, dragMs2: 55,
+    rangeM: [250, 4000], coneDeg: 30, lockS: 1.4, dropS: 0.85, ejectMs: 9, speedMs: 800, accel: 330, burnS: 3.5, dragMs2: 55,
     turnDegS: 32, fuseM: 12, dmg: 115, flareChance: 0.15, lifeS: 11, smoke: 1 },
   pl15: { name: 'PL-15', short: 'PL-15', fox: 'FOX THREE', sprite: 'pl15_body', launch: 'drop',
-    rangeM: [500, 4000], coneDeg: 30, lockS: 1.5, dropS: 0.5, speedMs: 850, accel: 340, burnS: 4, dragMs2: 55,
+    rangeM: [250, 4000], coneDeg: 30, lockS: 1.5, dropS: 0.5, speedMs: 850, accel: 340, burnS: 4, dragMs2: 55,
     turnDegS: 30, fuseM: 12, dmg: 125, flareChance: 0.15, lifeS: 12, smoke: 1 },
+};
+
+// Bandits' missiles (owner 2026-11-21: Su-30 and Rafale shoot back; flares X to beat
+// them). Flown by the enemy-missile code in src/sim/combat.js, the same as SAMs, so the
+// flight numbers mean the same (boost, PN guidance navN, maxG, gimbal, drag, fuse, damage
+// dmgMax at the centre .. dmgMin at fuseM, decoyChance x COUNTERMEASURES geometry).
+// Launch rules (src/sim/dogfight.js): you within coneDeg of its nose and rangeM of it for
+// lockS (MISSILE LOCK warning; a flare salvo may break it), not before holdS after it
+// appears, at least gapS between shots, one in the air at a time. `aam` per opponent.
+export const BANDIT_AAMS = {
+  r73: { name: 'R-73', short: 'R-73', rangeM: [450, 2600], coneDeg: 22, lockS: 1.8, holdS: 6, gapS: 11,
+    boostS: 2.4, boostAcc: 300, maxSpeed: 880, dragK: 0.0002, navN: 4, maxG: 30, lifeS: 10,
+    gimbalDeg: 60, fuseM: 12, dmgMax: 65, dmgMin: 28, decoyChance: 0.85 },
+  mica: { name: 'MICA IR', short: 'MICA', rangeM: [450, 3000], coneDeg: 26, lockS: 1.3, holdS: 5, gapS: 9,
+    boostS: 2.6, boostAcc: 320, maxSpeed: 920, dragK: 0.00019, navN: 4.2, maxG: 32, lifeS: 10,
+    gimbalDeg: 62, fuseM: 12, dmgMax: 70, dmgMin: 30, decoyChance: 0.8 },
 };
 
 export const DOGFIGHT = {
@@ -160,12 +182,27 @@ export const DOGFIGHT = {
   overshootPerS: 0.45,     // chance per s it chops throttle + air brake while you're close behind
   overshootS: [1.4, 2.6],
   overshootRangeM: 550,
+  // More ways to make you overshoot (owner 2026-11-21: too easy): a yo-yo (pulls up hard,
+  // power back, for yoyoS, so you shoot past underneath), speed surges / chops while
+  // jinking (speedJinkChance per jink), and a vertical speed limit for the jinks.
+  yoyoPerS: 0,             // chance per s while you're close behind (opponents set it)
+  yoyoS: [1.6, 2.6],
+  yoyoDeg: [32, 48],       // nose up this much
+  speedJinkChance: 0,      // per jink: surge to full power or chop to chopThrottle
+  chopThrottle: 0.35,
+  jinkVsMs: 70,            // fastest climb / dive while jinking (m/s)
+  breakJink: 1,            // when your gun opens up: the jink it starts is this share of jinkAltM at least
   floorM: 160,             // it pulls up below this
   ceilingM: 3200,          // ... and noses down above this
   catchUpM: 1100,          // further apart than this: it gets extra thrust to close up
   catchUpThrust: 1.3,
   // Rules.
   maxFallS: 40,            // a shot-down bandit is dropped after falling this long
+  // Missile kill (owner 2026-11-21): the bandit breaks into 2-3 sections that fall
+  // apart, tumbling and burning (cuts per opponent: `breakup` in src/data/opponents.js).
+  // threeChance: three pieces instead of two; sepMs: how fast they push apart; upMs:
+  // extra lift from the blast; spinDegS: tumble rate; dragX/dragY: air drag (1/s).
+  breakup: { threeChance: 0.45, sepMs: [3, 7], upMs: [1, 5], spinDegS: [20, 85], dragX: 0.3, dragY: 0.08 },
   noAmmoEndS: 5,           // your gun empty this long: fight over, he leaves, you go home
   fleeGoneM: 3500,         // ... gone once this far away
   outOfRangeM: 4000,       // further apart than this for outOfRangeS: he got away (next one comes)

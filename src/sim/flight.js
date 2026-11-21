@@ -221,7 +221,7 @@ export class Flight {
         else if (this.df) this.df.fireAam(); // air to air: missile (after a lock)
         else this.dropStore();
         break;
-      case 'countermeasure': if (this.mode === 'strike') this.cb.dispense(); break;
+      case 'countermeasure': if (this.armed) this.cb.dispense(); break;
     }
   }
 
@@ -800,7 +800,7 @@ export class Flight {
       defences: this.mode === 'strike' ? { hit: this.defences.filter((t) => !t.alive).length, total: this.defences.length } : null,
       gun: this.armed && this.data.gun ? { fired: this.cb.stats.roundsFired, total: this.cb.ammoMax } : null,
       damage: this.armed ? Math.round(100 - this.cb.hp) : 0,
-      countermeasures: this.mode === 'strike' ? { used: this.cb.stats.cmUsed, evaded: this.cb.stats.evaded } : null,
+      countermeasures: this.armed ? { used: this.cb.stats.cmUsed, evaded: this.cb.stats.evaded } : null,
       weapons: this.mode === 'strike' ? { used: this.data.bombCount - this.ac.bombsLeft, total: this.data.bombCount, name: this.data.weaponName } : null,
       dogfight: this.df ? {
         kills: this.df.kills, total: this.df.total, opponent: this.df.opp.name, difficulty: this.df.opp.difficulty,

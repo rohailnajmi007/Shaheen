@@ -516,6 +516,7 @@ export class Result {
       row('OPPONENT', `${dfr.opponent} · ${dfr.difficulty}`.toUpperCase()),
       row('HITS ON BANDITS', String(dfr.hits)),
       r.gun && row('GUN ROUNDS FIRED', `${r.gun.fired} / ${r.gun.total}`),
+      r.countermeasures && (r.countermeasures.evaded || r.countermeasures.used) && row('MISSILES EVADED', `${r.countermeasures.evaded} · ${r.countermeasures.used} FLARES / CHAFF`),
       row('BATTLE DAMAGE', `${r.damage}%`, r.damage >= 100 ? 'bad' : r.damage >= 50 ? 'warn' : r.damage > 0 ? '' : 'ok'),
       row('RECOVERY', !crash ? `${r.dest.toUpperCase()} · ${landing}` : landing, crash ? 'bad' : ''),
       row('FLIGHT TIME', `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`),

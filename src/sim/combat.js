@@ -354,7 +354,7 @@ export class Combat {
         m.alive = false;
         this.threats.splice(i, 1);
         this.f.emit('airBurst', { x: m.x, y: m.y, power: 0.7 });
-        if (boom.hit) this.damage(lerp(M.dmgMax, M.dmgMin, boom.d / M.fuseM), 'a SAM');
+        if (boom.hit) this.damage(lerp(M.dmgMax, M.dmgMin, boom.d / M.fuseM), m.by || 'a SAM');
         else this.evaded(m);
         continue;
       }
@@ -407,6 +407,7 @@ export class Combat {
     for (const t of this.f.targets) {
       if (t.role === 'sam' && t.lockT > 0 && Math.random() < C.breaksLock) t.lockT = 0;
     }
+    if (this.f.df) this.f.df.flaresOut(); // a bandit's missile seeker too
   }
 
   // How well the jet's flight helps a decoy against missile m (0..1): flying across
