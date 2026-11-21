@@ -91,6 +91,12 @@ export class Dogfight {
     f.say(`${M.fox}! ${M.short} away!`, true);
   }
 
+  // A missile is gone: its smoke trail stays a few seconds, fading (renderer).
+  dropAam(i) {
+    const m = this.aams.splice(i, 1)[0];
+    if (m.trail && m.trail.length > 1) (this.oldTrails || (this.oldTrails = [])).push({ pts: m.trail, at: this.f.time });
+  }
+
   // Missiles in flight: motor, guidance to the intercept point, proximity fuse.
   stepAams(dt) {
     const f = this.f;
@@ -129,6 +135,8 @@ export class Dogfight {
         m.vx = Math.cos(hd) * sp; m.vy = Math.sin(hd) * sp;
       }
       m.x += m.vx * dt; m.y += m.vy * dt;
+      // Smoke trail points while the motor burns (drawn as a line by the renderer).
+      if (m.motor && (!m.trail || m.t - m.trail[m.trail.length - 1].t > 0.04)) (m.trail || (m.trail = [])).push({ x: m.x, y: m.y, t: m.t });
       // Fuse: passes within fuseM of the bandit it was fired at (and not decoyed).
       const b = this.b;
       if (b && m.target === b && !m.decoy && m.t > burnFrom) {
@@ -138,16 +146,16 @@ export class Dogfight {
           f.emit('acHit', { x: c.x, y: c.y, bandit: true });
           this.hp -= M.dmg * this.D.playerDmgMult;
           b.controlFactor = 1 - (1 - DAMAGE.controlAtZero) * this.damage;
-          this.aams.splice(i, 1);
+          this.dropAam(i);
           if (this.hp <= 0) this.shootDown();
           else f.say(`Hit! The ${this.opp.name} is still flying! Finish him!`, true);
           continue;
         }
       }
-      if (m.y <= 0) { f.emit('explosion', { x: m.x, y: 0 }); this.aams.splice(i, 1); continue; }
+      if (m.y <= 0) { f.emit('explosion', { x: m.x, y: 0 }); this.dropAam(i); continue; }
       if (m.t > M.lifeS || (m.decoy && Math.hypot(m.decoy.x - m.x, m.decoy.y - m.y) < 15)) {
         f.emit('airBurst', { x: m.x, y: m.y, power: 0.5 });
-        this.aams.splice(i, 1);
+        this.dropAam(i);
       }
     }
   }

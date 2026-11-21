@@ -3,6 +3,7 @@
 import { AIRCRAFT } from '../data/aircraft.js';
 import { BASES } from '../data/world.js';
 import { OPPONENTS } from '../data/opponents.js';
+import { AAMS } from '../data/combat.js';
 
 // Every sprite named in the aircraft and base data, plus the HUD name-tag wings.
 const SPRITES = [...new Set([
@@ -10,6 +11,7 @@ const SPRITES = [...new Set([
     a.rankBadge && `paf_pilot_wings_${a.rankBadge}`]),
   ...Object.values(BASES).flatMap((b) => [b.parked, ...(b.parkedGroups || []).map((g) => g.sprite), ...(b.decor || []).map((d) => d.sprite), ...(b.billboards || []).map((d) => d.sprite), b.hangarPlane]),
   ...OPPONENTS.map((o) => o.sprite),
+  ...Object.values(AAMS).map((m) => m.sprite), // air-to-air missiles (were missing: invisible)
 ].filter(Boolean))];
 
 export const images = {};

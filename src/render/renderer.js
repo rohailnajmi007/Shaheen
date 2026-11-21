@@ -42,6 +42,9 @@ export const COMBAT_FX = {
   arrowMarginPx: 34,    // incoming-missile arrows this far inside the screen edge
 };
 // Dogfight camera and bandit look (owner 2026-11-21: both jets always on screen).
+// Air-to-air missiles on screen (owner 2026-11-21: they were invisible): at least
+// minLenW of the screen width long, a smoke trail line (px at 720p) fading over trailFadeS.
+export const AAM_VIEW = { minLenW: 0.04, trailPx: 3, trailEdgePx: 5.5, trailFadeS: 4 };
 export const DOGFIGHT_CAM = {
   fillW: 0.6, fillH: 0.5,     // the two jets span at most this share of the screen
   smallH: 520, smallFillW: 0.42, smallFillH: 0.22, // phones (height under smallH px): HUD covers the edges...
@@ -1232,24 +1235,46 @@ export class Renderer {
 
   // Air-to-air missiles in flight: the sprite along its path, motor flame while it burns.
   drawAams(ctx, v, flight) {
-    const df = flight.df;
+    const df = flight.df, A = AAM_VIEW, now = flight.time;
+    // Smoke trails: a grey edge under a white core, so they read on sky and on cloud;
+    // they thicken and fade with age.
+    const trail = (pts, fade) => {
+      if (pts.length < 2) return;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const [w, col] of [[A.trailEdgePx, `rgba(110,115,122,${0.45 * fade})`], [A.trailPx, `rgba(248,248,248,${0.9 * fade})`]]) {
+        ctx.lineWidth = w * Math.max(1, v.H / 720);
+        ctx.strokeStyle = col;
+        ctx.beginPath();
+        pts.forEach((p, n) => (n ? ctx.lineTo(v.sx(p.x), v.sy(p.y)) : ctx.moveTo(v.sx(p.x), v.sy(p.y))));
+        ctx.stroke();
+      }
+    };
+    if (df.oldTrails) {
+      df.oldTrails = df.oldTrails.filter((o) => now - o.at < A.trailFadeS);
+      for (const o of df.oldTrails) trail(o.pts, 1 - (now - o.at) / A.trailFadeS);
+    }
+    for (const m of df.aams) if (m.trail) trail([...m.trail, { x: m.x, y: m.y }], 1);
     for (const m of df.aams) {
       const img = images[m.M.sprite];
       if (!img) continue;
-      const k = Math.max(v.S * flight.data.texM, (0.026 * v.W) / img.width);
+      const k = Math.max(v.S * flight.data.texM, (A.minLenW * v.W) / img.width);
       ctx.save();
       ctx.translate(v.sx(m.x), v.sy(m.y));
       ctx.rotate(-Math.atan2(m.vy, m.vx));
       ctx.scale(k, k);
-      ctx.drawImage(tinted(img, this.lightBody), -img.width / 2, -img.height / 2);
       if (m.motor) {
+        // Flame and glow behind the nozzle (drawn first, under the body).
         ctx.globalCompositeOperation = 'lighter';
-        const l = img.height * 2.6 * (0.85 + 0.15 * Math.sin(this.time * 70 + m.t * 9));
-        ctx.fillStyle = 'rgba(255,190,90,0.95)';
-        ctx.beginPath(); ctx.moveTo(-img.width / 2, -img.height * 0.22); ctx.lineTo(-img.width / 2 - l, 0); ctx.lineTo(-img.width / 2, img.height * 0.22); ctx.fill();
-        ctx.drawImage(SOFT.warm, -img.width / 2 - 26, -26, 52, 52);
+        const l = img.height * 4 * (0.85 + 0.15 * Math.sin(this.time * 70 + m.t * 9));
+        ctx.fillStyle = 'rgba(255,200,110,1)';
+        ctx.beginPath(); ctx.moveTo(-img.width / 2, -img.height * 0.3); ctx.lineTo(-img.width / 2 - l, 0); ctx.lineTo(-img.width / 2, img.height * 0.3); ctx.fill();
+        const g = img.height * 2.4;
+        ctx.drawImage(SOFT.warm, -img.width / 2 - g, -g, g * 2, g * 2);
         ctx.globalCompositeOperation = 'source-over';
       }
+      // A dark outline so the light-grey body shows against white cloud.
+      ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 3 / k; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+      ctx.drawImage(tinted(img, this.lightBody), -img.width / 2, -img.height / 2);
       ctx.restore();
     }
   }
@@ -1782,7 +1807,7 @@ export class Renderer {
     }
     // Air-to-air missile motor smoke: a thick white trail while it burns.
     if (flight.df) for (const m of flight.df.aams) {
-      if (!m.motor) continue;
+      if (!m.motor || Math.random() < 0.6) continue; // a few puffs round the trail line
       for (let i = 0; i < 2; i++) {
         const f = i / 2;
         P.spawn('smoke', m.x - m.vx * dt * f, m.y - m.vy * dt * f, m.vx * 0.04, 0.4, 2.4, 3.6, { grow: 4.5, alpha: 0.7 * m.M.smoke, ground: false, drag: 0.4 });
