@@ -115,6 +115,7 @@ export class Sound {
     n.rwrG = this.gain(0, this.fxBus);
     n.rwr.connect(this.filter('lowpass', 2500)).connect(n.rwrG);
     this.nodes = n;
+    this.lastSet = null;
     this.data = data;
     void c;
   }
@@ -144,13 +145,22 @@ export class Sound {
     if (!this.nodes) return;
     for (const s of this.nodes.srcs) { try { s.stop(); } catch { /* already stopped */ } }
     this.nodes = null;
+    this.lastSet = null;
   }
 
   update(ac, onGround, alarms) {
     const n = this.nodes;
     if (!n || !this.ctx) return;
     const t = this.ctx.currentTime;
-    const set = (p, v, k = 0.06) => p.setTargetAtTime(v, t, k);
+    // Only re-aim a parameter when its target moved (calling setTargetAtTime on ~18
+    // parameters every frame was a measurable cost, owner 2026-11-21 dogfight lag).
+    const last = this.lastSet || (this.lastSet = new Map());
+    const set = (p, v, k = 0.06) => {
+      const o = last.get(p);
+      if (o !== undefined && Math.abs(o - v) <= Math.max(0.002, Math.abs(v) * 0.004)) return;
+      last.set(p, v);
+      p.setTargetAtTime(v, t, k);
+    };
     const rpm = ac.rpm, thr = ac.throttle;
     const spd = ac.speed;
     if (this.data.sound === 'prop') {

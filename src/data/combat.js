@@ -105,7 +105,7 @@ export const EJECT = {
 // When the fight is over the landing base appears recoveryGapM ahead. Missiles later.
 export const DOGFIGHT = {
   bandits: [2, 3],         // bandits per mission (random in this range), one after another
-  fightStartM: 9000,       // the first one comes once you're this far from your home base
+  fightStartM: 4000,       // the first one comes once you're this far from your home base (owner 2026-11-21: 4 km max; was 9)
   nextBanditS: 7,          // the next one comes this long after the last one went
   spawnGapM: [450, 750],   // a bandit starts this far ahead of or behind you
   spawnAltM: [-60, 120],   // ... this much higher than you

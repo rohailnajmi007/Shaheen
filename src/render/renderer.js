@@ -10,6 +10,13 @@ import { KT } from '../sim/aircraft.js';
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const LAYER_ZOOM = { mountains: 0.12, city: 0.25, mid: 0.4, trees: 0.7 };
+// Performance (owner 2026-11-21: dogfight lag): the far backdrop (hills, city, trees,
+// landmarks) stops shrinking below this camera zoom. Zoomed far out it was tiled many
+// times from big canvases scaled way down, the most expensive thing in a frame.
+const BACKDROP_MIN_ZOOM = 0.45;
+// Adaptive resolution: average frame time over windowS; above slowMs (about 45 fps) the
+// canvas pixel count steps down by `step` of the size, never below minScale.
+const AUTO_RES = { windowS: 2, slowMs: 22, step: 0.15, minScale: 0.6 };
 // Air-to-ground attack-run camera (see updateCamera). At zoom 0.4 the ground stays in
 // view up to ~125 m (~400 ft) on a 720p screen; climb higher and it leaves the frame.
 export const ATTACK_CAM = {
@@ -31,7 +38,7 @@ export const DOGFIGHT_CAM = {
   fillW: 0.6, fillH: 0.5,     // the two jets span at most this share of the screen
   smallH: 520, smallFillW: 0.42, smallFillH: 0.22, // phones (height under smallH px): HUD covers the edges...
   smallDrop: 0.13,            // ... and the instructor strip the middle: jets sit this share of the height lower
-  minZoom: 0.08, maxZoom: 0.9,
+  minZoom: 0.12, maxZoom: 0.9, // (0.08 before: too costly to draw that far out; the marker shows a bandit off screen)
   zoomRate: 3, panRate: 4,    // how fast the framing follows (1/s)
   banditTint: null,           // multiply on the bandit's sprite ([r,g,b]); null: the owner's art as is
   markerPx: 9,                // bandit marker size (x screen height / 720)
@@ -84,12 +91,30 @@ export class Renderer {
     this.flash = 0;
     this.time = 0;
     this.view = { W: 1, H: 1, S: 1, sx: null, sy: null };
+    this.autoScale = 1; // < 1 after slow frames (adaptive resolution, see noteFrame)
+    this.slow = { t: 0, n: 0, ms: 0 };
     this.resize();
   }
 
+  // Adaptive resolution (owner 2026-11-21: dogfight lag): if frames stay slow, draw the
+  // canvas at fewer pixels (scenery tiles are kept: no rebuild). Only steps down; back
+  // to full on the next flight (resetScale).
+  noteFrame(dt) {
+    const A = AUTO_RES, s = this.slow;
+    s.t += dt; s.n++; s.ms += dt * 1000;
+    if (s.t < A.windowS) return;
+    const avg = s.ms / s.n;
+    s.t = 0; s.n = 0; s.ms = 0;
+    if (avg > A.slowMs && this.autoScale > A.minScale + 1e-6) {
+      this.autoScale = Math.max(A.minScale, this.autoScale - A.step);
+      this.resize();
+    }
+  }
+  resetScale() { this.autoScale = 1; this.slow = { t: 0, n: 0, ms: 0 }; this.resize(); }
+
   get dpr() {
     const cap = this.quality === 'high' ? 2 : this.quality === 'medium' ? 1.5 : 1;
-    return Math.min(window.devicePixelRatio || 1, cap);
+    return Math.min(window.devicePixelRatio || 1, cap) * this.autoScale;
   }
 
   resize() {
@@ -98,7 +123,7 @@ export class Renderer {
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w; this.canvas.height = h;
       const old = this.res;
-      this.res = clamp(h / 720, 1, 2);
+      this.res = clamp(h / this.autoScale / 720, 1, 2); // tiles keep their resolution when autoScale drops
       if (this.world && Math.abs(old - this.res) > 0.2) this.setupWorld(this.world);
     }
   }
@@ -362,7 +387,7 @@ export class Renderer {
     // Parallax layers.
     const [ta, tb, t] = this.themeAt(this.cam.x);
     for (const L of LAYERS) {
-      const zf = lerp(1, this.cam.zoom, LAYER_ZOOM[L.slot]);
+      const zf = lerp(1, Math.max(this.cam.zoom, BACKDROP_MIN_ZOOM), LAYER_ZOOM[L.slot]);
       // Each layer sinks with the ground at its own parallax rate (L.lift), with no cap:
       // climb and the trees, then hills, then mountains drop out of view (owner 2026-11-20).
       const yBase = v.restY + (v.groundY - v.restY) * L.lift;
@@ -378,7 +403,7 @@ export class Renderer {
 
   // Base landmarks (landmarks.js): in front of the hills, behind the tree layer.
   drawLandmarks(ctx, v, treesBaseY) {
-    const zf = lerp(1, this.cam.zoom, 0.55);
+    const zf = lerp(1, Math.max(this.cam.zoom, BACKDROP_MIN_ZOOM), 0.55);
     const u = v.H / 720;
     const gp = (v.H / 360) * zf; // screen px per Godot px
     const y = treesBaseY - LANDMARKS.lift * u * zf;
@@ -1538,13 +1563,21 @@ export class Renderer {
   }
 
   drawScreenFx(ctx, v, ac) {
-    // Vignette.
-    const g = ctx.createRadialGradient(v.W / 2, v.H / 2, v.H * 0.45, v.W / 2, v.H / 2, v.H * 1.05);
-    const night = this.timeData.lights;
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, `rgba(0,0,0,${night ? 0.55 : 0.3})`);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, v.W, v.H);
+    // Vignette: drawn once at quarter size per screen size / time of day, then stretched
+    // (a full-screen radial gradient every frame was costly on big screens).
+    const night = !!this.timeData.lights;
+    const key = `${v.W}x${v.H}:${night}`;
+    if (this.vigKey !== key) {
+      this.vigKey = key;
+      const w = Math.max(1, Math.round(v.W / 4)), h = Math.max(1, Math.round(v.H / 4));
+      const cv = makeCanvas(w, h), g2 = cv.getContext('2d');
+      const g = g2.createRadialGradient(w / 2, h / 2, h * 0.45, w / 2, h / 2, h * 1.05);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, `rgba(0,0,0,${night ? 0.55 : 0.3})`);
+      g2.fillStyle = g; g2.fillRect(0, 0, w, h);
+      this.vig = cv;
+    }
+    ctx.drawImage(this.vig, 0, 0, v.W, v.H);
     if (ac.blackout > 0.01 || ac.redout > 0.01) {
       const col = ac.blackout > ac.redout ? '0,0,0' : '150,0,0';
       const f = Math.max(ac.blackout, ac.redout);

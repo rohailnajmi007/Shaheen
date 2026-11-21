@@ -68,6 +68,7 @@ function setupDemo(o) {
 let demoPlanes = [];
 
 function startFlight(o) {
+  renderer.resetScale();
   sound.unlock();
   flightOpts = o;
   flight = new Flight({ aircraftId: o.aircraft, mode: o.mode, dest: o.dest, name: o.name, opponent: o.opponent });
@@ -179,6 +180,7 @@ function frame(now) {
     acc -= STEP;
   }
   renderer.renderFlight(flight, acc / STEP, dt);
+  renderer.noteFrame(dt);
   soundFx(flight);
   for (const e of flight.fx) {
     if (e.type === 'end') endTimer = e.result.grade === 'CRASH' ? 3.5 : 1.2; // crash: time to watch the wreck settle

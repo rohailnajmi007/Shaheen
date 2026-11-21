@@ -301,32 +301,49 @@ export class Menu {
 }
 
 export class Pause {
+  // Pause menu (owner 2026-11-21: simpler): three big buttons, one volume slider with a
+  // mute button, graphics Low / Medium / High, and the controls behind a button.
   constructor(root, settings, { onResume, onRestart, onMenu, onVolume, onQuality }) {
     this.root = root;
     root.innerHTML = `
-      <div class="modal">
-        <h2>PAUSED</h2>
-        <div class="mbtns">
+      <div class="modal debrief pausebox">
+        <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>PAUSED</span></div>
+        <div class="pbtns">
           <button class="resume">Resume <kbd>Esc</kbd></button>
           <button class="restart">Restart <kbd>R</kbd></button>
-          <button class="tomenu ghost">Main menu</button>
+          <button class="tomenu">Main menu</button>
         </div>
-        <div class="sliders">
-          ${['master', 'engine', 'effects'].map((k) => `<label>${k[0].toUpperCase() + k.slice(1)}<input type="range" min="0" max="100" data-k="${k}" value="${Math.round(settings.vol[k] * 100)}"></label>`).join('')}
-          <label>Graphics<select class="quality"><option value="high">High (sharpest)</option><option value="medium">Medium</option><option value="low">Low (fastest)</option></select></label>
+        <div class="psets">
+          <div class="pset"><span>Volume</span>
+            <div class="pvol"><button class="pmute" aria-label="Mute"></button><input type="range" min="0" max="100" class="pvolr" value="${Math.round(settings.vol.master * 100)}"></div>
+          </div>
+          <div class="pset"><span>Graphics</span>
+            <div class="pseg">${[['low', 'Low'], ['medium', 'Medium'], ['high', 'High']].map(([v, t]) => `<button data-q="${v}">${t}</button>`).join('')}</div>
+          </div>
         </div>
+        <button class="pkeysbtn">Controls</button>
         <div class="klist">${KEY_HELP.map(([k, t]) => `<div><kbd>${k}</kbd><span>${t}</span></div>`).join('')}</div>
       </div>`;
     $('.resume', root).onclick = onResume;
     $('.restart', root).onclick = onRestart;
     $('.tomenu', root).onclick = onMenu;
-    for (const inp of root.querySelectorAll('input[type=range]')) inp.oninput = () => onVolume(inp.dataset.k, inp.value / 100);
-    const q = $('.quality', root);
-    q.value = settings.quality;
-    q.onchange = () => onQuality(q.value);
+    const vol = $('.pvolr', root), mute = $('.pmute', root);
+    let before = settings.vol.master || 0.8;
+    const showMute = () => { const off = +vol.value === 0; mute.classList.toggle('off', off); mute.textContent = off ? 'OFF' : 'ON'; };
+    vol.oninput = () => { onVolume('master', vol.value / 100); showMute(); };
+    mute.onclick = () => {
+      if (+vol.value > 0) { before = vol.value / 100; vol.value = 0; } else vol.value = Math.round((before || 0.8) * 100);
+      vol.oninput();
+    };
+    showMute();
+    const seg = root.querySelectorAll('.pseg button');
+    const showQ = (q) => { for (const b of seg) b.classList.toggle('sel', b.dataset.q === q); };
+    for (const b of seg) b.onclick = () => { onQuality(b.dataset.q); showQ(b.dataset.q); };
+    showQ(settings.quality);
+    $('.pkeysbtn', root).onclick = () => root.querySelector('.pausebox').classList.toggle('showkeys');
   }
   show() { this.root.classList.add('show'); }
-  hide() { this.root.classList.remove('show'); }
+  hide() { this.root.classList.remove('show'); this.root.querySelector('.pausebox').classList.remove('showkeys'); }
   get open() { return this.root.classList.contains('show'); }
 }
 

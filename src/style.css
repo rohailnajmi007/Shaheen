@@ -367,6 +367,29 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
   .obody .drows { width: 100%; font-size: 12px; }
 }
 
+/* Pause menu (owner 2026-11-21: simpler), in the debrief's olive style. */
+.pausebox { width: min(440px, 92vw); padding: 0 0 20px; gap: 18px; }
+.pbtns { display: grid; gap: 8px; padding: 0 22px; }
+.pbtns button { cursor: pointer; padding: 13px 16px; border-radius: 3px; border: 1px solid #5a5940; background: transparent; color: var(--ink); font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase; }
+.pbtns button:hover { background: rgba(201,187,127,0.08); }
+.pbtns .resume { background: #c9bb7f; color: #15170f; border-color: #c9bb7f; }
+.pbtns .resume:hover { background: #ddd09a; }
+.pbtns kbd { border-color: rgba(128,128,100,0.5); }
+.psets { display: grid; gap: 12px; padding: 14px 22px 0; border-top: 1px dashed #4b4a37; }
+.pset { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 10px; }
+.pset > span { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); }
+.pvol { display: flex; align-items: center; gap: 10px; }
+.pvol input { flex: 1; accent-color: #c9bb7f; }
+.pmute { cursor: pointer; width: 50px; padding: 6px 0; border-radius: 3px; border: 1px solid #c9bb7f; background: rgba(201,187,127,0.15); color: var(--ink); font-size: 11px; letter-spacing: 0.15em; }
+.pmute.off { border-color: #5a5940; background: transparent; color: var(--ink-dim); }
+.pseg { display: grid; grid-template-columns: repeat(3, 1fr); }
+.pseg button { cursor: pointer; padding: 8px 0; border: 1px solid #5a5940; background: transparent; color: var(--ink-dim); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+.pseg button + button { border-left: 0; }
+.pseg button.sel { background: #c9bb7f; color: #15170f; border-color: #c9bb7f; }
+.pkeysbtn { justify-self: center; cursor: pointer; background: none; border: 0; color: var(--ink-dim); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; text-decoration: underline dotted; }
+.pausebox .klist { display: none; padding: 0 22px; color: var(--ink); }
+.pausebox.showkeys .klist { display: grid; }
+
 @media (max-width: 1100px) {
   .hud-top { grid-template-columns: 1fr 1fr; }
   .radar { grid-column: 1 / -1; order: 3; }

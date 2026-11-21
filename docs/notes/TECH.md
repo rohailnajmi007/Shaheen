@@ -143,3 +143,9 @@ the owner's reference art in `docs/reference/` into the layered sprites in
 `public/sprites/` and print the texture positions to copy into
 `src/data/aircraft.js`. Verified 2026-11-19: they regenerate the current sprites
 byte for byte. Details in `AIRCRAFT.md`.
+
+## Dogfight lag (owner 2026-11-21)
+- Measured headless (Edge, 1600x860 at 2x pixels): JS is ~6 ms a frame; the cost is pixel fill. The dogfight camera zooms far out (down to 0.08), which tiled the big backdrop canvases (hills, city, trees, landmarks) many times, scaled far down.
+- Fixes: backdrop layers stop shrinking below `BACKDROP_MIN_ZOOM` 0.45; dogfight `minZoom` 0.12 (the marker shows a far bandit); vignette pre-drawn at quarter size per screen size; engine-sound parameters only re-aimed when their value moves.
+- **Adaptive resolution** (`AUTO_RES` in `src/render/renderer.js`, `Renderer.noteFrame`): average frame time over 2 s; above 22 ms (~45 fps) the canvas pixel count steps down 15% at a time, never below 0.6 of the size; scenery tiles keep their resolution (no rebuild, `res` ignores `autoScale`); back to full on the next flight.
+
