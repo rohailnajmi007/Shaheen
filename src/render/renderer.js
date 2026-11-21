@@ -582,6 +582,14 @@ export class Renderer {
       dot(SOFT.warm, fx, v.sy(FLOODLIGHT.mastM - 0.5), s * 2.2);
       dot(SOFT.white, fx, v.sy(FLOODLIGHT.mastM - 0.5), s * 0.9);
     }
+    // Floodlit squadron boards: a warm wash on the board and the ground in front.
+    for (const bx of bg.boardSpots || []) {
+      const x = v.sx(bx);
+      if (x < -40 * S || x > v.W + 40 * S) continue;
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(SOFT.warm, x - 12 * S, v.groundY - 9 * S, 24 * S, 12 * S);
+      ctx.globalAlpha = 1;
+    }
     // Pools of light on the apron.
     ctx.globalAlpha = 0.25;
     for (let m = 120; m < 120 + b.hangars * 72; m += 72) {

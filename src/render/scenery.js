@@ -597,6 +597,14 @@ export function buildBase(base, time, R) {
   const acLight = night ? FLOODLIGHT.light : time.light;
   const shLight = night ? FLOODLIGHT.shelterLight : time.light;
   const floods = [];
+  // Squadron boards are floodlit too (owner 2026-11-21): drawn in the flood light at
+  // night, and the renderer adds a pool of light at each (boardSpots, board centres).
+  const boardTime = night ? { ...time, light: FLOODLIGHT.light } : time;
+  const boardSpots = [];
+  const addBoard = (text, bx) => {
+    add(board(boardTime, R, text, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), bx);
+    boardSpots.push(base.x + bx + 7);
+  };
   const rows = [];
   if (images[base.parked]) rows.push([base.apron[0], base.apron[1]]);
   for (const g of groups) rows.push([g.from, g.from + g.count * 15]);
@@ -633,9 +641,9 @@ export function buildBase(base, time, R) {
       if (n % 3 === 2) { add(sh, x - 6, -1); add(acSh, x - 6 + 14 - ac.wM * 0.4); end = x - 6 + 28; }
       else { add(ac, x); end = x + ac.wM; }
     }
-    if (g.board) add(board(time, R, g.board, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), end + 2);
+    if (g.board) addBoard(g.board, end + 2);
   }
-  base.boards.forEach((t, i) => add(board(time, R, t, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), boardX[i]));
+  base.boards.forEach((t, i) => addBoard(t, boardX[i]));
   for (const { t, spr } of trophySprites) addC(spr, t.x);
   if (base.welcome) {
     for (const wx of base.welcomeX || [base.runwayM + 40]) {
@@ -643,7 +651,7 @@ export function buildBase(base, time, R) {
       else add(welcome(time, R, base.welcome), wx);
     }
   }
-  return { objs, floods, towerX: base.x + 120 + base.hangars * 72 + 110, towerH: base.towerM };
+  return { objs, floods, boardSpots, towerX: base.x + 120 + base.hangars * 72 + 110, towerH: base.towerM };
 }
 
 // --- Ground targets ---
