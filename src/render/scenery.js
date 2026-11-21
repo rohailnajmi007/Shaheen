@@ -2,6 +2,7 @@
 // clouds, stars, base buildings and ground targets.
 import { makeCanvas, shade, rng, periodicNoise, images, tinted, hexToRgb } from './assets.js';
 import { THEMES } from '../data/world.js';
+import { AIRCRAFT } from '../data/aircraft.js';
 
 export const TILE_W = 2048; // logical px (at 720p)
 
@@ -55,7 +56,7 @@ export function buildLayer(slot, themeId, time, res) {
     path(14 * res, 10 * res); x.fill();
     x.globalAlpha = 1;
     if (th.snow) {
-      const snowY = H - amp * 1.7 * 0.62;
+      const snowY = H - amp * 1.7 * (th.snowLine ?? 0.62);
       const sg = x.createLinearGradient(0, top, 0, snowY + 18 * res);
       sg.addColorStop(0, shade('#f4f7fb', light, time.haze, L.haze * 0.5));
       sg.addColorStop(0.75, shade('#e6edf5', light, time.haze, L.haze * 0.7));
@@ -140,6 +141,7 @@ export function buildLayer(slot, themeId, time, res) {
       if (themeId === 'coast' && kind < 0.45) drawPalm(x, px, H, s * 1.2, dark, trunk);
       else if (themeId === 'kpk' && kind < 0.3) drawPoplar(x, px, H, s, dark, lit);
       else if (themeId === 'punjab' && kind < 0.25) drawBanyan(x, px, H, s * 1.3, dark, lit, trunk);
+      else if (th.pines) drawPine(x, px, H, s * (0.8 + kind * 0.6), dark, lit, trunk, shade('#f2f5f9', light, time.haze, L.haze));
       else drawBush(x, px, H, s * (themeId === 'desert' ? 0.6 : 1), dark, lit, trunk, r);
     }
     bottom = shade(th.groundDark, light, time.haze, 0.3);
@@ -180,6 +182,19 @@ function drawBanyan(x, px, H, s, dark, lit, trunk) {
   x.beginPath(); x.ellipse(px, H - 30 * s, 28 * s, 14 * s, 0, 0, Math.PI * 2); x.fill();
   x.fillStyle = lit;
   x.beginPath(); x.ellipse(px + 6 * s, H - 36 * s, 16 * s, 7 * s, 0, 0, Math.PI * 2); x.fill();
+}
+// Snowy pine: stacked dark tiers with snow on each.
+function drawPine(x, px, H, s, dark, lit, trunk, snow) {
+  x.fillStyle = trunk;
+  x.fillRect(px - 1.5 * s, H - 8 * s, 3 * s, 8 * s);
+  for (let k = 0; k < 3; k++) {
+    const by = H - 6 * s - k * 11 * s, w = (14 - k * 3.5) * s, h = 16 * s;
+    x.fillStyle = k === 2 ? lit : dark;
+    x.beginPath(); x.moveTo(px - w, by); x.lineTo(px, by - h); x.lineTo(px + w, by); x.fill();
+    x.fillStyle = snow;
+    x.beginPath(); x.moveTo(px - w * 0.45, by - h * 0.55); x.lineTo(px, by - h); x.lineTo(px + w * 0.45, by - h * 0.55);
+    x.lineTo(px + w * 0.15, by - h * 0.62); x.lineTo(px - w * 0.2, by - h * 0.58); x.fill();
+  }
 }
 function drawPalm(x, px, H, s, dark, trunk) {
   x.strokeStyle = trunk; x.lineWidth = 2 * s;
@@ -555,11 +570,13 @@ export function buildBase(base, time, R) {
   const tw = tower(time, R, base.towerM);
   add(tw, 120 + base.hangars * 72 + 104);
   // Squadron boards and trophies; parked aircraft keep clear of them.
-  const boardX = base.boards.map((_, i) => base.apron[0] + 80 + i * 70);
+  const boardX = base.boards.map((_, i) => (base.apron?.[0] ?? 0) + 80 + i * 70);
+  const groups = base.parkedGroups || [];
   const trophies = base.trophies || [];
   const trophySprites = trophies.map((t) => ({ t, spr: trophy(time, R, t.kinds) }));
   // [centre, half width] of everything the parked aircraft must keep clear of.
-  const blocked = [...boardX.map((x) => [x + 7, 7]), ...trophySprites.map(({ t, spr }) => [t.x, spr.wM / 2])];
+  const blocked = [...boardX.map((x) => [x + 7, 7]), ...trophySprites.map(({ t, spr }) => [t.x, spr.wM / 2]),
+    ...groups.filter((g) => g.board && !g.side).map((g) => [g.boardX + 7, 7])];
   const CLEAR_M = 4;
   // Parked aircraft on the apron, some in shelters.
   const front = images[base.parked];
@@ -576,6 +593,29 @@ export function buildBase(base, time, R) {
       n++;
     }
   }
+  // Squadron groups (Kamra): front-view rows like above, or side-view jets in a line;
+  // each with its board (beside a front-view row, in front of a side-view line).
+  for (const g of groups) {
+    if (g.side) {
+      const d = AIRCRAFT.find((a) => a.id === g.side);
+      const spr = d && parkedSide(d, time);
+      if (spr) for (let x = g.apron[0]; x + spr.wM <= g.apron[1]; x += g.spacingM) add(spr, x);
+    } else if (images[g.sprite]) {
+      const front = images[g.sprite];
+      const sh = shelter(time, R);
+      const ac = { canvas: tinted(front, time.light, g.sprite), wM: front.width / 16, hM: front.height / 16 };
+      let n = 0;
+      for (let x = g.apron[0]; x < g.apron[1] && n < 12; x += 15) {
+        const inShelter = n % 3 === 2;
+        const c = inShelter ? x + 8 : x + ac.wM / 2, half = inShelter ? 14 : ac.wM / 2;
+        if (blocked.some(([bc, bh]) => Math.abs(c - bc) < half + bh + CLEAR_M)) continue;
+        if (inShelter) { add(sh, x - 6, -1); add({ ...ac, wM: ac.wM * 0.8, hM: ac.hM * 0.8 }, x - 6 + 14 - ac.wM * 0.4); }
+        else add(ac, x);
+        n++;
+      }
+    }
+    if (g.board) add(board(time, R, g.board, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), g.boardX);
+  }
   base.boards.forEach((t, i) => add(board(time, R, t, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), boardX[i]));
   for (const { t, spr } of trophySprites) addC(spr, t.x);
   if (base.welcome) {
@@ -585,6 +625,35 @@ export function buildBase(base, time, R) {
     }
   }
   return { objs, towerX: base.x + 120 + base.hangars * 72 + 110, towerH: base.towerM };
+}
+
+// A parked jet seen from the side (Kamra's J-10Cs): body, canards and the gear drawn
+// down (gear layer, or code gear like the renderer's), at texM m per texture px.
+function parkedSide(d, time) {
+  const body = images[d.sprite];
+  if (!body) return null;
+  const L = time.light;
+  const H = Math.max(body.height, d.pivot[1] + 1);
+  const c = makeCanvas(body.width, H);
+  const x = c.getContext('2d');
+  if (d.gearSprite && images[d.gearSprite]) x.drawImage(tinted(images[d.gearSprite], L), 0, 0);
+  else if (d.gearX) {
+    for (let i = 0; i < d.gearX.length; i++) {
+      const gx = d.gearX[i], top = d.gearTopY[i], r = d.gearWheel[i] / 2, wy = d.pivot[1] - r;
+      x.fillStyle = `rgb(${110 * L[0] | 0},${114 * L[1] | 0},${118 * L[2] | 0})`;
+      x.fillRect(gx - 2.5, top, 5, wy - top);
+      x.fillStyle = '#121214';
+      x.beginPath(); x.arc(gx, wy, r, 0, Math.PI * 2); x.fill();
+      x.fillStyle = `rgb(${150 * L[0] | 0},${155 * L[1] | 0},${165 * L[2] | 0})`;
+      x.beginPath(); x.arc(gx, wy, r * 0.45, 0, Math.PI * 2); x.fill();
+    }
+  }
+  x.drawImage(tinted(body, L), 0, 0);
+  for (const k of ['elevatorSprite', 'canardSprite']) if (d[k] && images[d[k]]) x.drawImage(tinted(images[d[k]], L), 0, 0);
+  // Cut at the wheel bottoms so the jet stands on the ground line.
+  const out = makeCanvas(body.width, d.pivot[1]);
+  out.getContext('2d').drawImage(c, 0, 0);
+  return { canvas: out, wM: body.width * d.texM, hM: d.pivot[1] * d.texM };
 }
 
 // --- Ground targets ---

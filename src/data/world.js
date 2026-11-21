@@ -27,6 +27,19 @@ export const BASES = {
     banyanX: [-250, -30, 240, 1080, 1210, 1380, 1650, 1780],
     landmarks: ['fields', 'orchard', 'banyan', 'village'],
   },
+  // Owner 2026-11-21: the J-10C's home; snow and the northern mountains. Also a
+  // landing base after a mission. Parked: JF-17s with the No. 26 board beside them,
+  // J-10Cs (side view) with the No. 15 board in front of them.
+  kamra: {
+    id: 'kamra', name: 'PAF Base Kamra', city: 'Kamra', short: 'KAMRA',
+    runwayM: 1500, hangars: 2, towerM: 26, theme: 'north',
+    parkedGroups: [
+      { sprite: 'jf17_front_body', apron: [300, 600], board: 'NO. 26 MR SQN|BLACK SPIDERS', boardX: 610 },
+      { side: 'j10c', apron: [690, 1080], spacingM: 40, board: 'NO. 15 MR SQN|COBRAS', boardX: 845 },
+    ],
+    boards: [], boardColor: '#14181c', boardTrim: '#d9dde2',
+    welcome: ['WELCOME TO KAMRA', 'PAF BASE KAMRA'],
+  },
 };
 
 // Home base per aircraft (owner, 2026-11-19): the Mushshak flies from Risalpur, the
@@ -48,12 +61,16 @@ export const ROUTES_FROM = {
   risalpur: ['masroor', 'mushaf'],
   mushaf: ['risalpur', 'masroor'],
   masroor: ['mushaf', 'risalpur'],
+  kamra: ['risalpur', 'mushaf'],
 };
+// Landing bases after a mission (strike, air to air): any base but home, at random.
+export const recoveryBases = (home) => Object.keys(BASES).filter((id) => id !== home);
 // What you see on the way to each base (route notes on the start screen).
 const ROUTE_NOTE = {
   risalpur: 'Mountains and the PAF Academy',
   masroor: 'Coast, sea and the Karachi skyline',
   mushaf: 'Green Punjab plains and Sargodha',
+  kamra: 'Snow and the northern mountains',
 };
 
 // [base id, threshold x in m] for a ferry flight from this home base.
@@ -96,6 +113,15 @@ export const THEMES = {
     trees: '#2b5524',
     ground: '#5d9440', groundDark: '#4a7b32',
     sea: false, city: false,
+  },
+  // Northern areas (Kamra, owner 2026-11-21): tall snow-capped ranges, snowy hills
+  // dotted with pines, snow on the ground. snowLine: share of the range under snow.
+  north: {
+    mountains: '#8797ad', mountainsHi: 0.33, snow: true, snowLine: 0.45,
+    hills: '#dde5ee', hillsHi: 0.3,
+    trees: '#26443a',
+    ground: '#e8edf2', groundDark: '#c3cdd8',
+    sea: false, city: false, pines: true,
   },
   desert: {
     mountains: '#9c8574', mountainsHi: 0.3, snow: false,

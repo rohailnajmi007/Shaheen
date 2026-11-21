@@ -1,7 +1,7 @@
 // One flight: world layout, mission rules, landing judge, weapons, instructor.
-import { Aircraft, KT, FT, G } from './aircraft.js';
-import { aircraftById } from '../data/aircraft.js';
-import { BASES, ferryLayout, ROUTES_FROM, REFUEL } from '../data/world.js';
+import { Aircraft, KT, FT, G, MACH_KT } from './aircraft.js';
+import { aircraftById, SONIC } from '../data/aircraft.js';
+import { BASES, ferryLayout, recoveryBases, REFUEL } from '../data/world.js';
 import { GROUND_UNITS, STRIKE, AIR_DEFENCE, EJECT, DOGFIGHT } from '../data/combat.js';
 import { Combat } from './combat.js';
 import { Dogfight } from './dogfight.js';
@@ -97,10 +97,10 @@ export class Flight {
     const home = BASES[this.data.homeBase] ? this.data.homeBase : 'risalpur';
     this.home = home;
     if (this.mode === 'dogfight') {
-      // Take off from home; the landing base (one of the other two, at random) is placed
+      // Take off from home; the landing base (any other base, at random) is placed
       // and shown only when the fight is over (dogfightOver), so it sits ahead of you.
-      const others = ROUTES_FROM[home];
-      const recId = others[Math.random() < 0.5 ? 0 : 1];
+      const others = recoveryBases(home);
+      const recId = others[Math.floor(Math.random() * others.length)];
       const far = 1e6; // placeholder until the fight is over
       this.bases = [{ ...BASES[home], x: 0, visible: true }, { ...BASES[recId], x: far, visible: false }];
       this.dest = this.bases[1];
@@ -140,9 +140,9 @@ export class Flight {
       units.sort((p, q) => p.x - q.x);
       this.targets = units;
       const lastT = last;
-      // Landing base: one of the other two bases, at random.
-      const others = ROUTES_FROM[home];
-      const recId = others[Math.random() < 0.5 ? 0 : 1];
+      // Landing base: any other base, at random.
+      const others = recoveryBases(home);
+      const recId = others[Math.floor(Math.random() * others.length)];
       this.bases = [
         { ...BASES[home], x: 0, visible: true },
         { ...BASES[recId], x: lastT + STRIKE.recoveryGapM, visible: false },
@@ -374,7 +374,7 @@ export class Flight {
     return {
       x: l('x'), y: l('y'), pitch: p.pitch + dp * alpha, vx: l('vx'), vy: l('vy'), gearPos: l('gearPos'), elevator: l('elevator'),
       onGround: a.onGround, afterburner: a.afterburner, rpm: a.rpm, propAngle: a.propAngle,
-      bombsLeft: a.bombsLeft, engineOn: a.engineOn,
+      bombsLeft: a.bombsLeft, engineOn: a.engineOn, mach: a.speedKt / MACH_KT,
     };
   }
 
@@ -386,6 +386,10 @@ export class Flight {
     a.step(dt, input);
     for (const e of a.events) this.onAircraftEvent(e);
     a.events.length = 0;
+    // Sonic boom on crossing Mach 1 (once, until slowed below resetBelow).
+    const mach = a.speedKt / MACH_KT;
+    if (!this.supersonic && mach >= SONIC.boomAt && !a.crashed) { this.supersonic = true; this.emit('sonicBoom', { x: a.pos.x, y: a.pos.y }); }
+    else if (this.supersonic && mach < SONIC.resetBelow) this.supersonic = false;
     this.stepWeapons(dt);
     this.stepEject(dt);
     if (this.armed) this.cb.step(dt, input);

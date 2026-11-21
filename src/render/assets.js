@@ -8,7 +8,7 @@ import { OPPONENTS } from '../data/opponents.js';
 const SPRITES = [...new Set([
   ...AIRCRAFT.flatMap((a) => [a.sprite, a.gearSprite, a.elevatorSprite, a.canardSprite, a.propSprite, a.weaponSprite,
     a.rankBadge && `paf_pilot_wings_${a.rankBadge}`]),
-  ...Object.values(BASES).map((b) => b.parked),
+  ...Object.values(BASES).flatMap((b) => [b.parked, ...(b.parkedGroups || []).map((g) => g.sprite)]),
   ...OPPONENTS.map((o) => o.sprite),
 ].filter(Boolean))];
 

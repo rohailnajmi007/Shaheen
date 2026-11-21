@@ -64,8 +64,9 @@ out of scope until the owner says otherwise.
   (d*mn, h*ll, sh*tting, f*ck), nothing corny, under ~110 characters.
 - Ranks (owner, 2026-11-19): Mushshak AVN CDT, Mirage V FLT LT (F-7PG FLT LT: my pick), JF-17 SQN LDR,
   F-16A/D WG CDR (J-10C WG CDR: my pick, owner to confirm). Name-tag crescent: white FLT LT (and cadet), blue SQN LDR, red WG CDR.
-- Home bases (start of every flight): Mushshak Risalpur, Mirage V, F-16s and J-10C
-  Mushaf (Sargodha), F-7PG Mushaf (my pick), JF-17 Masroor (Karachi). `homeBase` in `src/data/aircraft.js`.
+- Home bases (start of every flight, owner 2026-11-21): Mushshak Risalpur; Mirage V, F-16s
+  and F-7PG Mushaf (Sargodha); JF-17 Masroor (Karachi); J-10C Kamra (snowy north).
+  `homeBase` in `src/data/aircraft.js`. After a mission you land at any other base, at random.
 
 ## Visual style
 Side view, plane flies left to right, camera follows with look-ahead and zooms out

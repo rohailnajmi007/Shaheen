@@ -39,13 +39,13 @@ const menu = new Menu(document.getElementById('menu'), settings, {
 const pause = new Pause(document.getElementById('pause'), settings, {
   onResume: () => togglePause(false),
   onRestart: () => { togglePause(false); startFlight(flightOpts); },
-  onMenu: () => toMenu(),
+  onMenu: () => toMenu(true),
   onVolume: (k, v) => { settings.vol[k] = v; sound.setVolumes(settings.vol); saveSettings(settings); },
   onQuality: (q) => { settings.quality = q; renderer.quality = q; saveSettings(settings); renderer.resize(); },
 });
 const result = new Result(document.getElementById('result'), {
   onRetry: () => startFlight(flightOpts),
-  onMenu: () => toMenu(),
+  onMenu: () => toMenu(true),
 });
 const briefing = new Briefing(document.getElementById('briefing'), {
   onStart: () => { briefing.hide(); last = performance.now(); },
@@ -84,12 +84,15 @@ function startFlight(o) {
   acc = 0;
 }
 
-function toMenu() {
+// front: back to the first page of the start screen (owner 2026-11-21: from a mission,
+// not the sortie order); the briefing's Esc goes back to the order instead.
+function toMenu(front = false) {
   sound.stopFlight();
   pause.hide(); result.hide(); hud.hide(); briefing.hide();
   flight = null;
   mode = 'menu';
   setupDemo(settings);
+  if (front) menu.step = 0;
   menu.refresh();
   menu.show();
 }
@@ -119,6 +122,7 @@ function soundFx(f) {
       case 'countermeasure': sound.pop(); break;
       case 'eject': sound.launch(); sound.clunk(); break;
       case 'chute': sound.burst({ freq: 500, dur: 0.5, vol: 0.3 }); break;
+      case 'sonicBoom': sound.sonicBoom(); break;
       case 'acHit': sound.metalHit(e.bandit ? 0.45 : 1); break;
       case 'airBurst': sound.explosion(0.45 * (e.power || 1)); break;
       default: break;
@@ -135,7 +139,7 @@ function handleActions() {
     }
     if (result.open) {
       if (a === 'restart') startFlight(flightOpts);
-      if (a === 'pause') toMenu();
+      if (a === 'pause') toMenu(true);
       continue;
     }
     if (a === 'pause') { togglePause(); continue; }

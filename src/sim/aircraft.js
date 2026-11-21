@@ -6,6 +6,8 @@
 export const KT = 1.94384;
 export const FT = 3.28084;
 export const G = 9.81;
+// Speed of sound (kt), one value at every height (arcade): Mach number = kt / MACH_KT.
+export const MACH_KT = 661.5;
 const D2R = Math.PI / 180;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -266,6 +268,11 @@ export class Aircraft {
     let t;
     if (d.afterburnerN > 0) {
       t = (d.maxThrustN * clamp(this.throttle / d.afterburnerThreshold, 0, 1) + d.afterburnerN * this.afterburner) * this.rpm;
+      const m = speed * KT / MACH_KT;
+      if (d.ramGain && m > d.ramMach[0]) {
+        const k = clamp((m - d.ramMach[0]) / (d.ramMach[1] - d.ramMach[0]), 0, 1);
+        t *= 1 + d.ramGain * this.afterburner * k * k * (3 - 2 * k);
+      }
     } else t = d.maxThrustN * this.throttle * this.rpm;
     if (d.thrustZeroSpeedKt > 0) t *= Math.max(0, 1 - speed * KT / d.thrustZeroSpeedKt);
     t *= clamp(1 - (this.pos.y - d.serviceCeilingM) / d.ceilingFadeM, 0, 1);

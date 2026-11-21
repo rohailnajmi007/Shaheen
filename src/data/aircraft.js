@@ -1,6 +1,11 @@
 // Aircraft data, ported from the Godot project's .tres files.
 // Physics in SI units. Sprite numbers are texture pixels (nose points right).
 
+// Going supersonic (owner 2026-11-21): a sonic boom when Mach 1 is crossed (again only
+// after dropping below resetBelow), the vapour cone from coneFrom, strongest at conePeak,
+// gone by coneTo; above muffleFrom the engine sound is muffled to muffleHz.
+export const SONIC = { boomAt: 1, resetBelow: 0.96, coneFrom: 0.92, conePeak: 0.995, coneTo: 1.05, coneAlpha: 0.75, muffleFrom: 1, muffleHz: 450, muffleGain: 0.55 };
+
 export const COMMON = {
   thrustZeroSpeedKt: 0,
   speedResponse: 1.2,
@@ -9,6 +14,10 @@ export const COMMON = {
   afterburnerN: 0,
   afterburnerThreshold: 0.85,
   afterburnerBurnMult: 3,
+  // Ram air (owner 2026-11-21: every fighter can go supersonic, each at its own rate):
+  // in afterburner the thrust grows through the transonic range: x (1 + ramGain * A/B * k),
+  // k rising smoothly from 0 at ramMach[0] to 1 at ramMach[1] (subsonic feel unchanged).
+  ramGain: 1.1, ramMach: [0.72, 1.0],
   idleBurnFraction: 0.12,
   lowFuelFraction: 0.15,
   inducedDrag: 2,
@@ -153,7 +162,7 @@ export const AIRCRAFT = [
     stats: { speed: 0.85, agility: 0.6, difficulty: 0.8 },
     massKg: 10000, maxThrustN: 58000, afterburnerN: 34000,
     fuelKg: 1000, burnFullKgS: 2.6, dragCoef: 1.15,
-    stallKt: 140, rotateKt: 160, maxSpeedKt: 600, cockpitStyle: 'darkAnalog',
+    stallKt: 140, rotateKt: 160, maxSpeedKt: 900, cockpitStyle: 'darkAnalog',
     sprite: 'mirage5_body', gearSprite: 'mirage5_gear', gearTravel: 48,
     pivot: [170, 159], nozzle: [16, 89], flameLength: 190, flameWidth: 26,
     strikeCapable: true, bombCount: 4, hardpoints: [[150, 140], [205, 140]],
@@ -179,7 +188,7 @@ export const AIRCRAFT = [
     // stall/rotate speeds than the Mirage, less thrust than the F-16.
     massKg: 10800, maxThrustN: 66000, afterburnerN: 43000,
     fuelKg: 1100, burnFullKgS: 2.8, dragCoef: 1.3,
-    stallKt: 132, rotateKt: 152, maxSpeedKt: 600, cockpitStyle: 'colorGlass',
+    stallKt: 132, rotateKt: 152, maxSpeedKt: 900, cockpitStyle: 'colorGlass',
     // Owner's art (tools/make_aircraft_sprites.py "jf17"): gear layer, all-moving tailplane.
     sprite: 'jf17_body', gearSprite: 'jf17_gear', gearTravel: 29,
     elevatorSprite: 'jf17_elevator', elevatorHinge: [55, 124],
@@ -208,7 +217,7 @@ export const AIRCRAFT = [
     stats: { speed: 1, agility: 0.9, difficulty: 0.7 },
     massKg: 12000, maxThrustN: 76000, afterburnerN: 53000,
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,
-    stallKt: 125, rotateKt: 145, maxSpeedKt: 600, cockpitStyle: 'glass',
+    stallKt: 125, rotateKt: 145, maxSpeedKt: 900, cockpitStyle: 'glass',
     sprite: 'f16a_body', elevatorSprite: 'f16a_elevator', elevatorHinge: [55, 114],
     gearX: [202, 292], gearTopY: [148, 147], gearWheel: [20, 16],
     pivot: [202, 183], nozzle: [7, 102], flameLength: 320, flameWidth: 30,
@@ -230,7 +239,7 @@ export const AIRCRAFT = [
     stats: { speed: 1, agility: 0.9, difficulty: 0.7 },
     massKg: 12000, maxThrustN: 76000, afterburnerN: 53000,
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,
-    stallKt: 125, rotateKt: 145, maxSpeedKt: 600, cockpitStyle: 'glass',
+    stallKt: 125, rotateKt: 145, maxSpeedKt: 900, cockpitStyle: 'glass',
     sprite: 'f16_body', elevatorSprite: 'f16_elevator', elevatorHinge: [58, 113],
     gearSprite: 'f16_gear', gearTravel: 33,
     pivot: [169, 175], nozzle: [6, 101], flameLength: 320, flameWidth: 30,
@@ -250,14 +259,13 @@ export const AIRCRAFT = [
 
     name: 'J-10C Vigorous Dragon',
     role: 'Air superiority fighter', // owner 2026-11-21
-    // Rank and home base: my picks (owner did not say). Real PAF J-10Cs fly from
-    // Minhas (Kamra), not in the game yet, so Mushaf for now.
-    rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'mushaf',
+    // Rank: my pick (owner did not say). Home: Kamra (owner 2026-11-21).
+    rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'kamra',
     stats: { speed: 1, agility: 0.95, difficulty: 0.7 },
     // Delta-canard, AL-31-class engine: F-16-like thrust, a little heavier, lower stall.
     massKg: 12500, maxThrustN: 78000, afterburnerN: 58000,
     fuelKg: 1250, burnFullKgS: 3, dragCoef: 1.4,
-    stallKt: 120, rotateKt: 142, maxSpeedKt: 600, cockpitStyle: 'colorGlass',
+    stallKt: 120, rotateKt: 142, maxSpeedKt: 900, cockpitStyle: 'colorGlass',
     // Owner's art (tools/make_aircraft_sprites.py "j10c"): gear up in the art, drawn in
     // code; the canards are their own layer and move with the stick (canardMaxDeg).
     sprite: 'j10c_body', canardSprite: 'j10c_canard', canardHinge: [290, 106], canardMaxDeg: 18,
@@ -285,7 +293,7 @@ export const AIRCRAFT = [
     // MiG-21 family: small and light, a delta with a high landing speed.
     massKg: 7600, maxThrustN: 44000, afterburnerN: 30000,
     fuelKg: 900, burnFullKgS: 2.4, dragCoef: 0.93,
-    stallKt: 136, rotateKt: 158, maxSpeedKt: 600, cockpitStyle: 'darkAnalog',
+    stallKt: 136, rotateKt: 158, maxSpeedKt: 900, cockpitStyle: 'darkAnalog',
     airframeHp: 65, hitRadiusM: 4.6, hitCenterUpM: 2.2,
     // Owner's art (tools/make_aircraft_sprites.py "f7pg"): gear layer, all-moving tailplane.
     sprite: 'f7pg_body', gearSprite: 'f7pg_gear', gearTravel: 31, gearFrontWhenDown: true,

@@ -1,3 +1,5 @@
+import { SONIC } from './data/aircraft.js';
+import { MACH_KT } from './sim/aircraft.js';
 // All sound is made in code with Web Audio (no sound files), except the crash song.
 
 // Crash song (owner 2026-11-21): plays in the background after a crash. The owner
@@ -30,7 +32,10 @@ export class Sound {
     this.master = c.createGain();
     const comp = c.createDynamicsCompressor();
     this.master.connect(comp).connect(c.destination);
-    this.engineBus = c.createGain(); this.engineBus.connect(this.master);
+    // Engine sound through a low-pass: wide open, closed down when supersonic (SONIC).
+    this.muffle = c.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000;
+    this.muffleG = c.createGain();
+    this.engineBus = c.createGain(); this.engineBus.connect(this.muffle).connect(this.muffleG).connect(this.master);
     this.fxBus = c.createGain(); this.fxBus.connect(this.master);
     const len = c.sampleRate * 2;
     this.noise = c.createBuffer(1, len, c.sampleRate);
@@ -176,6 +181,9 @@ export class Sound {
       set(n.whineG.gain, rpm * 0.025 * (1 - thr * 0.5));
       set(n.abG.gain, ac.afterburner * 1.2);
     }
+    const sup = ac.speedKt / MACH_KT >= SONIC.muffleFrom;
+    set(this.muffle.frequency, sup ? SONIC.muffleHz : 20000, 0.25);
+    set(this.muffleG.gain, sup ? SONIC.muffleGain : 1, 0.25);
     set(n.windG.gain, Math.min(0.5, (spd / 150) ** 2 * 0.4) * (ac.airbrakeOut ? 1.8 : 1));
     set(n.windF.frequency, 400 + spd * 4);
     set(n.rumbleG.gain, onGround ? Math.min(0.8, spd / 60) : 0, 0.03);
@@ -226,6 +234,16 @@ export class Sound {
   explosion(power = 1) {
     this.burst({ freq: 1400, dur: 2.2 * power, vol: 0.9 * power, sweep: 0.05 });
     this.tone(60, 1.2, 0.6 * power, 'sine', 0.4);
+  }
+  // Crossing Mach 1: a deep double "ba-boom" (the shock waves off the nose and the tail).
+  sonicBoom() {
+    const one = (v) => {
+      this.burst({ freq: 140, type: 'lowpass', q: 0.8, dur: 1.4, vol: 1.1 * v });
+      this.burst({ freq: 900, type: 'lowpass', q: 0.7, dur: 0.12, vol: 0.9 * v });
+      this.tone(55, 0.6, 0.35 * v, 'sine', 0.6);
+    };
+    one(1);
+    setTimeout(() => one(0.8), 130);
   }
   clunk() { this.tone(160, 0.12, 0.25, 'square', 0.5); this.burst({ freq: 900, dur: 0.08, vol: 0.2 }); }
   gearMotor(dur) { this.burst({ freq: 220, type: 'bandpass', q: 3, dur, vol: 0.12 }); }
