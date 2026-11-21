@@ -1,6 +1,6 @@
 // Draws the world, the aircraft and effects on one canvas.
 import { images, tinted, SOFT, makeCanvas, rng } from './assets.js';
-import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget, buildFuelTruck } from './scenery.js';
+import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget, buildFuelTruck, FLOODLIGHT } from './scenery.js';
 import { Particles } from './particles.js';
 import { buildLandmarks, LANDMARKS } from './landmarks.js';
 import { THEMES, TIMES, REFUEL } from '../data/world.js';
@@ -572,6 +572,16 @@ export class Renderer {
     }
     // Tower beacon.
     if (Math.sin(t * 4) > 0.6) dot(SOFT.green, bg.towerX, v.sy(bg.towerH + 1), s * 3);
+    // Floodlights over the parked rows: lamp glow on each mast, a pool on the apron.
+    for (const fx of bg.floods || []) {
+      const x = v.sx(fx);
+      if (x < -80 * S || x > v.W + 80 * S) continue;
+      ctx.globalAlpha = 0.35;
+      ctx.drawImage(SOFT.warm, x - 22 * S, v.groundY - 14 * S, 44 * S, 20 * S);
+      ctx.globalAlpha = 1;
+      dot(SOFT.warm, fx, v.sy(FLOODLIGHT.mastM - 0.5), s * 2.2);
+      dot(SOFT.white, fx, v.sy(FLOODLIGHT.mastM - 0.5), s * 0.9);
+    }
     // Pools of light on the apron.
     ctx.globalAlpha = 0.25;
     for (let m = 120; m < 120 + b.hangars * 72; m += 72) {

@@ -556,6 +556,22 @@ function banyanTree(time, R, index, leafHex) {
   });
 }
 
+// Floodlit apron (owner 2026-11-21): masts along the parked rows every everyM; at night
+// the parked jets are lit by them (warm light instead of the night tint) and the renderer
+// adds the pools of light and the lamps (floods). mastM: mast height (m).
+export const FLOODLIGHT = { light: [1.0, 0.93, 0.8], shelterLight: [0.75, 0.7, 0.62], everyM: 32, mastM: 13 };
+function floodMast(time, R) {
+  const F = FLOODLIGHT;
+  return sprite(3, F.mastM, R, (x, W, H, R) => {
+    x.fillStyle = shade('#5d6168', time.light);
+    x.fillRect(W / 2 - 0.15 * R, 0.8 * R, 0.3 * R, H);
+    x.fillStyle = shade('#3d4046', time.light);
+    x.fillRect(0.2 * R, 0, W - 0.4 * R, 0.9 * R);
+    x.fillStyle = time.lights ? '#fff4d6' : shade('#c9ccd1', time.light);
+    x.fillRect(0.35 * R, 0.55 * R, W - 0.7 * R, 0.35 * R);
+  });
+}
+
 // All static objects for one base, positions in metres from its threshold.
 export function buildBase(base, time, R) {
   const objs = [];
@@ -576,17 +592,30 @@ export function buildBase(base, time, R) {
   // [centre, half width] of everything the parked aircraft must keep clear of.
   const blocked = [...boardX.map((x) => [x + 7, 7]), ...trophySprites.map(({ t, spr }) => [t.x, spr.wM / 2])];
   const CLEAR_M = 4;
+  // Floodlight masts behind the parked rows (drawn first, so behind the jets).
+  const night = !!time.lights;
+  const acLight = night ? FLOODLIGHT.light : time.light;
+  const shLight = night ? FLOODLIGHT.shelterLight : time.light;
+  const floods = [];
+  const rows = [];
+  if (images[base.parked]) rows.push([base.apron[0], base.apron[1]]);
+  for (const g of groups) rows.push([g.from, g.from + g.count * 15]);
+  const mast = rows.length ? floodMast(time, R) : null;
+  for (const [a, b] of rows) {
+    for (let mx = a + 6; mx < b; mx += FLOODLIGHT.everyM) { addC(mast, mx); floods.push(base.x + mx); }
+  }
   // Parked aircraft on the apron, some in shelters.
   const front = images[base.parked];
   if (front) {
     const sh = shelter(time, R);
-    const ac = { canvas: tinted(front, time.light, base.parked), wM: front.width / 16, hM: front.height / 16 };
+    const ac = { canvas: tinted(front, acLight, base.parked), wM: front.width / 16, hM: front.height / 16 };
+    const acSh = { canvas: tinted(front, shLight, base.parked), wM: ac.wM * 0.8, hM: ac.hM * 0.8 };
     let n = 0;
     for (let x = base.apron[0]; x < base.apron[1] && n < 12; x += 15) {
       const inShelter = n % 3 === 2;
       const c = inShelter ? x + 8 : x + ac.wM / 2, half = inShelter ? 14 : ac.wM / 2;
       if (blocked.some(([bc, bh]) => Math.abs(c - bc) < half + bh + CLEAR_M)) continue;
-      if (inShelter) { add(sh, x - 6, -1); add({ ...ac, wM: ac.wM * 0.8, hM: ac.hM * 0.8 }, x - 6 + 14 - ac.wM * 0.4); }
+      if (inShelter) { add(sh, x - 6, -1); add(acSh, x - 6 + 14 - ac.wM * 0.4); }
       else add(ac, x);
       n++;
     }
@@ -597,10 +626,11 @@ export function buildBase(base, time, R) {
     const front = images[g.sprite];
     if (!front) continue;
     const sh = shelter(time, R);
-    const ac = { canvas: tinted(front, time.light, g.sprite), wM: front.width / 16, hM: front.height / 16 };
+    const ac = { canvas: tinted(front, acLight, g.sprite), wM: front.width / 16, hM: front.height / 16 };
+    const acSh = { canvas: tinted(front, shLight, g.sprite), wM: ac.wM * 0.8, hM: ac.hM * 0.8 };
     let x = g.from, end = x;
     for (let n = 0; n < g.count; n++, x += 15) {
-      if (n % 3 === 2) { add(sh, x - 6, -1); add({ ...ac, wM: ac.wM * 0.8, hM: ac.hM * 0.8 }, x - 6 + 14 - ac.wM * 0.4); end = x - 6 + 28; }
+      if (n % 3 === 2) { add(sh, x - 6, -1); add(acSh, x - 6 + 14 - ac.wM * 0.4); end = x - 6 + 28; }
       else { add(ac, x); end = x + ac.wM; }
     }
     if (g.board) add(board(time, R, g.board, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), end + 2);
@@ -613,7 +643,7 @@ export function buildBase(base, time, R) {
       else add(welcome(time, R, base.welcome), wx);
     }
   }
-  return { objs, towerX: base.x + 120 + base.hangars * 72 + 110, towerH: base.towerM };
+  return { objs, floods, towerX: base.x + 120 + base.hangars * 72 + 110, towerH: base.towerM };
 }
 
 // --- Ground targets ---
