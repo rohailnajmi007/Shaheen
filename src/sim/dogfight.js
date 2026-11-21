@@ -117,10 +117,9 @@ export class Dogfight {
       const drop = M.launch === 'drop';
       const burnFrom = drop ? M.dropS : 0;
       if (!m.motor && drop && m.t >= M.dropS && m.t < M.dropS + M.burnS) {
+        // Lights wherever it points (owner 2026-11-21: no snapping round); the body then
+        // turns at its turn rate and the flight path follows the body (AAM_SEEKER.alignPerS).
         m.motor = true; f.emit('aamIgnite', { x: m.x, y: m.y });
-        // Thrust along the body: the path straightens out along where it points.
-        const sp0 = Math.hypot(m.vx, m.vy);
-        m.vx = Math.cos(m.ang) * sp0; m.vy = Math.sin(m.ang) * sp0;
       }
       if (m.motor && m.t >= burnFrom + M.burnS) m.motor = false;
       let sp = Math.hypot(m.vx, m.vy), hd = Math.atan2(m.vy, m.vx);
@@ -144,12 +143,15 @@ export class Dogfight {
           const tgo = dist / Math.max(sp, 50);
           aim = { x: c.x + b.vel.x * tgo, y: c.y + b.vel.y * tgo };
         }
+        // Body (ang): turns toward the intercept point at most turnDegS.
         if (aim && sp > 120) {
           const want = Math.atan2(aim.y - m.y, aim.x - m.x);
-          hd += clamp(wrap(want - hd), -M.turnDegS * D2R * dt, M.turnDegS * D2R * dt);
-        } else hd -= 0.15 * dt * Math.cos(hd); // no target: noses over slowly
+          m.ang += clamp(wrap(want - m.ang), -M.turnDegS * D2R * dt, M.turnDegS * D2R * dt);
+        } else m.ang -= 0.15 * dt * Math.cos(m.ang); // no target: noses over slowly
+        // Flight path: thrust and fins swing it smoothly onto the body's line.
+        const sw = wrap(m.ang - hd) * Math.min(1, AAM_SEEKER.alignPerS * dt), swMax = AAM_SEEKER.alignMaxDegS * D2R * dt;
+        hd += clamp(sw, -swMax, swMax);
         m.vx = Math.cos(hd) * sp; m.vy = Math.sin(hd) * sp;
-        m.ang = hd;
       }
       m.x += m.vx * dt; m.y += m.vy * dt;
       // Smoke trail points while the motor burns (drawn as billowing puffs by the renderer).
@@ -335,9 +337,9 @@ export class Dogfight {
       p.rot += p.spin * dt;
       if (p.y <= 0.5) {
         p.landed = true; p.y = 0.5;
-        const big = p === biggest;
-        f.emit('explosion', { x: p.x, y: 0, big });
-        if (big) f.emit('banditWreck', { x: p.x });
+        // No explosion (owner 2026-11-21: it already blew up in the air): dust, and the
+        // heavy middle piece keeps burning on the ground.
+        f.emit('debrisLand', { x: p.x, burn: p === biggest });
         continue;
       }
       if (!main || p.mass > main.mass) main = p;

@@ -114,7 +114,10 @@ export const EJECT = {
 // Seeker (owner 2026-11-21: "sometimes it won't lock"): min range cut (gun-range fights
 // were under it), and once it has the bandit it keeps tracking inside holdConeMult x the
 // cone and holdRangeMult x the max range; out of that the lock drains at decayPerS.
-export const AAM_SEEKER = { holdConeMult: 1.8, holdRangeMult: 1.15, decayPerS: 1 };
+// alignPerS: how fast a missile's flight path swings onto its body line (1/s); the body
+// itself turns at the missile's turnDegS, so a launch in any attitude curves round smoothly;
+// alignMaxDegS caps how fast the path can swing (no sideways slide after ignition).
+export const AAM_SEEKER = { holdConeMult: 1.8, holdRangeMult: 1.15, decayPerS: 1, alignPerS: 3, alignMaxDegS: 45 };
 export const AAMS = {
   aim9: { name: 'AIM-9M SIDEWINDER', short: 'AIM-9M', fox: 'FOX TWO', sprite: 'aim9_body', launch: 'rail',
     rangeM: [150, 2800], coneDeg: 22, lockS: 0.9, dropS: 0, speedMs: 620, accel: 420, burnS: 2.2, dragMs2: 70,

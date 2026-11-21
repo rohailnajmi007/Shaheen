@@ -88,9 +88,9 @@ const CLOUD_SPAN_M = 60000;
 // Tail strobe: flash starts (s) within each period.
 export const STROBE = { periodS: 1.6, flashes: [0, 0.2], flashS: 0.06 };
 // Wingtip nav lights (owner 2026-11-21): red on the near (left) wingtip, green on the far
-// (right) one, pulsing together: a smooth rise to full and back down every periodS,
+// (right) one, pulsing together: a smooth rise to full and back down every periodS (owner: 1.4 s too slow),
 // never quite out (min). Sizes in texture px (near, far: the far tip sits behind the jet).
-export const NAV_PULSE = { periodS: 1.4, min: 0.12, nearPx: 24, farPx: 18, farAlpha: 0.75 };
+export const NAV_PULSE = { periodS: 0.6, min: 0.12, nearPx: 24, farPx: 18, farAlpha: 0.75 };
 // Crash breakup (see crashFx). Shard sizes in aircraft texture px (1/16 m).
 export const CRASH = {
   bigSeverity: 0.6,     // from this severity: explosion, debris blasted out
@@ -1303,7 +1303,7 @@ export class Renderer {
       const k = Math.max(v.S * flight.data.texM, (A.minLenW * v.W) / img.width);
       ctx.save();
       ctx.translate(v.sx(m.x), v.sy(m.y));
-      ctx.rotate(-Math.atan2(m.vy, m.vx));
+      ctx.rotate(-m.ang); // its body attitude (the path follows it)
       ctx.scale(k, k);
       if (m.motor) {
         // Flame and glow behind the nozzle (drawn first, under the body).
@@ -1398,7 +1398,11 @@ export class Renderer {
         this.puffs(e.x, e.y, 6, 'smoke', 2.5);
         this.particles.spawn('glow', e.x, e.y, 0, 0, 6, 0.25, { grow: 1.5, ground: false });
       }
-      else if (e.type === 'banditWreck') { this.wrecks.push({ x: e.x, t: 0 }); this.explode(e.x, 1, 1.3); }
+      else if (e.type === 'debrisLand') {
+        // Missile-kill debris hitting the ground: a dust cloud, no blast.
+        this.puffs(e.x, 0.5, e.burn ? 8 : 4, 'dust', e.burn ? 4 : 2.5);
+        if (e.burn) this.wrecks.push({ x: e.x, t: 0 });
+      } else if (e.type === 'banditWreck') { this.wrecks.push({ x: e.x, t: 0 }); this.explode(e.x, 1, 1.3); }
       else if (e.type === 'sonicBoom') this.cam.shake = Math.min(1.2, this.cam.shake + 0.45); // Mach 1: a jolt
       else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
     }
