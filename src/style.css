@@ -347,7 +347,7 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .mcard .acimg { height: 84px; width: 100%; }
 .mcard .acimg img { max-height: 84px; }
 .mcard .acrole { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--tone); }
-.mcard .acwpn { font-size: 12px; color: #e0b84a; }
+.mcard .acwpn { font-size: 12px; color: #e0b84a; display: grid; gap: 2px; }
 .sheet.full .mfoot { justify-content: space-between; padding: 14px 28px; border-top: 1px solid var(--rule); background: #12150e; }
 .sheet.full .fly:disabled { opacity: 0.35; cursor: not-allowed; }
 /* The sortie order: a paper form with the pilot's name tag. */

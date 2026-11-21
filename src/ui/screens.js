@@ -71,13 +71,13 @@ function fitName(s) { let t = s; while (t && !fitsTag(t)) t = t.slice(0, -1); re
 const MODE_NAME = { ferry: 'FERRY FLIGHT', strike: 'AIR TO GROUND', dogfight: 'AIR TO AIR' };
 // Which missions an aircraft can fly.
 const modeOk = (m, a) => m === 'ferry' || (m === 'strike' ? a.strikeCapable : !!a.gun);
-// What it carries, by kind ("4 laser guided bombs · 20 mm cannon").
+// What it carries, by kind, one line each (owner 2026-11-21): "4 laser guided bombs", "20 mm cannon".
 function armament(a) {
   const out = [];
   if (a.strikeCapable && a.weaponLabel) out.push(`${a.bombCount} ${a.weaponLabel.toLowerCase()}s`);
   const cal = a.gun && /(\d+)\s*MM/i.exec(a.gun.name);
   if (a.gun) out.push(cal ? `${cal[1]} mm cannon` : 'cannon');
-  return out.length ? out.join(' · ') : 'Unarmed';
+  return (out.length ? out : ['Unarmed']).map((l) => `<span>${l}</span>`).join('');
 }
 
 export class Menu {

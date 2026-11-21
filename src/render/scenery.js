@@ -456,9 +456,8 @@ const TROPHY_ART = {
   mig21: { sprite: 'mig21_body', poly: [[0, 0], [66, 0], [150, 56], [150, 60], [30, 60]], h: 27 },
   su30: { sprite: 'su30_body', poly: [[95, 0], [126, 0], [208, 103], [96, 103]], h: 36 },
 };
-const TROPHY_LABEL = { mig21: 'IAF MIG-21 BISON', su30: 'IAF SU-30MKI' };
 const TROPHY_GAP = 14; // px between the fins on the shared base
-const TROPHY_OP = 'OP. SWIFT RETORT'; // under the names (owner 2026-11-21)
+const TROPHY_OP = 'OP. SWIFT RETORT'; // on the base (owner 2026-11-21)
 // One display: the fins side by side on a single black stone base, each named in gold
 // under it (owner 2026-11-21: "next to each other, set on a black base").
 function trophy(time, R, kinds) {
@@ -471,24 +470,22 @@ function trophy(time, R, kinds) {
     const xs = art.poly.map((p) => p[0]), ys = art.poly.map((p) => p[1]);
     const bx = Math.min(...xs), by = Math.min(...ys), bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
     const finW = bw * art.h / bh * sc;
-    const label = TROPHY_LABEL[kind];
-    return { kind, art, bx, by, bw, bh, finW, label, w: Math.max(finW, textW(label, 8)) };
+    return { kind, art, bx, by, bw, bh, finW, w: finW };
   });
-  const w = slots.reduce((t, sl) => t + sl.w, 0) + TROPHY_GAP * (slots.length + 1);
-  const baseH = 27, plinthTop = -baseH - 3 * sc;
+  // Only the operation's name on the base (owner 2026-11-21: no aircraft names).
+  const w = Math.max(slots.reduce((t, sl) => t + sl.w, 0) + TROPHY_GAP * (slots.length + 1), textW(TROPHY_OP, 11) + 28);
+  const baseH = 19, plinthTop = -baseH - 3 * sc;
   return godotSprite(w + 4, 100, R, (x) => {
     const g = gfx(x);
     // The black base, slightly raked, a lit edge on top.
     g.poly([[-w / 2, 0], [w / 2, 0], [w / 2, -baseH], [-w / 2, -baseH + 2]], c01(lit01([0.08, 0.08, 0.09], L)));
     g.line([[-w / 2, -baseH + 2], [w / 2, -baseH]], c01(lit01([0.32, 0.32, 0.34], L)));
     g.rect(-w / 2 + 2, -baseH - 3 * sc, w - 4, 3 * sc, c01(lit01([0.13, 0.13, 0.14], L)));
-    // The operation, centred along the bottom under a thin gold rule.
-    g.rect(-w / 2 + 10, -10, w - 20, 0.6, gold);
-    g.text(TROPHY_OP, 0, -2.5, 7, gold);
+    // The operation, centred on the base.
+    g.text(TROPHY_OP, 0, -5, 11, gold);
     let cx = -w / 2 + TROPHY_GAP;
     for (const sl of slots) {
       const mid = cx + sl.w / 2;
-      g.text(sl.label, mid, -14, 8, gold);
       const img = images[sl.art.sprite];
       if (img) {
         const lit = night ? [0.95, 0.88, 0.75] : L;
