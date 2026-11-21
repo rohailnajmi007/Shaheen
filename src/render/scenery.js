@@ -763,7 +763,7 @@ export function buildBase(base, time, R) {
   for (const bb of base.billboards || []) {
     const cx = boardAt[bb.board];
     if (cx == null) continue;
-    const spr = billboard(time, R, images[bb.sprite], bb.caption, night ? FLOODLIGHT.signLight : null);
+    const spr = billboard(time, R, images[bb.sprite], bb.board.split('|')[0], night ? FLOODLIGHT.signLight : null);
     bills.push({ ...spr, x: base.x + cx - spr.wM / 2, layer: 0 });
     signLamps.push(base.x + cx); // the renderer adds the lamp glow on top at night
   }

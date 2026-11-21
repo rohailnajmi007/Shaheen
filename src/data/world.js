@@ -19,11 +19,12 @@ export const BASES = {
   masroor: {
     id: 'masroor', name: 'PAF Base Masroor', city: 'Karachi', short: 'MASROOR',
     runwayM: 1400, hangars: 2, towerM: 28, parked: 'jf17_front_body', apron: [-60, 520], taxiFromM: -30, holdM: 135,
-    boards: ['NO. 2 SQN|MINHASIANS', 'NO. 8 SQN|HAIDER'],
-    // Big emblem billboards behind the parked rows, by their squadron's board (owner 2026-11-21).
+    boards: ['NO. 2 MR SQN|MINHASIANS', 'NO. 8 MR SQN|HAIDER'],
+    // Big emblem billboards behind the parked rows, by their squadron's board (owner 2026-11-21);
+    // caption = the board's number part ("NO. 2 MR SQN"), the small board shows the name.
     billboards: [
-      { sprite: 'nishan_e_haider_body', board: 'NO. 2 SQN|MINHASIANS', caption: 'NISHAN-E-HAIDER' },
-      { sprite: 'emblem_no8_body', board: 'NO. 8 SQN|HAIDER', caption: 'NO. 8 SQN · HAIDER' },
+      { sprite: 'nishan_e_haider_body', board: 'NO. 2 MR SQN|MINHASIANS' },
+      { sprite: 'emblem_no8_body', board: 'NO. 8 MR SQN|HAIDER' },
     ],
     welcome: ['WELCOME TO MASROOR', 'THE HOME OF WARRIORS'], welcomeX: [1430], theme: 'coast',
     // Background landmarks (src/render/landmarks.js), seen on the approach.
@@ -32,10 +33,10 @@ export const BASES = {
   mushaf: {
     id: 'mushaf', name: 'PAF Base Mushaf', city: 'Sargodha', short: 'MUSHAF',
     runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [32, 560], taxiFromM: 25, holdM: 225,
-    boards: ['NO. 9 SQN|GRIFFINS', 'NO. 29 SQN|AGGRESSORS'],
+    boards: ['NO. 9 MR SQN|GRIFFINS', 'NO. 29 MR SQN|AGGRESSORS'],
     billboards: [
-      { sprite: 'emblem_no9_body', board: 'NO. 9 SQN|GRIFFINS', caption: 'NO. 9 SQN · GRIFFINS' },
-      { sprite: 'emblem_no29_body', board: 'NO. 29 SQN|AGGRESSORS', caption: 'NO. 29 SQN · AGGRESSORS' },
+      { sprite: 'emblem_no9_body', board: 'NO. 9 MR SQN|GRIFFINS' },
+      { sprite: 'emblem_no29_body', board: 'NO. 29 MR SQN|AGGRESSORS' },
     ],
     welcome: ['WELCOME TO MUSHAF', 'THE HOME OF EAGLES'], theme: 'punjab',
     // Stone monument (dark blue, gold key-pattern border, crest) at both runway ends.
@@ -59,8 +60,8 @@ export const BASES = {
     ],
     boards: [], boardColor: '#14181c', boardTrim: '#d9dde2',
     billboards: [
-      { sprite: 'emblem_no26_body', board: 'NO. 26 MR SQN|BLACK SPIDERS', caption: 'NO. 26 SQN · BLACK SPIDERS' },
-      { sprite: 'emblem_no15_body', board: 'NO. 15 MR SQN|COBRAS', caption: 'NO. 15 SQN · COBRAS' },
+      { sprite: 'emblem_no26_body', board: 'NO. 26 MR SQN|BLACK SPIDERS' },
+      { sprite: 'emblem_no15_body', board: 'NO. 15 MR SQN|COBRAS' },
     ],
     welcome: ['WELCOME TO KAMRA', 'PAF BASE KAMRA'],
   },
