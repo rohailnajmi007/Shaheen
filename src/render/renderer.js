@@ -45,7 +45,7 @@ export const DAMAGE_SMOKE = { fromDamage: 0.03, ratePerS: [10, 60], size: [2, 6]
 const WATCH_KILL_S = 5;
 // Pieces off a bandit going down: count on the kill, extra while falling, chip size (tex px),
 // fling speed (m/s), air drag (1/s), how long they stay, and a cap.
-export const DEBRIS = { onKill: 12, chipPx: [16, 40], flingMs: 18, airDrag: 0.6, lifeS: 30, max: 80,
+export const DEBRIS = { onKill: 12, fallingChipsPerS: 1, chipPx: [16, 40], flingMs: 18, airDrag: 0.6, lifeS: 30, max: 80,
   // Each round that hits any jet (you or a bandit) may knock off a small bit near the hit.
   hitChance: 0.7, hitChips: [1, 2], hitChipPx: [4, 10], hitFlingMs: 12 };
 // Near clouds are scattered over this much of the route, then repeat.
@@ -1498,7 +1498,10 @@ export class Renderer {
     const df = flight.df;
     if (df) {
       if (df.b) this.damageSmoke(df.b, df.opp, df.damage, dt, false);
-      for (const w of df.falling) this.damageSmoke(w.ac, df.opp, 1, dt, true);
+      for (const w of df.falling) {
+        this.damageSmoke(w.ac, df.opp, 1, dt, true);
+        if (Math.random() < dt * DEBRIS.fallingChipsPerS) this.chips(df.opp, w.ac, 1, 0.5);
+      }
       for (const w of this.wrecks) {
         if ((w.t += dt) > 40 || Math.random() > dt * 12) continue;
         P.spawn('dark', w.x + (Math.random() - 0.5) * 10, 1, 1, 4, 5, 4, { grow: 3.5, lift: 3, alpha: 0.6 });

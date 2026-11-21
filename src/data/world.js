@@ -22,8 +22,8 @@ export const BASES = {
     // Stone monument (dark blue, gold key-pattern border, crest) at both runway ends.
     welcomeX: [-170, 1540], welcomeStyle: 'monument',
     boardColor: '#8c0f0f', boardTrim: '#ebbd4d',
-    // Captured-aircraft tail displays on black plinths (m from the threshold).
-    trophies: [{ kind: 'mig21', x: 80 }, { kind: 'su30', x: 520 }],
+    // Captured-aircraft fins side by side on one black base (m from the threshold).
+    trophies: [{ kinds: ['mig21', 'su30'], x: 520 }],
     banyanX: [-250, -30, 240, 1080, 1210, 1380, 1650, 1780],
     landmarks: ['fields', 'orchard', 'banyan', 'village'],
   },

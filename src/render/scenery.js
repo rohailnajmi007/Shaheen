@@ -440,45 +440,53 @@ const TROPHY_ART = {
   mig21: { sprite: 'mig21_body', poly: [[0, 0], [66, 0], [150, 56], [150, 60], [30, 60]], h: 27 },
   su30: { sprite: 'su30_body', poly: [[95, 0], [126, 0], [208, 103], [96, 103]], h: 36 },
 };
-function trophy(time, R, kind) {
-  const label = kind === 'mig21' ? 'IAF MIG-21 BISON' : 'IAF SU-30MKI';
-  const tw = textW(label, 8);
-  const w = tw + 14;
+const TROPHY_LABEL = { mig21: 'IAF MIG-21 BISON', su30: 'IAF SU-30MKI' };
+const TROPHY_GAP = 14; // px between the fins on the shared base
+// One display: the fins side by side on a single black stone base, each named in gold
+// under it (owner 2026-11-21: "next to each other, set on a black base").
+function trophy(time, R, kinds) {
   const night = !!time.lights;
   const L = time.light;
   const gold = night ? c01([0.95, 0.8, 0.45]) : c01(lit01([0.92, 0.78, 0.42], L));
-  return godotSprite(Math.max(w, 70) + 4, 84, R, (x) => {
-    const g = gfx(x);
-    g.poly([[-w / 2, 0], [w / 2, 0], [w / 2, -17], [-w / 2, -13]], c01(lit01([0.1, 0.1, 0.11], L)));
-    g.line([[-w / 2, -13], [w / 2, -17]], c01(lit01([0.32, 0.32, 0.34], L)));
-    g.text(label, 0, -3, 8, gold);
-    const sc = TROPHY_SCALE;
-    g.rect(-10 * sc, -16 - 3 * sc, 2, 3 * sc, c01(lit01([0.18, 0.18, 0.2], L)));
-    g.rect(8 * sc, -16 - 3 * sc, 2, 3 * sc, c01(lit01([0.18, 0.18, 0.2], L)));
-    x.save();
-    x.translate(0, -16 - 3 * sc);
-    x.scale(sc, sc);
-    // The real tail section, cut from the opponent sprite (owner's art), lit like the scene.
+  const sc = TROPHY_SCALE;
+  const slots = kinds.map((kind) => {
     const art = TROPHY_ART[kind];
-    const img = images[art.sprite];
-    if (img) {
-      const lit = night ? [0.95, 0.88, 0.75] : L;
-      const xs = art.poly.map((p) => p[0]), ys = art.poly.map((p) => p[1]);
-      const bx = Math.min(...xs), by = Math.min(...ys), bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
-      const k = art.h / bh;
-      x.save();
-      x.translate(-bw * k / 2, -art.h);
-      x.scale(k, k);
-      x.translate(-bx, -by);
-      x.beginPath();
-      art.poly.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py)));
-      x.closePath();
-      x.clip();
-      x.drawImage(tinted(img, lit), 0, 0);
-      x.restore();
+    const xs = art.poly.map((p) => p[0]), ys = art.poly.map((p) => p[1]);
+    const bx = Math.min(...xs), by = Math.min(...ys), bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
+    const finW = bw * art.h / bh * sc;
+    const label = TROPHY_LABEL[kind];
+    return { kind, art, bx, by, bw, bh, finW, label, w: Math.max(finW, textW(label, 8)) };
+  });
+  const w = slots.reduce((t, sl) => t + sl.w, 0) + TROPHY_GAP * (slots.length + 1);
+  const baseH = 17, plinthTop = -baseH - 3 * sc;
+  return godotSprite(w + 4, 84, R, (x) => {
+    const g = gfx(x);
+    // The black base, slightly raked, a lit edge on top.
+    g.poly([[-w / 2, 0], [w / 2, 0], [w / 2, -baseH], [-w / 2, -baseH + 2]], c01(lit01([0.08, 0.08, 0.09], L)));
+    g.line([[-w / 2, -baseH + 2], [w / 2, -baseH]], c01(lit01([0.32, 0.32, 0.34], L)));
+    g.rect(-w / 2 + 2, -baseH - 3 * sc, w - 4, 3 * sc, c01(lit01([0.13, 0.13, 0.14], L)));
+    let cx = -w / 2 + TROPHY_GAP;
+    for (const sl of slots) {
+      const mid = cx + sl.w / 2;
+      g.text(sl.label, mid, -3, 8, gold);
+      const img = images[sl.art.sprite];
+      if (img) {
+        const lit = night ? [0.95, 0.88, 0.75] : L;
+        const k = sl.art.h * sc / sl.bh;
+        x.save();
+        x.translate(mid - sl.finW / 2, plinthTop - sl.art.h * sc);
+        x.scale(k, k);
+        x.translate(-sl.bx, -sl.by);
+        x.beginPath();
+        sl.art.poly.forEach(([px, py], n) => (n ? x.lineTo(px, py) : x.moveTo(px, py)));
+        x.closePath();
+        x.clip();
+        x.drawImage(tinted(img, lit), 0, 0);
+        x.restore();
+      }
+      if (night) g.circle(mid, -baseH - 1, 1.5, 'rgb(255,230,150)');
+      cx += sl.w + TROPHY_GAP;
     }
-    x.restore();
-    if (night) g.circle(-w / 2 + 3, -1, 1.5, 'rgb(255,230,150)');
   }, SIGN_GPX);
 }
 
@@ -532,7 +540,7 @@ export function buildBase(base, time, R) {
   // Squadron boards and trophies; parked aircraft keep clear of them.
   const boardX = base.boards.map((_, i) => base.apron[0] + 80 + i * 70);
   const trophies = base.trophies || [];
-  const trophySprites = trophies.map((t) => ({ t, spr: trophy(time, R, t.kind) }));
+  const trophySprites = trophies.map((t) => ({ t, spr: trophy(time, R, t.kinds) }));
   // [centre, half width] of everything the parked aircraft must keep clear of.
   const blocked = [...boardX.map((x) => [x + 7, 7]), ...trophySprites.map(({ t, spr }) => [t.x, spr.wM / 2])];
   const CLEAR_M = 4;
