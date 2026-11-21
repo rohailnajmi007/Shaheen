@@ -17,7 +17,11 @@ const LAYER_ZOOM = { mountains: 0.12, city: 0.25, mid: 0.4, trees: 0.7 };
 const BACKDROP_MIN_ZOOM = 0.45;
 // Adaptive resolution: average frame time over windowS; above slowMs (about 45 fps) the
 // canvas pixel count steps down by `step` of the size, never below minScale.
-const AUTO_RES = { windowS: 2, slowMs: 22, step: 0.15, minScale: 0.6 };
+// Owner 2026-11-21 (quality dropping, black flashes): gentler (only below ~36 fps, floor
+// 0.8), recovers when frames are fast again (fastMs), and the canvas is resized at the
+// start of the next frame (resize() in renderFlight), never between frames, so the
+// browser never shows a cleared, black canvas.
+const AUTO_RES = { windowS: 2, slowMs: 28, fastMs: 15, step: 0.1, minScale: 0.8 };
 // Air-to-ground attack-run camera (see updateCamera). At zoom 0.4 the ground stays in
 // view up to ~125 m (~400 ft) on a 720p screen; climb higher and it leaves the frame.
 export const ATTACK_CAM = {
@@ -109,10 +113,8 @@ export class Renderer {
     if (s.t < A.windowS) return;
     const avg = s.ms / s.n;
     s.t = 0; s.n = 0; s.ms = 0;
-    if (avg > A.slowMs && this.autoScale > A.minScale + 1e-6) {
-      this.autoScale = Math.max(A.minScale, this.autoScale - A.step);
-      this.resize();
-    }
+    if (avg > A.slowMs && this.autoScale > A.minScale + 1e-6) this.autoScale = Math.max(A.minScale, this.autoScale - A.step);
+    else if (avg < A.fastMs && this.autoScale < 1) this.autoScale = Math.min(1, this.autoScale + A.step);
   }
   resetScale() { this.autoScale = 1; this.slow = { t: 0, n: 0, ms: 0 }; this.resize(); }
 
@@ -558,8 +560,8 @@ export class Renderer {
     const S = v.S, g = v.groundY;
     const L = this.timeData.light, night = this.timeData.lights;
     const hold = flight.taxi.holdX;
-    const x0 = v.sx(b.x + TAXI.startM - 40), x1 = v.sx(b.x);
-    if (x1 > -50 && x0 < v.W + 50) {
+    const x0 = v.sx(flight.taxi.fromX - 40), x1 = v.sx(b.x);
+    if (flight.taxi.fromX < b.x && x1 > -50 && x0 < v.W + 50) {
       ctx.fillStyle = `rgb(${70 * L[0] | 0},${72 * L[1] | 0},${76 * L[2] | 0})`;
       ctx.fillRect(x0, g, x1 - x0, 2 * S);
     }
@@ -589,7 +591,7 @@ export class Renderer {
     });
     // Green taxi centre-line lights from the start to the holding point.
     const gs = Math.max(6, (night ? 2 : 1.3) * S);
-    for (let x = b.x + TAXI.startM; x < hold - 3; x += TAXI.lightEveryM) {
+    for (let x = flight.taxi.fromX; x < hold - 3; x += TAXI.lightEveryM) {
       const px = v.sx(x);
       if (px < -20 || px > v.W + 20) continue;
       ctx.drawImage(SOFT.green, px - gs / 2, g - 0.2 * S - gs / 2, gs, gs);

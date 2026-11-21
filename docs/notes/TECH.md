@@ -149,3 +149,5 @@ byte for byte. Details in `AIRCRAFT.md`.
 - Fixes: backdrop layers stop shrinking below `BACKDROP_MIN_ZOOM` 0.45; dogfight `minZoom` 0.12 (the marker shows a far bandit); vignette pre-drawn at quarter size per screen size; engine-sound parameters only re-aimed when their value moves.
 - **Adaptive resolution** (`AUTO_RES` in `src/render/renderer.js`, `Renderer.noteFrame`): average frame time over 2 s; above 22 ms (~45 fps) the canvas pixel count steps down 15% at a time, never below 0.6 of the size; scenery tiles keep their resolution (no rebuild, `res` ignores `autoScale`); back to full on the next flight.
 
+
+- **Black flashes / blurry picture (owner 2026-11-21):** adaptive resolution resized the canvas between frames (a resized canvas is cleared, so the browser showed black) and only ever lowered quality. Now `AUTO_RES` steps down only below ~36 fps to a floor of 0.8, steps back up when frames are fast, and the resize happens at the start of the next frame. Also: leftover headless test browsers (`edgecdp*` profiles) were still running on the machine and slowing everything; test scripts must kill Edge on exit (and check with Get-CimInstance msedge).

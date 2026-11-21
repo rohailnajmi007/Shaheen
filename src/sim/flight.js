@@ -81,7 +81,8 @@ export class Flight {
     this.buildWorld();
     // Taxi out first (TAXI): from the taxiway to the home base's holding point.
     this.taxi = { done: false, doneAt: 0, holdX: this.bases[0].x + (this.bases[0].holdM ?? 60) };
-    this.ac.pos.x = this.bases[0].x + TAXI.startM;
+    this.taxi.fromX = this.bases[0].x + (this.bases[0].taxiFromM ?? TAXI.startM);
+    this.ac.pos.x = this.taxi.fromX;
     if (this.mode === 'dogfight') {
       this.df = new Dogfight(this, opponentById(opts.opponent));
       this.ac.burnScale = DOGFIGHT.burnScale;
@@ -386,7 +387,10 @@ export class Flight {
     this.time += dt;
     const a = this.ac;
     if (this.state !== 'done') this.flightTime += dt;
+    const noAb = !this.taxi.done && a.onGround && this.data.afterburnerN > 0;
+    if (noAb) a.throttle = Math.min(a.throttle, this.data.afterburnerThreshold - 0.01); // no A/B while taxiing
     a.step(dt, input);
+    if (noAb) a.throttle = Math.min(a.throttle, this.data.afterburnerThreshold - 0.01);
     for (const e of a.events) this.onAircraftEvent(e);
     a.events.length = 0;
     if (!this.taxi.done) this.stepTaxi();
