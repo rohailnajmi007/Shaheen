@@ -267,30 +267,6 @@ export function buildGround(themeId, time, res) {
     x.fillRect(r() * W, y, (2 + r() * 10 * (1 - y / H + 0.3)) * res, (1 + r()) * res);
   }
   x.globalAlpha = 1;
-  // Punjab (owner 2026-11-21): the near ground is farmland: rows of fields (wheat, mustard,
-  // green, fallow) split by earth bunds, furrowed, with a canal running across.
-  if (th.fields) {
-    const rows = [[0.06, 0.26], [0.26, 0.5], [0.62, 1.0]];
-    for (const [a, b] of rows) {
-      const y0 = a * H, y1 = b * H;
-      for (let px = 0; px < W;) {
-        const w = (90 + r() * 220) * res;
-        const col = th.fieldColors[Math.floor(r() * th.fieldColors.length)];
-        x.fillStyle = shade(col, time.light);
-        x.fillRect(px, y0, Math.min(w, W - px), y1 - y0);
-        x.strokeStyle = shade(col, time.light.map((v) => v * 0.85)); x.lineWidth = 1.2 * res;
-        for (let fy = y0 + 4 * res; fy < y1 - 2 * res; fy += 6 * res) { x.beginPath(); x.moveTo(px + 3 * res, fy); x.lineTo(px + w - 3 * res, fy); x.stroke(); }
-        px += w;
-        x.fillStyle = shade('#7a6a48', time.light); x.fillRect(px - 1.5 * res, y0, 3 * res, y1 - y0); // bund
-      }
-      x.fillStyle = shade('#7a6a48', time.light); x.fillRect(0, y0 - 1.5 * res, W, 3 * res);
-    }
-    // Canal between the 2nd and 3rd rows: banks, water, a glint, a few trees on the bank.
-    const cy = 0.48 * H, ch = 0.16 * H;
-    x.fillStyle = shade('#8c7b55', time.light); x.fillRect(0, cy, W, ch);
-    x.fillStyle = shade(th.canal, time.light); x.fillRect(0, cy + 2.5 * res, W, ch - 5 * res);
-    x.fillStyle = 'rgba(255,255,255,0.28)'; x.fillRect(0, cy + ch * 0.4, W, 1.2 * res);
-  }
   // Grass tufts along the top edge.
   x.fillStyle = shade(th.groundDark, time.light);
   for (let px = 0; px < W; px += (2 + r() * 5) * res) {

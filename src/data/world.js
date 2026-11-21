@@ -34,7 +34,7 @@ export const BASES = {
   mushaf: {
     id: 'mushaf', name: 'PAF Base Mushaf', city: 'Sargodha', short: 'MUSHAF',
     hangarPlane: 'c130_front_body', // a C-130 in each big hangar (fighter bases, owner 2026-11-21)
-    runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [32, 560], taxiFromM: 25, holdM: 225,
+    runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [32, 280], taxiFromM: 25, holdM: 225,
     boards: ['NO. 9 MR SQN|GRIFFINS', 'NO. 29 MR SQN|AGGRESSORS'],
     billboards: [
       { sprite: 'emblem_no9_body', board: 'NO. 9 MR SQN|GRIFFINS' },
@@ -47,6 +47,9 @@ export const BASES = {
     boardColor: '#8c0f0f', boardTrim: '#ebbd4d',
     // Captured-aircraft fins side by side on one black base (m from the threshold).
     trophies: [{ kinds: ['mig21', 'su30'], x: 2 }],
+    // A short row of Mirage Vs (owner's front art), set well apart from the squadron
+    // boards and the F-16 line (owner 2026-11-21).
+    parkedGroups: [{ sprite: 'mirage5_front_body', from: 330, count: 4 }],
     banyanX: [-250, -30, 240, 1080, 1210, 1380, 1650, 1780],
     landmarks: ['fields', 'orchard', 'banyan', 'village'],
   },

@@ -250,6 +250,9 @@ CONFIGS = {
     # C-130 front view (owner's art 2026-11-21), inside the hangars at the fighter bases.
     "c130_front": {"src": "docs/reference/c130_front_source.png", "erase": [(770, 0, 960, 60)],
                    "display_width": 160, "gear_regions": [], "prop": None, "points": {}},
+    # Mirage V front view (owner's art 2026-11-21), parked at Mushaf.
+    "mirage5_front": {"src": "docs/reference/mirage5_front_source.png", "erase": [(670, 0, 808, 50)],
+                      "display_width": 33, "gear_regions": [], "prop": None, "points": {}},
     "f16_front": {
         "src": "docs/reference/f16_front_source.png",
         "display_width": 42,   # F-16 span 9.96 m incl. wingtip missiles

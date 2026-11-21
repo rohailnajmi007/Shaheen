@@ -281,8 +281,9 @@ export const AIRCRAFT = [
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,
     stallKt: 125, rotateKt: 145, maxSpeedKt: 900, cockpitStyle: 'glass',
     sprite: 'f16a_body', elevatorSprite: 'f16a_elevator', elevatorHinge: [55, 114],
-    gearX: [202, 292], gearTopY: [148, 147], gearWheel: [20, 16],
-    pivot: [202, 183], nozzle: [7, 102], flameLength: 320, flameWidth: 30,
+    // Owner 2026-11-21: main wheels a little further back, gear a little shorter (like the F-16D).
+    gearX: [196, 292], gearTopY: [148, 147], gearWheel: [20, 16],
+    pivot: [196, 179], nozzle: [7, 102], flameLength: 320, flameWidth: 30,
     strikeCapable: true, bombCount: 4, hardpoints: [[182, 152], [226, 154]],
     weaponSprite: 'gbu12_body', weaponName: 'GBU-12 PAVEWAY II', weaponLabel: 'Laser guided bomb', storeMassKg: 230,
     bombGuided: true,
