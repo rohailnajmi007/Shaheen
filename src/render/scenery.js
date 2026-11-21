@@ -572,10 +572,67 @@ function floodMast(time, R) {
   });
 }
 
-// Hangars, admin block and tower toward the far end of the runway (owner 2026-11-21):
-// the row ends BUILDINGS_END_M before the runway end. Returns the first hangar's x (m).
+// Base layout (owner 2026-11-21): parked rows at the start; the hangar block (hangars,
+// admin, tower) mid-runway, at least HANGAR_GAP_M after the parked rows and ending at
+// least BUILDINGS_END_M before the runway end; the gaps filled with smaller buildings
+// (FILL: gap between them [min, max] m, margin kept clear at either end of a stretch).
 export const BUILDINGS_END_M = 30;
-export function hangarsX(base) { return base.runwayM - BUILDINGS_END_M - (base.hangars * 72 + 116); }
+export const HANGAR_GAP_M = 160;
+export const FILL = { gapM: [14, 34], marginM: 22, clearM: 22 };
+const hangarBlockM = (base) => base.hangars * 72 + 116;
+export function hangarsX(base, parkedEnd) {
+  const hb = hangarBlockM(base);
+  const mid = base.runwayM * 0.5 - hb / 2;
+  return Math.min(base.runwayM - BUILDINGS_END_M - hb, Math.max(mid, parkedEnd + HANGAR_GAP_M));
+}
+
+// Filler buildings: long barracks, a workshop with a saw-tooth roof, a fuel farm.
+function barracks(time, R, col) {
+  return sprite(56, 7, R, (x, W, H, R) => {
+    x.fillStyle = shade('#8a5a44', time.light);
+    x.beginPath(); x.moveTo(-0.5 * R, 2.4 * R); x.lineTo(2 * R, 0); x.lineTo(W - 2 * R, 0); x.lineTo(W + 0.5 * R, 2.4 * R); x.fill();
+    x.fillStyle = shade(col, time.light); x.fillRect(0.5 * R, 2.4 * R, W - R, H - 2.4 * R);
+    const r = rng(Math.round(W * 7));
+    for (let i = 0; i < 13; i++) {
+      const wx = (2.2 + i * 4.1) * R;
+      x.fillStyle = time.lights && r() < 0.6 ? '#ffd27a' : shade('#3b4f63', time.light);
+      x.fillRect(wx, 3.4 * R, 2 * R, 1.6 * R);
+    }
+    x.fillStyle = shade('#5a4636', time.light); x.fillRect(W / 2 - 1.2 * R, 4 * R, 2.4 * R, H - 4 * R);
+  });
+}
+function workshop(time, R, col) {
+  return sprite(40, 11, R, (x, W, H, R) => {
+    x.fillStyle = shade('#7d838a', time.light);
+    for (let k = 0; k < 4; k++) {
+      const x0 = k * 10 * R;
+      x.beginPath(); x.moveTo(x0, 3 * R); x.lineTo(x0 + 7.5 * R, 0); x.lineTo(x0 + 7.5 * R, 3 * R); x.lineTo(x0 + 10 * R, 3 * R); x.lineTo(x0 + 10 * R, 3 * R); x.fill();
+      x.fillStyle = time.lights ? 'rgba(255,214,140,0.9)' : shade('#9fb4c6', time.light);
+      x.fillRect(x0 + 7.6 * R, 0.4 * R, 0.6 * R, 2.6 * R);
+      x.fillStyle = shade('#7d838a', time.light);
+    }
+    x.fillStyle = shade(col, time.light); x.fillRect(0, 3 * R, W, H - 3 * R);
+    x.fillStyle = shade('#4b5058', time.light); x.fillRect(4 * R, 5 * R, 13 * R, H - 5 * R);
+    x.fillStyle = shade('#6a7078', time.light);
+    for (let k = 0; k < 6; k++) x.fillRect(4 * R, (5.6 + k) * R, 13 * R, 0.25 * R);
+    x.fillStyle = shade('#c94a2e', time.light); x.fillRect(22 * R, 4.6 * R, 14 * R, 1.6 * R);
+    x.fillStyle = shade('#ffffff', time.light); x.font = `700 ${1.2 * R}px "Chakra Petch", sans-serif`;
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('MAINTENANCE', 29 * R, 5.45 * R);
+  });
+}
+function fuelFarm(time, R) {
+  return sprite(30, 9, R, (x, W, H, R) => {
+    x.fillStyle = shade('#6b6f74', time.light); x.fillRect(0, H - 1.2 * R, W, 1.2 * R);
+    for (const [cx, w, h] of [[2, 11, 8.2], [15.5, 11, 7.2]]) {
+      x.fillStyle = shade('#e9ebe8', time.light);
+      x.fillRect(cx * R, H - h * R, w * R, h * R - 1.2 * R);
+      x.beginPath(); x.ellipse((cx + w / 2) * R, H - h * R, (w / 2) * R, 0.9 * R, 0, Math.PI, 0); x.fill();
+      x.fillStyle = shade('#c9cbc8', time.light); x.fillRect(cx * R, H - h * R, 1.6 * R, h * R - 1.2 * R);
+      x.fillStyle = shade('#b83a2a', time.light); x.fillRect(cx * R, H - h * 0.55 * R, w * R, 0.8 * R);
+    }
+    x.fillStyle = shade('#8a8f96', time.light); x.fillRect(13 * R, H - 3 * R, 2.5 * R, 0.5 * R); x.fillRect(26.5 * R, H - 3 * R, 3.5 * R, 0.5 * R);
+  });
+}
 
 // All static objects for one base, positions in metres from its threshold.
 export function buildBase(base, time, R) {
@@ -585,11 +642,7 @@ export function buildBase(base, time, R) {
   const addC = (spr, cx) => add(spr, cx - spr.wM / 2);
   const col = '#e2d9c3';
   (base.banyanX || []).forEach((bx, i) => addC(banyanTree(time, R, i, THEMES[base.theme].trees), bx));
-  const hx = hangarsX(base);
-  for (let i = 0; i < base.hangars; i++) add(hangar(time, R, col, base.short), hx + i * 72);
-  add(admin(time, R, base.id === 'risalpur' ? 3 : 2, col), hx + base.hangars * 72 + 20);
-  const tw = tower(time, R, base.towerM);
-  add(tw, hx + base.hangars * 72 + 104);
+  const backCount = objs.length; // buildings go in here (behind everything) once placed
   // Squadron boards and trophies; parked aircraft keep clear of them.
   const boardX = base.boards.map((_, i) => (base.apron?.[0] ?? 0) + 80 + i * 70);
   const groups = base.parkedGroups || [];
@@ -611,28 +664,25 @@ export function buildBase(base, time, R) {
     add(board(boardTime, R, text, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), bx);
     boardSpots.push(base.x + bx + 7);
   };
+  // Masts go in behind the jets once the rows' real extent is known (rows: [from, to]).
+  const mastAt = objs.length;
   const rows = [];
-  if (images[base.parked]) rows.push([base.apron[0], base.apron[1]]);
-  for (const g of groups) rows.push([g.from, g.from + g.count * 15]);
-  const mast = rows.length ? floodMast(time, R) : null;
-  for (const [a, b] of rows) {
-    for (let mx = a + 6; mx < b; mx += FLOODLIGHT.everyM) { addC(mast, mx); floods.push(base.x + mx); }
-  }
   // Parked aircraft on the apron, some in shelters.
   const front = images[base.parked];
   if (front) {
     const sh = shelter(time, R);
     const ac = { canvas: tinted(front, acLight, base.parked), wM: front.width / 16, hM: front.height / 16 };
     const acSh = { canvas: tinted(front, shLight, base.parked), wM: ac.wM * 0.8, hM: ac.hM * 0.8 };
-    let n = 0;
+    let n = 0, end = base.apron[0];
     for (let x = base.apron[0]; x < base.apron[1] && n < 12; x += 15) {
       const inShelter = n % 3 === 2;
       const c = inShelter ? x + 8 : x + ac.wM / 2, half = inShelter ? 14 : ac.wM / 2;
       if (blocked.some(([bc, bh]) => Math.abs(c - bc) < half + bh + CLEAR_M)) continue;
-      if (inShelter) { add(sh, x - 6, -1); add(acSh, x - 6 + 14 - ac.wM * 0.4); }
-      else add(ac, x);
+      if (inShelter) { add(sh, x - 6, -1); add(acSh, x - 6 + 14 - ac.wM * 0.4); end = x + 22; }
+      else { add(ac, x); end = x + ac.wM; }
       n++;
     }
+    rows.push([base.apron[0], end]);
   }
   // Squadron rows (Kamra): count front-view jets from x = from (every third in a
   // shelter, like above), the squadron's board right after the last one.
@@ -648,6 +698,7 @@ export function buildBase(base, time, R) {
       else { add(ac, x); end = x + ac.wM; }
     }
     if (g.board) addBoard(g.board, end + 2);
+    rows.push([g.from, end]);
   }
   base.boards.forEach((t, i) => addBoard(t, boardX[i]));
   for (const { t, spr } of trophySprites) { addC(spr, t.x); boardSpots.push(base.x + t.x); }
@@ -658,12 +709,53 @@ export function buildBase(base, time, R) {
     addC({ canvas: tinted(img, night ? FLOODLIGHT.light : time.light, dc.sprite), wM, hM }, dc.x);
     boardSpots.push(base.x + dc.x);
   }
+  // Floodlight masts along the rows actually parked (behind the jets).
+  if (rows.length) {
+    const mast = floodMast(time, R), masts = [];
+    for (const [a, b] of rows) {
+      for (let mx = a + 6; mx < b; mx += FLOODLIGHT.everyM) { masts.push({ ...mast, x: base.x + mx - mast.wM / 2, layer: 0 }); floods.push(base.x + mx); }
+    }
+    objs.splice(mastAt, 0, ...masts);
+  }
+  // Everything at the start (parked rows, boards, trophies, decor) ends here.
+  let startEnd = 0;
+  for (let k = backCount; k < objs.length; k++) startEnd = Math.max(startEnd, objs[k].x - base.x + objs[k].wM);
+  // Hangar block mid-runway, then the gaps either side filled with base buildings.
+  const back = [];
+  const put = (spr, x) => back.push({ ...spr, x: base.x + x, layer: 0 });
+  const hx = hangarsX(base, startEnd), hb = hangarBlockM(base);
+  for (let i = 0; i < base.hangars; i++) put(hangar(time, R, col, base.hangarName || base.short), hx + i * 72);
+  put(admin(time, R, base.id === 'risalpur' ? 3 : 2, col), hx + base.hangars * 72 + 20);
+  put(tower(time, R, base.towerM), hx + base.hangars * 72 + 104);
+  const gaps = [[startEnd + FILL.marginM, hx - FILL.marginM], [hx + hb + FILL.marginM, base.runwayM - 10]];
+  // Mushaf's welcome monument: the middle of the first gap (owner 2026-11-21).
+  const clear = [];
+  const welcomes = [];
   if (base.welcome) {
-    for (const wx of base.welcomeX || [base.runwayM + 40]) {
-      if (base.welcomeStyle === 'monument') addC(monument(time, R, base.welcome), wx);
-      else add(welcome(time, R, base.welcome), wx);
+    const xs = base.welcomeMid ? [(gaps[0][0] + gaps[0][1]) / 2] : base.welcomeX || [base.runwayM + 40];
+    for (const wx of xs) {
+      const spr = base.welcomeStyle === 'monument' ? monument(time, R, base.welcome) : welcome(time, R, base.welcome);
+      const x0 = base.welcomeStyle === 'monument' ? wx - spr.wM / 2 : wx;
+      welcomes.push([spr, x0]);
+      clear.push([x0 - FILL.clearM, x0 + spr.wM + FILL.clearM]);
     }
   }
+  const r = rng(base.id.length * 131 + base.runwayM);
+  const kinds = [() => barracks(time, R, col), () => workshop(time, R, col), () => fuelFarm(time, R), () => admin(time, R, 1, col)];
+  let ki = Math.floor(r() * kinds.length);
+  for (const [a, b] of gaps) {
+    let x = a;
+    while (x < b) {
+      const spr = kinds[ki % kinds.length]();
+      if (x + spr.wM > b) break;
+      const hit = clear.find(([c0, c1]) => x + spr.wM > c0 && x < c1);
+      if (hit) { x = hit[1]; continue; }
+      put(spr, x); ki++;
+      x += spr.wM + FILL.gapM[0] + r() * (FILL.gapM[1] - FILL.gapM[0]);
+    }
+  }
+  objs.splice(backCount, 0, ...back);
+  for (const [spr, x0] of welcomes) add(spr, x0);
   return { objs, floods, boardSpots, hangarX: base.x + hx, towerX: base.x + hx + base.hangars * 72 + 110, towerH: base.towerM };
 }
 

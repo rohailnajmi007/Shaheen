@@ -84,15 +84,15 @@ function startFlight(o) {
   acc = 0;
 }
 
-// front: back to the first page of the start screen (owner 2026-11-21: from a mission,
-// not the sortie order); the briefing's Esc goes back to the order instead.
+// front: back to the mission page of the start screen, the one after the name (owner
+// 2026-11-21: from a mission, not the sortie order); the briefing's Esc goes back to the order instead.
 function toMenu(front = false) {
   sound.stopFlight();
   pause.hide(); result.hide(); hud.hide(); briefing.hide();
   flight = null;
   mode = 'menu';
   setupDemo(settings);
-  if (front) menu.step = 0;
+  if (front) menu.step = menu.named() ? 1 : 0; // the mission page (owner 2026-11-21), or the name if none yet
   menu.refresh();
   menu.show();
 }

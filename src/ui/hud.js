@@ -162,7 +162,9 @@ export class Hud {
       // Air-to-air card: gun, the bandit (where, how far, his damage), kills, your airframe.
       const df = f.df, cb = f.cb, b = df.b;
       const name = df.opp.name.toUpperCase();
-      this.set('wname', this.el.wname, d.gun ? d.gun.name : 'GUN');
+      // Calibre only (owner 2026-11-21): "20 MM CANNON", not the gun's model name.
+      const cal = d.gun && /(\d+)\s*MM/i.exec(d.gun.name);
+      this.set('wname', this.el.wname, cal ? `${cal[1]} MM CANNON` : 'CANNON');
       const r = df.range;
       const rs = r < 1000 ? `${Math.round(r)} M` : `${(r / 1000).toFixed(1)} KM`;
       const sol = this.gunSolution(f);

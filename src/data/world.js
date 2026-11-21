@@ -4,9 +4,12 @@
 // sit at the START of each base, around the take-off point (60 m past the threshold),
 // so they are in view while you line up; hangars, admin block and tower are at the far
 // end (src/render/scenery.js BUILDINGS_END_M). x in m from the threshold.
+// Owner 2026-11-21 (second pass): the hangar block sits mid-runway and the stretches
+// either side are filled with base buildings (barracks, workshops, fuel farm, offices).
 export const BASES = {
   risalpur: {
     id: 'risalpur', name: 'PAF Academy Asghar Khan', city: 'Risalpur', short: 'RISALPUR',
+    hangarName: 'PAFAA', // stencilled on the hangars (owner 2026-11-21)
     runwayM: 1200, hangars: 3, towerM: 24, parked: 'k8_front_body', apron: [20, 300],
     boards: [],
     // "Falcons' Hearth" 1965 memorial (owner's art), seen from the take-off point; hM: height (m).
@@ -26,7 +29,8 @@ export const BASES = {
     boards: ['NO. 9 SQN|GRIFFINS', 'NO. 29 SQN|AGGRESSORS'],
     welcome: ['WELCOME TO MUSHAF', 'THE HOME OF EAGLES'], theme: 'punjab',
     // Stone monument (dark blue, gold key-pattern border, crest) at both runway ends.
-    welcomeX: [-170, 1540], welcomeStyle: 'monument',
+    // Owner 2026-11-21: in the middle of the base, between the parked rows and the hangars.
+    welcomeMid: true, welcomeStyle: 'monument',
     boardColor: '#8c0f0f', boardTrim: '#ebbd4d',
     // Captured-aircraft fins side by side on one black base (m from the threshold).
     trophies: [{ kinds: ['mig21', 'su30'], x: 2 }],
