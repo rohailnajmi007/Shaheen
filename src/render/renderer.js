@@ -26,6 +26,16 @@ export const COMBAT_FX = {
   weaponScale: 1.6,
   arrowMarginPx: 34,    // incoming-missile arrows this far inside the screen edge
 };
+// Dogfight camera and bandit look (owner 2026-11-21: both jets always on screen).
+export const DOGFIGHT_CAM = {
+  fillW: 0.6, fillH: 0.5,     // the two jets span at most this share of the screen
+  smallH: 520, smallFillW: 0.42, smallFillH: 0.22, // phones (height under smallH px): HUD covers the edges...
+  smallDrop: 0.13,            // ... and the instructor strip the middle: jets sit this share of the height lower
+  minZoom: 0.08, maxZoom: 0.9,
+  zoomRate: 3, panRate: 4,    // how fast the framing follows (1/s)
+  banditTint: [0.9, 0.6, 0.55], // multiply on the bandit's sprite (reads as the enemy)
+  markerPx: 9,                // bandit marker size (x screen height / 720)
+};
 // Tail strobe: flash starts (s) within each period.
 export const STROBE = { periodS: 1.6, flashes: [0, 0.2], flashS: 0.06 };
 // Crash breakup (see crashFx). Shard sizes in aircraft texture px (1/16 m).
@@ -145,6 +155,19 @@ export class Renderer {
     // ground leaves the frame when it climbs high (owner, 2026-11-19). The old
     // zoom = 42 / altitude kept the jet at one screen height whatever it did.
     if (attack) z = ATTACK_CAM.zoom;
+    // Dogfight: frame both jets (centre between them, zoom to fit).
+    const pair = flight && flight.df && !flight.df.wrecked && !flight.ac.crashed && !flight.eject && this.bst;
+    let midX = st.x, midY = st.y;
+    if (pair) {
+      const b = this.bst, C = DOGFIGHT_CAM;
+      const base = (v.H / 720) * 7.2;
+      const small = v.H / this.res < C.smallH;
+      const fw = small ? C.smallFillW : C.fillW, fh = small ? C.smallFillH : C.fillH;
+      const fit = Math.min(fw * v.W / Math.max(Math.abs(b.x - st.x), 1), fh * v.H / Math.max(Math.abs(b.y - st.y), 1)) / base;
+      z = clamp(fit, C.minZoom, C.maxZoom);
+      midX = (st.x + b.x) / 2; midY = (st.y + b.y) / 2;
+      if (small) midY += (C.smallDrop * v.H) / ((v.H / 720) * 7.2 * Math.max(c.zoom, 0.01));
+    }
     if (flight) {
       if (flight.revealed && flight.state === 'flying') {
         const toGo = flight.dest.x - st.x;
@@ -152,18 +175,21 @@ export class Renderer {
       }
       if (flight.state === 'done') z = Math.max(z, 0.9);
     }
-    if (!attack) z *= c.userZoom;
-    const k = 1 - Math.exp(-dt * 1.6);
+    if (!attack && !pair) z *= c.userZoom;
+    const k = 1 - Math.exp(-dt * (pair ? DOGFIGHT_CAM.zoomRate : 1.6));
     c.zoom += (z - c.zoom) * k;
     v.S = (v.H / 720) * 7.2 * c.zoom;
-    const lookPx = clamp(st.vx / 240, -0.3, 1) * 0.2 * v.W * (attack ? ATTACK_CAM.lookFactor : 1);
-    c.look += (lookPx - c.look) * (1 - Math.exp(-dt * 1.2));
-    c.lead += (clamp(st.vy * 0.5, -40, 40) - c.lead) * (1 - Math.exp(-dt * 1.5));
+    // Look-ahead in metres (dogfight: the offset to the midpoint between the jets).
+    const lookM = pair ? midX - st.x : clamp(st.vx / 240, -0.3, 1) * 0.2 * v.W * (attack ? ATTACK_CAM.lookFactor : 1) / v.S;
+    const leadM = pair ? midY - st.y : clamp(st.vy * 0.5, -40, 40) * (attack ? ATTACK_CAM.leadFactor : 1);
+    const pr = pair ? DOGFIGHT_CAM.panRate : 1.2;
+    c.look += (lookM * v.S - c.look) * (1 - Math.exp(-dt * pr));
+    c.lead += (leadM - c.lead) * (1 - Math.exp(-dt * (pair ? pr : 1.5)));
     c.x = st.x + c.look / v.S;
     // Low: the camera stops so the ground stays at 74% of the screen height and the jet
     // moves on screen; higher up the camera follows the jet and the ground drops away.
     const minY = (0.24 * v.H) / v.S;
-    c.y = Math.max(st.y + c.lead * (attack ? ATTACK_CAM.leadFactor : 1), minY);
+    c.y = Math.max(st.y + c.lead, minY);
     c.shake = Math.max(0, c.shake - dt * 1.8);
   }
 
@@ -193,6 +219,9 @@ export class Renderer {
       for (const s of this.shards) sx += s.x;
       st = { ...st, x: sx / this.shards.length, y: 0, vx: 0, vy: 0 };
     }
+    // Dogfight: the bandit's state (the camera frames both jets).
+    const df = flight.df;
+    this.bst = df && !df.wrecked ? df.renderState(alpha) : null;
     // Ejected: the camera follows the pilot.
     const ej = flight.eject;
     this.updateCamera(dt, ej ? { ...st, x: ej.x, y: ej.y, vx: ej.vx, vy: ej.vy } : st, flight);
@@ -211,14 +240,19 @@ export class Renderer {
     if (!flight.ac.crashed) this.drawShadow(ctx, v, st, flight.data);
     this.particles.draw(ctx, v, this.timeData.lights ? 0.6 : 1);
     this.drawWeapons(ctx, v, flight);
-    if (flight.mode === 'strike') this.drawCombat(ctx, v, flight);
+    if (flight.armed) this.drawCombat(ctx, v, flight);
+    if (this.bst) {
+      this.drawAircraft(ctx, v, flight.data, this.bst, DOGFIGHT_CAM.banditTint);
+      if (df.firing) this.drawMuzzleAt(ctx, v, flight.data, this.bst);
+    }
     if (!flight.ac.crashed) this.drawAircraft(ctx, v, flight.data, st);
-    if (flight.mode === 'strike' && !flight.ac.crashed) this.drawMuzzle(ctx, v, flight, st);
+    if (flight.armed && !flight.ac.crashed && flight.cb.firing) this.drawMuzzleAt(ctx, v, flight.data, st);
     this.drawShards(ctx, v);
     if (ej) this.drawEject(ctx, v, ej);
     this.drawRings(ctx, v);
     this.drawClouds(ctx, v, true);
     if (flight.mode === 'strike') this.drawThreatArrows(ctx, v, flight);
+    if (this.bst && !df.down) this.drawBanditMarker(ctx, v, flight, this.bst);
     this.drawScreenFx(ctx, v, flight.ac);
   }
 
@@ -647,6 +681,7 @@ export class Renderer {
     };
     streaks(cb.rounds, 'rgba(255,190,40,0.9)', 'rgba(255,250,210,1)');
     streaks(cb.shells, 'rgba(235,40,25,0.9)', 'rgba(255,170,120,1)');
+    if (flight.df) streaks(flight.df.rounds, 'rgba(255,60,40,0.9)', 'rgba(255,200,170,1)');
     ctx.lineCap = 'butt';
     ctx.globalCompositeOperation = 'lighter';
     for (const d of cb.decoys) {
@@ -683,11 +718,24 @@ export class Renderer {
     }
   }
 
-  // Muzzle flash at the gun port while firing.
-  drawMuzzle(ctx, v, flight, st) {
-    const g = flight.data.gun;
-    if (!g || !flight.cb.firing) return;
-    const d = flight.data;
+  // Bandit marker: red caret, BANDIT and the range, above the jet (fixed screen size).
+  drawBanditMarker(ctx, v, flight, b) {
+    const u = Math.max(1, v.H / 720);
+    const m = DOGFIGHT_CAM.markerPx * u;
+    const x = v.sx(b.x), y = v.sy(b.y) - Math.max(10 * v.S, 0.035 * v.W) - m * 1.2;
+    const blink = flight.df.firing && this.time % 0.2 < 0.1;
+    ctx.fillStyle = blink ? 'rgba(255,230,120,0.95)' : 'rgba(255,70,55,0.92)';
+    ctx.beginPath(); ctx.moveTo(x, y + m); ctx.lineTo(x - m, y - m * 0.2); ctx.lineTo(x + m, y - m * 0.2); ctx.closePath(); ctx.fill();
+    ctx.font = `700 ${Math.round(12 * u)}px "Chakra Petch"`; ctx.textAlign = 'center';
+    const a = flight.ac;
+    const r = Math.hypot(b.x - a.pos.x, b.y - a.pos.y);
+    ctx.fillText(`BANDIT ${r < 1000 ? Math.round(r) + ' M' : (r / 1000).toFixed(1) + ' KM'}`, x, y - m * 0.6);
+  }
+
+  // Muzzle flash at the gun port while firing (yours or the bandit's).
+  drawMuzzleAt(ctx, v, d, st) {
+    const g = d.gun;
+    if (!g) return;
     const lx = (g.port[0] - d.pivot[0]) * d.texM, ly = -(g.port[1] - d.pivot[1]) * d.texM;
     const c = Math.cos(st.pitch), s = Math.sin(st.pitch);
     const x = v.sx(st.x + lx * c - ly * s), y = v.sy(st.y + lx * s + ly * c);
@@ -784,7 +832,7 @@ export class Renderer {
   }
 
   // --- aircraft ---
-  drawAircraft(ctx, v, d, s) {
+  drawAircraft(ctx, v, d, s, tint = null) {
     const body = images[d.sprite];
     if (!body) return;
     let k = v.S * d.texM;
@@ -796,7 +844,7 @@ export class Renderer {
     const gearTravel = d.gearSprite ? d.gearTravel : d.gearTopY ? d.pivot[1] - Math.max(...d.gearTopY) : 0;
     const sink = s.onGround ? (1 - s.gearPos) * gearTravel : 0;
     ctx.translate(-d.pivot[0], -d.pivot[1] + sink);
-    const light = this.lightBody;
+    const light = tint ? this.lightBody.map((l, i) => l * tint[i]) : this.lightBody;
     if (s.gearPos > 0.05) {
       if (d.gearSprite && images[d.gearSprite]) ctx.drawImage(tinted(images[d.gearSprite], light), 0, -(1 - s.gearPos) * d.gearTravel);
       else if (d.gearX) this.drawCodeGear(ctx, d, s.gearPos, light);
@@ -958,7 +1006,8 @@ export class Renderer {
         this.particles.spawn('glow', e.x, e.y + 1, 0, 0, 10, 0.3, { grow: 1.5, ground: false });
       } else if (e.type === 'countermeasure') {
         for (let i = 0; i < 14; i++) this.particles.spawn('white', e.x + (Math.random() - 0.5) * 4, e.y + (Math.random() - 0.5) * 4, flight.ac.vel.x * 0.2 + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, 1.2, 3 + Math.random() * 2, { grow: 3, alpha: 0.35, drag: 2.5, ground: false });
-      } else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
+      } else if (e.type === 'banditWreck') { this.bwX = e.x; this.bwT = 0; this.explode(e.x, 1, 1.3); }
+      else if (e.type === 'shotDown') this.cam.shake = Math.min(1.2, this.cam.shake + 0.8);
     }
   }
 
@@ -1307,7 +1356,23 @@ export class Renderer {
     for (const w of flight.weapons) {
       if (w.motor) P.spawn('smoke', w.pos.x, w.pos.y, w.vel.x * 0.05, 0, 1.2, 2.5, { grow: 4, alpha: 0.55 * (d.missile.trail ?? 1), ground: false, drag: 0.3 });
     }
-    if (flight.mode === 'strike') {
+    // Bandit: afterburner-less smoke when hit, fire once shot down; its wreck burns.
+    const df = flight.df;
+    if (df && !df.wrecked && (df.hp < DAMAGE.smokeBelow || df.down)) {
+      const b = df.b;
+      const p = b.pointM(d.pivot[0] - 20, d.pivot[1] - 40);
+      const hot = df.hp < DAMAGE.fireBelow || df.down;
+      for (let i = 0; i < 3; i++) {
+        const f = i / 3;
+        P.spawn('dark', p.x - b.vel.x * dt * f, p.y - b.vel.y * dt * f, b.vel.x * 0.1, 1, hot ? 5 : 3.5, hot ? 3 : 2.2, { grow: 3, alpha: hot ? 0.55 : 0.32, ground: false, drag: 0.4 });
+      }
+      if (hot && Math.random() < 0.8) P.spawn('fire', p.x, p.y, b.vel.x * 0.3, 0, 3.5, 0.35, { grow: 1.6, alpha: 0.9, ground: false });
+    }
+    if (this.bwX != null && df && (this.bwT += dt) < 40 && Math.random() < dt * 12) {
+      P.spawn('dark', this.bwX + (Math.random() - 0.5) * 10, 1, 1, 4, 5, 4, { grow: 3.5, lift: 3, alpha: 0.6 });
+      if (Math.random() < 0.5) P.spawn('fire', this.bwX + (Math.random() - 0.5) * 8, 0.5, 0, 2, 3.5, 0.6, { lift: 4 });
+    }
+    if (flight.armed) {
       const cb = flight.cb;
       // Enemy missiles: thick white smoke while the motor burns, thin after.
       for (const m of cb.threats) {

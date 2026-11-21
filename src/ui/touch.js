@@ -106,6 +106,8 @@ export class TouchControls {
     if (a.onGround) return f.state === 'preflight' || !a.engineOn ? ['engine', 'brake'] : ['brake', 'engine'];
     const list = [];
     if (!a.engineOn) list.push('engine');
+    // Dogfight (owner 2026-11-21): gun, and the air brake to make him overshoot.
+    if (f.mode === 'dogfight') return [...list, 'gun', 'brake'];
     // Attack (owner): fire, gun, flares only.
     if (strike && !f.revealed && a.gearPos <= 0) return [...list, 'fire', 'gun', 'flares'];
     const toGo = f.dest.x - a.pos.x;

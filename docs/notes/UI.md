@@ -91,3 +91,10 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 ## Start screen look (owner 2026-11-20: "more military, like the briefings")
 - `.sheet` in `src/style.css` reuses the debrief paper (olive, scanlines, `.dhead` bar with PAKISTAN AIR FORCE / RESTRICTED). Stencil SHAHEEN + FLIGHT AUTHORISATION · SORTIE ORDER, numbered square section tabs (01 PILOT ...), SECTION nn · title, square khaki buttons (FLY turns green on the last step).
 - `.mlog`: the order fills in as dotted rows (PILOT, AIRCRAFT · home base, MISSION, ROUTE (ferry), TIME OF DAY, BEST SCORE); sections not reached yet read PENDING. Hidden on short screens (phones sideways), where the aircraft grid goes 3 wide.
+
+## Air to air screens (owner 2026-11-21)
+- Start screen MISSION step has a third choice, **Air to air** (greyed out for an aircraft without a gun); no ROUTE step; the order sheet's MISSION row reads AIR TO AIR. Best score kept per aircraft for it.
+- Briefing: AIR COMBAT stamp, 1 V 1 · GUNS ONLY; rows AREA, START (airborne, height, speed), BANDIT (type, ahead / on your six), WEAPONS, DODGE; one line of orders.
+- In flight: weapon card turns into the gun card (see COMBAT.md "Air to air"); phase line DOGFIGHT · ON HIS TAIL / BANDIT BEHIND / SPLASH ONE; distance line BANDIT AHEAD / BEHIND · km; key list shows V gun, not Space or X.
+- Debrief: SPLASH ONE / NO KILL / MISSION FAILED stamp; rows BANDIT (destroyed or damaged %), BANDIT STARTED, HITS ON BANDIT, GUN ROUNDS FIRED, BATTLE DAMAGE, FIGHT TIME. Score: kill 1500 + 10 per % airframe left + up to 300 for rounds saved; no kill: 3 per % damage done to him.
+

@@ -73,6 +73,7 @@ function startFlight(o) {
   flight = new Flight({ aircraftId: o.aircraft, mode: o.mode, dest: o.dest, name: o.name });
   renderer.setupWorld({ bases: flight.bases, themeStops: flight.themeStops, timeId: o.time });
   renderer.cam.zoom = 1; renderer.cam.look = 0; renderer.cam.lead = 0;
+  renderer.burnX = null; renderer.bwX = null;
   sound.startFlight(flight.data);
   hud.start(flight, o);
   menu.hide(); result.hide(); pause.hide();
@@ -111,6 +112,8 @@ function soundFx(f) {
       case 'revealed': sound.chime(true); break;
       case 'refuelDone': sound.chime(true); break;
       case 'aaaFire': sound.aaaThud(Math.max(0.15, 1 - e.dist / 2500)); break;
+      case 'banditGun': sound.aaaThud(Math.max(0.2, 1 - e.dist / 2000)); break;
+      case 'banditDown': sound.explosion(0.8); break;
       case 'samLaunch': sound.launch(); break;
       case 'countermeasure': sound.pop(); break;
       case 'eject': sound.launch(); sound.clunk(); break;
@@ -182,7 +185,7 @@ function frame(now) {
   }
   flight.fx.length = 0;
   const a = flight.ac;
-  const cb = flight.mode === 'strike' ? flight.cb : null;
+  const cb = flight.armed ? flight.cb : null;
   sound.update(a, a.onGround, {
     stall: a.stalled && !a.onGround && !a.crashed, gear: a.gearWarning && !a.crashed,
     gun: !!cb && cb.firing, lock: !!cb && cb.radarLock, missile: !!cb && !a.crashed && cb.incoming().length > 0,
