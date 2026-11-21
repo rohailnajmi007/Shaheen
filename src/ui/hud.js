@@ -265,9 +265,10 @@ export class Hud {
     if (f.refuel) this.set('rf', this.el.rfill, `${clamp((f.refuel.t - REFUEL.driveS) / REFUEL.pumpS, 0, 1) * 100}%`, 'width');
 
     if (f.airborneOnce && !this.keysAuto && f.flightTime > 25) { this.keysAuto = true; if (!this.keysHidden) this.toggleKeys(); }
-    // Guided weapons: the bomb sight takes the radar's place during the target run.
-    // Something of yours or a SAM in the air: the radar shows its track (owner), not the sight.
-    const sight = f.sightWanted() && !f.weapons.length && !f.cb.incoming().length;
+    // Guided weapons: the bomb sight takes the radar's place during the target run, and
+    // stays after you fire (owner 2026-11-21; it marks where your weapons will land).
+    // Also with a SAM in the air (its arrow and warning are on the screen).
+    const sight = f.sightWanted();
     this.cls('radar', this.el.radarCard, 'sight', sight);
     this.sizeRadar();
     if (sight) drawBombSight(this.radar, f, this.time);

@@ -326,6 +326,8 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .sheet.full .steptitle { font-size: clamp(20px, 3vw, 30px); letter-spacing: 0.3em; text-align: center; margin: 0; }
 .sheet.full .page { width: min(1080px, 100%); justify-items: center; }
 .sheet.full .pname { max-width: 420px; text-align: center; font-size: 26px; padding: 14px 18px; }
+.pname.full { animation: nfull 0.3s; border-color: #ff6a5a !important; }
+@keyframes nfull { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 .mplate { position: static; width: 220px; padding: 10px 14px 12px; opacity: 0; transform: translateY(8px) scale(0.96); transition: opacity 0.35s, transform 0.35s; }
 .mplate.on { opacity: 1; transform: none; }
 .mplate .wings { width: 176px; }

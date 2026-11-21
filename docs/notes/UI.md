@@ -111,4 +111,4 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 
 ## Pause menu, simplified (owner 2026-11-21: "overcluttered")
 - Supersedes "Pause menu (chunk 2.2)". Olive debrief style: RESUME (Esc) / RESTART (R) / MAIN MENU as three big buttons; **Volume**: one slider (master; engine and effects keep their saved mix) with an ON/OFF mute button; **Graphics**: Low / Medium / High as three buttons; the key list is hidden behind CONTROLS.
-
+- **Name length (owner 2026-11-21):** only what fits on the flying name tag: measured in the tag's font (`fitsTag` in `src/ui/screens.js`, `TAG`), so about 8 capitals, more with narrow letters; extra letters are refused (the box shakes red). A longer saved name is trimmed when the menu opens.

@@ -25,6 +25,9 @@ export const ATTACK_CAM = {
   leadFactor: 0.5,  // vertical lead x this, so climbs and dives show as movement on screen
 };
 // Air-to-ground combat drawing (owner, 2026-11-19).
+// Next-target marker at the screen edge (air to ground): margin, colours, distance under
+// which it blinks.
+export const TARGET_MARKER = { marginPx: 30, topPx: 320, bottomPx: 90, col: 'rgba(255,196,74,0.95)', hot: 'rgba(255,240,170,1)', closeM: 2500 };
 export const COMBAT_FX = {
   tracerS: 0.03,        // tracer streak length = speed x this (s)
   tracerMinPx: 1.6,     // tracer line width floor (px)
@@ -309,7 +312,7 @@ export class Renderer {
     if (ej) this.drawEject(ctx, v, ej);
     this.drawRings(ctx, v);
     this.drawClouds(ctx, v, true);
-    if (flight.mode === 'strike') this.drawThreatArrows(ctx, v, flight);
+    if (flight.mode === 'strike') { this.drawTargetMarker(ctx, v, flight); this.drawThreatArrows(ctx, v, flight); }
     if (this.bst && !df.fleeing) this.drawBanditMarker(ctx, v, flight, this.bst);
     this.drawScreenFx(ctx, v, flight.ac);
   }
@@ -806,6 +809,49 @@ export class Renderer {
   }
 
   // Red arrows at the screen edge pointing at missiles chasing the jet, with range.
+  // Next target off screen (owner 2026-11-21): an amber arrow at the screen edge pointing
+  // at the nearest live objective ahead (or the nearest one left), with its distance, so
+  // a pilot high up knows when to come down for a gun run. Numbers: TARGET_MARKER.
+  drawTargetMarker(ctx, v, flight) {
+    if (flight.revealed || flight.ac.crashed || flight.state !== 'flying') return;
+    const a = flight.ac;
+    const live = flight.objectives.filter((t) => t.alive);
+    if (!live.length) return;
+    const ahead = live.filter((t) => t.x > a.pos.x);
+    const t = (ahead.length ? ahead : live).reduce((b, o) => (Math.abs(o.x - a.pos.x) < Math.abs(b.x - a.pos.x) ? o : b));
+    const M = TARGET_MARKER;
+    const u = Math.max(1, v.H / 720);
+    const m0 = M.marginPx * u;
+    const x = v.sx(t.x), y = v.sy(t.h ? t.h / 2 : 2);
+    if (x > m0 && x < v.W - m0 && y > m0 && y < v.H - m0) return; // on screen: no marker
+    // On the right edge (left edge if it's behind you), at its height, kept clear of the
+    // top HUD and the bottom key strip; the arrow points at it.
+    const right = x >= v.W / 2;
+    const ax = right ? v.W - m0 : m0;
+    const ay = clamp(y, M.topPx * u, v.H - M.bottomPx * u);
+    const ang = Math.atan2(y - ay, x - ax);
+    const dist = Math.hypot(t.x - a.pos.x, a.pos.y);
+    const near = dist < M.closeM;
+    ctx.save();
+    ctx.translate(ax, ay);
+    ctx.rotate(ang);
+    ctx.fillStyle = near && this.time % 0.5 < 0.3 ? M.hot : M.col;
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1.5 * u;
+    ctx.beginPath(); ctx.moveTo(16 * u, 0); ctx.lineTo(-9 * u, -12 * u); ctx.lineTo(-4 * u, 0); ctx.lineTo(-9 * u, 12 * u); ctx.closePath();
+    ctx.stroke(); ctx.fill();
+    ctx.restore();
+    // Label inside the arrow's side of the screen.
+    ctx.font = `700 ${Math.round(13 * u)}px "Chakra Petch"`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.textAlign = right ? 'right' : 'left';
+    const lx = ax + (right ? -30 : 30) * u, ly = ay;
+    const txt = `TARGET ${(Math.abs(t.x - a.pos.x) / 1000).toFixed(1)} KM`;
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4 * u;
+    ctx.fillStyle = M.col; ctx.fillText(txt, lx, ly);
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+    ctx.textBaseline = 'alphabetic';
+  }
+
   drawThreatArrows(ctx, v, flight) {
     const inc = flight.cb.incoming();
     if (!inc.length) return;

@@ -56,6 +56,18 @@ const MODES = [
   { id: 'strike', label: 'Air to ground', note: 'Destroy the enemy ground targets past their SAMs, then land.' },
   { id: 'dogfight', label: 'Air to air', note: 'Shoot down the enemy fighters with your gun, then land.' },
 ];
+// Name length (owner 2026-11-21): only what fits on the flying name tag (HUD .nameplate:
+// 168 px wide, 10 px padding each side; .tagname 20 px bold, 0.22em spacing plus a
+// 0.22em left pad). Measured in the tag's own font, so wide letters count for more.
+const TAG = { font: '700 20px "Chakra Petch", sans-serif', px: 20, spacingEm: 0.22, innerPx: 148 };
+let tagCtx = null;
+function fitsTag(s) {
+  tagCtx = tagCtx || document.createElement('canvas').getContext('2d');
+  tagCtx.font = TAG.font;
+  const t = s.trim().toUpperCase();
+  return tagCtx.measureText(t).width + (t.length + 1) * TAG.spacingEm * TAG.px <= TAG.innerPx;
+}
+function fitName(s) { let t = s; while (t && !fitsTag(t)) t = t.slice(0, -1); return t; }
 const MODE_NAME = { ferry: 'FERRY FLIGHT', strike: 'AIR TO GROUND', dogfight: 'AIR TO AIR' };
 // Which missions an aircraft can fly.
 const modeOk = (m, a) => m === 'ferry' || (m === 'strike' ? a.strikeCapable : !!a.gun);
@@ -137,7 +149,12 @@ export class Menu {
       </div>`;
     const name = $('.pname', root);
     name.value = settings.name;
-    name.addEventListener('input', () => { this.s.name = name.value; saveSettings(this.s); this.refresh(); });
+    name.addEventListener('input', () => {
+      // Refuse what wouldn't fit on the wings tag.
+      const fit = fitName(name.value);
+      if (fit !== name.value) { const p = Math.min(name.selectionStart ?? fit.length, fit.length); name.value = fit; name.setSelectionRange(p, p); this.flashFull(); }
+      this.s.name = name.value; saveSettings(this.s); this.refresh();
+    });
     for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => this.pick('aircraft', b.dataset.id));
     for (const b of root.querySelectorAll('.opcard')) b.addEventListener('click', () => this.pick('opponent', b.dataset.id));
     for (const [sel, key] of [['[data-step="mode"] .mcard', 'mode'], ['.times .mcard', 'time']]) {
@@ -159,6 +176,12 @@ export class Menu {
     };
     addEventListener('keydown', this.keyHandler);
     this.refresh();
+  }
+
+  // Name too long: the box shakes and says FULL for a moment.
+  flashFull() {
+    const n = $('.pname', this.root);
+    n.classList.remove('full'); void n.offsetWidth; n.classList.add('full');
   }
 
   // Steps that apply: destination for a ferry flight, opponent for air to air.
@@ -293,6 +316,9 @@ export class Menu {
   }
 
   show() {
+    // A saved name from before the limit: trim it to the tag (fonts are loaded by now).
+    const fit = fitName(this.s.name || '');
+    if (fit !== this.s.name) { this.s.name = fit; $('.pname', this.root).value = fit; saveSettings(this.s); }
     this.root.classList.add('show');
     this.refresh();
     if (this.current().id === 'pilot') setTimeout(() => $('.pname', this.root).focus(), 0);
