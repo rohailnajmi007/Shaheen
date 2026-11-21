@@ -76,10 +76,13 @@ export class Dogfight {
     const hp = pts[(this.missiles - 1) % pts.length];
     const p = a.pointM(hp[0], hp[1] + 4);
     const drop = M.launch === 'drop';
-    const ang = Math.atan2(a.vel.y, a.vel.x);
+    // The missile leaves lined up with the jet's body (ang = its attitude, drawn by the
+    // renderer). A rail shot goes off along the nose; a drop keeps that attitude while it
+    // falls clear (owner 2026-11-21: it spun comically when climbing or diving).
+    const ang = a.pitch, spd = Math.hypot(a.vel.x, a.vel.y);
     const m = {
-      M, x: p.x, y: p.y, px: p.x, py: p.y, t: 0,
-      vx: a.vel.x + (drop ? Math.sin(ang) * 5 : 0), vy: a.vel.y - (drop ? Math.cos(ang) * 5 : 0),
+      M, x: p.x, y: p.y, px: p.x, py: p.y, t: 0, ang,
+      vx: drop ? a.vel.x + Math.sin(ang) * 5 : Math.cos(ang) * spd, vy: drop ? a.vel.y - Math.cos(ang) * 5 : Math.sin(ang) * spd,
       motor: !drop, target: this.b, decoyAt: Math.random() < M.flareChance ? 0.6 + Math.random() * 0.8 : null,
       decoy: null, // a flare / chaff point it went for instead
     };
@@ -105,7 +108,12 @@ export class Dogfight {
       m.t += dt; m.px = m.x; m.py = m.y;
       const drop = M.launch === 'drop';
       const burnFrom = drop ? M.dropS : 0;
-      if (!m.motor && drop && m.t >= M.dropS && m.t < M.dropS + M.burnS) { m.motor = true; f.emit('aamIgnite', { x: m.x, y: m.y }); }
+      if (!m.motor && drop && m.t >= M.dropS && m.t < M.dropS + M.burnS) {
+        m.motor = true; f.emit('aamIgnite', { x: m.x, y: m.y });
+        // Thrust along the body: the path straightens out along where it points.
+        const sp0 = Math.hypot(m.vx, m.vy);
+        m.vx = Math.cos(m.ang) * sp0; m.vy = Math.sin(m.ang) * sp0;
+      }
       if (m.motor && m.t >= burnFrom + M.burnS) m.motor = false;
       let sp = Math.hypot(m.vx, m.vy), hd = Math.atan2(m.vy, m.vx);
       if (m.t < burnFrom) {
@@ -133,6 +141,7 @@ export class Dogfight {
           hd += clamp(wrap(want - hd), -M.turnDegS * D2R * dt, M.turnDegS * D2R * dt);
         } else hd -= 0.15 * dt * Math.cos(hd); // no target: noses over slowly
         m.vx = Math.cos(hd) * sp; m.vy = Math.sin(hd) * sp;
+        m.ang = hd;
       }
       m.x += m.vx * dt; m.y += m.vy * dt;
       // Smoke trail points while the motor burns (drawn as billowing puffs by the renderer).

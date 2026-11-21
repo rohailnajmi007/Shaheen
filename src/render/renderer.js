@@ -49,7 +49,7 @@ export const COMBAT_FX = {
 // wobbling up to wobbleM, fading over lifeS. spacing = puff step as a fraction of radius;
 // a faint grey edge (edgeAlpha, edgeScale x radius) lets it read against white cloud.
 export const AAM_VIEW = {
-  minLenW: 0.04,
+  minLenW: 0.028, // owner 2026-11-21: 0.04 was too big
   smoke: { lifeS: 3.5, rM0: 0.6, growM: 3.4, px0: 2.2, pxGrow: 6, riseMs: 1.2, wobbleM: 2.5,
     alpha: 0.85, spacing: 0.45, maxPerSeg: 48, edgeAlpha: 0.16, edgeScale: 1.25 },
 };
@@ -862,7 +862,7 @@ export class Renderer {
       const len = Math.max(F.missileLenM * F.weaponScale * S, F.missileMinW * v.W);
       ctx.save();
       ctx.translate(v.sx(m.x), v.sy(m.y));
-      ctx.rotate(-Math.atan2(m.vy, m.vx));
+      ctx.rotate(-(m.ang ?? Math.atan2(m.vy, m.vx)));
       const t = len * 0.09;
       ctx.fillStyle = '#e4e6e0'; ctx.fillRect(-len / 2, -t, len, t * 2);
       ctx.fillStyle = '#b02a1f'; ctx.fillRect(len / 2 - t * 2.2, -t, t * 2.2, t * 2);
