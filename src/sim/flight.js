@@ -54,6 +54,8 @@ export class Flight {
     this.mode = opts.mode === 'strike' && this.data.strikeCapable ? 'strike'
       : opts.mode === 'dogfight' && this.data.gun ? 'dogfight' : 'ferry';
     this.armed = this.mode !== 'ferry'; // gun, damage, eject (strike and dogfight)
+    // Air to air: each jet's dogfight power and agility (airCombat in src/data/aircraft.js).
+    if (this.mode === 'dogfight' && this.data.airCombat) this.data = { ...this.data, ...this.data.airCombat };
     this.ac = new Aircraft(this.data);
     this.ac.reset(60);
     this.state = 'preflight'; // preflight, flying, rollout, stopover, done
@@ -416,7 +418,7 @@ export class Flight {
         this.crash('Tail strike: you over-rotated near the ground.', Math.max(-a.vel.y, 0) * FT * 60);
         break;
       case 'stall':
-        if (!a.onGround) this.say('STALL! Nose DOWN, d*mn it! Get your speed back!', true);
+        if (!a.onGround) this.say('STALL! Nose DOWN, d*mn it! Get your speed back!', true, `stall${Math.floor(this.time / 10)}`);
         this.emit('stall');
         break;
       case 'flameout': this.say('Flamed out! No fuel! Glide it in, gently!', true); this.emit('flameout'); break;

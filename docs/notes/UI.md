@@ -97,3 +97,8 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 - Briefing: AIR COMBAT stamp, `n BANDITS · GUNS ONLY`; rows TAKE OFF FROM, BANDITS (n x type · difficulty), INTERCEPT (km out, one at a time), WEAPONS (gun, rounds), DODGE, LAND AT (shown after the fight).
 - In flight: see COMBAT.md "Air to air" (gun card, warnings, phase line INTERCEPT / DOGFIGHT · ON HIS TAIL / BANDIT BEHIND / NEXT BANDIT INBOUND, then the usual phases to the landing).
 - Debrief: MISSION SUCCESSFUL (all down) / PARTIAL SUCCESS / MISSION FAILED; rows BANDITS DESTROYED, OPPONENT, HITS ON BANDITS, GUN ROUNDS FIRED, BATTLE DAMAGE, RECOVERY (base · landing grade), FLIGHT TIME, FUEL USED. Score: landing + fuel as usual + per kill 400 (MiG-21) / 600 (Su-30) / 900 (Rafale).
+
+## Briefing, simplified (owner 2026-11-21: "way too much information")
+- Report look, few rows, no weapon names, no how-to/dodge lines, no orders line. Meta line: pilot · aircraft on the left, `SORTIE hhmm/dd` on the right.
+- Ferry: DEPART, DESTINATION, DISTANCE, FUEL STOP (if any). Strike: DEPART, OBJECTIVE (destroy n targets), THREAT (SAM sites), LOADOUT by kind (`4 GUIDED BOMBS + GUN`, `2 CRUISE MISSILES + GUN`, from `weaponLabel`), RECOVERY (after the strike). Air to air: DEPART, OBJECTIVE (destroy n bandits), BANDIT (type · difficulty), LOADOUT (GUN), RECOVERY (after the fight).
+- Weapon names stay where they're used: the aircraft cards on the start screen (weapon kind) and the HUD weapon card. Start-screen order sheet: AIRCRAFT row is just the aircraft name (no base).

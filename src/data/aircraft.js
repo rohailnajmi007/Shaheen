@@ -14,6 +14,9 @@ export const COMMON = {
   inducedDrag: 2,
   pitchRateDrag: 0.05,
   stallAoaDeg: 18,
+  // Past stallAoaDeg the wing holds full lift (buffet, no stall) for this many more
+  // degrees; only beyond that it stalls (owner 2026-11-21: stalling was far too easy).
+  stallMarginDeg: 8,
   zeroAoaLift: 0.1,
   postStallLift: 0.35,
   minStallTimeS: 1,
@@ -127,6 +130,10 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'mirage5',
+    // Air to air only (owner 2026-11-21): power (thrust/weight) Mirage < JF-17 < F-16A <
+    // F-16D = J-10C; J-10C and F-16s lightest and most agile, JF-17 a bit less, Mirage sluggish.
+    airCombat: { maxThrustN: 60000, afterburnerN: 38000, pitchRateDeg: 23, pitchAccelDeg: 160 }, // T/W 1.00
+
     name: 'Mirage V',
     role: 'Strike fighter',
     rank: 'FLT LT', rankCall: 'Flight Lieutenant', rankFull: 'Flight Lieutenant', rankBadge: 'white', homeBase: 'mushaf',
@@ -146,6 +153,8 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'jf17',
+    airCombat: { maxThrustN: 68000, afterburnerN: 45400, pitchRateDeg: 30, pitchAccelDeg: 280 }, // T/W 1.07
+
     name: 'JF-17 Thunder',
     role: 'Multirole fighter',
     rank: 'SQN LDR', rankCall: 'Squadron Leader', rankFull: 'Squadron Leader', rankBadge: 'blue', homeBase: 'masroor',
@@ -175,6 +184,8 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'f16a',
+    airCombat: { maxThrustN: 76000, afterburnerN: 56000, pitchRateDeg: 35, pitchAccelDeg: 360, stallMarginDeg: 11 }, // T/W 1.12
+
     name: 'F-16A Fighting Falcon',
     role: 'Multirole fighter',
     rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'mushaf',
@@ -195,6 +206,8 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'f16d',
+    airCombat: { maxThrustN: 80000, afterburnerN: 60400, pitchRateDeg: 35, pitchAccelDeg: 360, stallMarginDeg: 11 }, // T/W 1.19
+
     name: 'F-16D Fighting Falcon',
     role: 'Multirole fighter',
     rank: 'WG CDR', rankCall: 'Wing Commander', rankFull: 'Wing Commander', rankBadge: 'red', homeBase: 'mushaf',
@@ -217,6 +230,8 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'j10c',
+    airCombat: { maxThrustN: 84000, afterburnerN: 62250, pitchRateDeg: 35, pitchAccelDeg: 360, stallMarginDeg: 11 }, // T/W 1.19 (= F-16D)
+
     name: 'J-10C Vigorous Dragon',
     role: 'Multirole fighter',
     // Rank and home base: my picks (owner did not say). Real PAF J-10Cs fly from

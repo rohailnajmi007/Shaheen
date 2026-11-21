@@ -2,7 +2,6 @@
 import { AIRCRAFT } from '../data/aircraft.js';
 import { BASES, routesFrom, TIMES } from '../data/world.js';
 import { KEY_HELP } from '../input.js';
-import { GROUND_UNITS } from '../data/combat.js';
 import { OPPONENTS, opponentById } from '../data/opponents.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -241,7 +240,7 @@ export class Menu {
     const row = (k, id, v) => `<div class="drow${reached(id) ? '' : ' pend'}"><span>${k}</span><i></i><b>${esc(reached(id) ? v : 'PENDING')}</b></div>`;
     $('.mlog', r).innerHTML = [
       row('PILOT', 'pilot', `${a.rank} ${name}`),
-      row('AIRCRAFT', 'aircraft', `${a.name} · ${BASES[a.homeBase].short}`.toUpperCase()),
+      row('AIRCRAFT', 'aircraft', a.name.toUpperCase()),
       row('MISSION', 'mode', s.mode === 'strike' ? 'AIR TO GROUND' : s.mode === 'dogfight' ? 'AIR TO AIR' : 'FERRY FLIGHT'),
       s.mode === 'ferry' && row('ROUTE', 'dest', route ? route.label.toUpperCase() : ''),
       s.mode === 'dogfight' && row('OPPONENT', 'opponent', `${opponentById(s.opponent).name} · ${opponentById(s.opponent).difficulty}`.toUpperCase()),
@@ -313,61 +312,59 @@ export class Briefing {
   next() { this.onStart(); }
 
   // The briefing: short rows in the official format, one line of orders.
+  // The briefing (owner 2026-11-21: simple, report-like, no weapon names, no how-to):
+  // a few short rows, the loadout by kind ("4 GUIDED BOMBS + GUN").
   renderBrief() {
     const f = this.f, opts = this.opts, d = f.data;
     const strike = f.mode === 'strike';
+    const air = f.mode === 'dogfight';
     const pilot = `${d.rank} ${(opts.name || 'Shaheen').toUpperCase()}`;
     const row = (k, v) => `<div class="drow"><span>${k}</span><i></i><b>${esc(v)}</b></div>`;
     const dep = f.bases[0];
-    let rows, order, head, sub;
-    const air = f.mode === 'dogfight';
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 'S'}`;
+    let rows, head, sub;
     if (air) {
       const df = f.df, o = df.opp;
       head = 'AIR COMBAT';
-      sub = `${df.total} BANDITS · GUNS ONLY`;
+      sub = `${df.total} x ${o.name.toUpperCase()}`;
       rows = [
-        row('TAKE OFF FROM', dep.short),
-        row('BANDITS', `${df.total} x ${o.name.toUpperCase()} · ${o.difficulty}`),
-        row('INTERCEPT', `${Math.round(df.fightX / 1000)} KM OUT · ONE AT A TIME`),
-        row('WEAPONS', `${d.gun.name} · ${f.cb.ammoMax} ROUNDS`),
-        row('DODGE', 'CLIMB, DIVE, OR CHOP THROTTLE + AIR BRAKE'),
-        row('LAND AT', 'SHOWN AFTER THE FIGHT'),
+        row('DEPART', dep.short),
+        row('OBJECTIVE', `DESTROY ${plural(df.total, 'BANDIT')}`),
+        row('BANDIT', `${o.name.toUpperCase()} · ${o.difficulty}`),
+        row('LOADOUT', 'GUN'),
+        row('RECOVERY', 'AFTER THE FIGHT'),
       ];
-      order = 'Take off, get behind each bandit and gun him down, then land at the base that appears.';
     } else if (strike) {
       const objs = f.objectives;
       const sams = f.defences.filter((t) => t.role === 'sam').length;
-      const kinds = [...new Set(objs.map((t) => GROUND_UNITS[t.kind].label))].join(', ');
       head = 'STRIKE MISSION';
-      sub = `${objs.length} GROUND TARGETS`;
+      sub = plural(objs.length, 'GROUND TARGET');
       rows = [
-        row('TAKE OFF FROM', dep.short),
-        row('TARGETS', `${objs.length}: ${kinds}`),
-        row('DISTANCE', `${Math.round(objs[0].x / 1000)} KM AHEAD`),
-        row('THREATS', sams ? `${sams} SAM SITE${sams > 1 ? 'S' : ''}` : 'NONE KNOWN'),
-        row('WEAPONS', `${d.bombCount} x ${d.weaponName}${d.gun ? ' + GUN' : ''}`),
-        row('LAND AT', 'SHOWN AFTER THE ATTACK'),
+        row('DEPART', dep.short),
+        row('OBJECTIVE', `DESTROY ${plural(objs.length, 'TARGET')}`),
+        row('THREAT', sams ? plural(sams, 'SAM SITE') : 'NONE KNOWN'),
+        row('LOADOUT', `${plural(d.bombCount, (d.weaponLabel || 'weapon').toUpperCase().replace('LASER GUIDED', 'GUIDED').replace('AIR TO GROUND ', ''))}${d.gun ? ' + GUN' : ''}`),
+        row('RECOVERY', 'AFTER THE STRIKE'),
       ];
-      order = 'Take off, destroy the targets, land at the base that appears.';
     } else {
       const far = f.dest !== f.bases[1] && f.bases.length > 2;
       head = 'FERRY FLIGHT';
       sub = `${dep.short} TO ${f.dest.short}`;
       rows = [
-        row('TAKE OFF FROM', dep.short),
-        row('LAND AT', f.dest.short),
+        row('DEPART', dep.short),
+        row('DESTINATION', f.dest.short),
         row('DISTANCE', `${Math.round(f.dest.x / 1000)} KM`),
-        far && row('FUEL STOP', `${f.bases[1].short} (IF LOW)`),
+        far && row('FUEL STOP', `${f.bases[1].short} IF LOW`),
       ];
-      order = `Take off, fly to ${f.dest.short}, land and stop on the runway.`;
     }
+    const now = new Date();
+    const ref = `SORTIE ${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
     this.root.innerHTML = `
       <div class="modal debrief brief ${strike || air ? 'warn' : 'ok'}">
         <div class="dhead"><span>PAKISTAN AIR FORCE</span><span>${strike || air ? 'MISSION BRIEFING' : 'FLIGHT ORDERS'}</span></div>
-        <div class="dmeta">${esc(`${pilot} · ${d.name}`.toUpperCase())}</div>
+        <div class="dmeta"><span>${esc(`${pilot} · ${d.name}`.toUpperCase())}</span><span>${ref}</span></div>
         <div class="stamp"><div class="shead">${head}</div><div class="ssub">${esc(sub)}</div></div>
         <div class="drows">${rows.filter(Boolean).join('')}</div>
-        <ul class="bnotes"><li>${esc(order)}</li></ul>
         <div class="dfoot">
           <div class="mbtns">
             <button class="go">Start mission <kbd>Enter</kbd></button>
@@ -378,6 +375,7 @@ export class Briefing {
     $('.go', this.root).onclick = () => this.onStart();
     $('.tomenu', this.root).onclick = () => this.onMenu();
   }
+
 
   // Ignore the Enter that opened it (menu FLY / Fly again fire on the same key press).
   get fresh() { return performance.now() - this.shownAt < 300; }

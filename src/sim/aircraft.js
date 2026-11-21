@@ -240,15 +240,17 @@ export class Aircraft {
   liftFraction(a) {
     const d = this.data;
     const stallA = d.stallAoaDeg * D2R;
+    const breakA = stallA + (d.stallMarginDeg || 0) * D2R; // the real stall
     const absA = Math.abs(a);
     if (this.onGround) this.stalled = false;
-    else if (absA > stallA) {
+    else if (absA > breakA) {
       if (!this.stalled) { this.stallTimer = d.minStallTimeS; this.events.push({ type: 'stall' }); }
       this.stalled = true;
-    } else if (this.stalled && this.stallTimer <= 0 && absA < stallA - 3 * D2R) this.stalled = false;
+    } else if (this.stalled && this.stallTimer <= 0 && absA < stallA) this.stalled = false;
     const edge = d.zeroAoaLift + (1 - d.zeroAoaLift) * Math.sign(a);
     if (absA <= stallA) return d.zeroAoaLift + (1 - d.zeroAoaLift) * a / stallA;
-    const t = clamp((absA - stallA) / (5 * D2R), 0, 1);
+    if (absA <= breakA && !this.stalled) return edge; // buffet: full lift, no stall
+    const t = clamp((absA - breakA) / (5 * D2R), 0, 1);
     const cl = lerp(edge, d.postStallLift * Math.sign(a), t);
     return cl * clamp(Math.cos(absA) * 2, 0, 1);
   }
