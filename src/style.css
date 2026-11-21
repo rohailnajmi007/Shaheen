@@ -10,11 +10,11 @@
   font-display: swap;
 }
 @font-face {
-  /* Menus (owner 2026-11-21): Loccomotive Stencil Military Block (UICreative, 1001Fonts
-     free for PERSONAL use: OK while the game is free and earns nothing; commercial use
-     needs a licence from uicreative.net. public/fonts/LoccomotiveStencil-license.txt). */
-  font-family: 'Loccomotive Stencil';
-  src: url('/fonts/LoccomotiveStencilMilitaryBlock.otf') format('opentype');
+  /* Menus (owner 2026-11-21): Operation Napalm (public domain, CC0:
+     public/fonts/OperationNapalm-CC0.txt). Tried and dropped: Call of Ops Duty,
+     Warband Stencil (demo is personal use only). */
+  font-family: 'Operation Napalm';
+  src: url('/fonts/OperationNapalm-Regular.ttf') format('truetype');
   font-display: swap;
 }
 
@@ -40,7 +40,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1220; use
 .layer.show { opacity: 1; }
 #menu.show, .overlay.show { pointer-events: auto; }
 /* Menus and their pop-ups in the menu face (one weight: no fake bold). */
-#menu, .overlay { font-family: 'Loccomotive Stencil', 'Chakra Petch', system-ui, sans-serif; font-synthesis: none; }
+#menu, .overlay { font-family: 'Operation Napalm', 'Chakra Petch', system-ui, sans-serif; font-synthesis: none; }
 button, input, select { font: inherit; color: inherit; }
 kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); margin: 0 0.35em; }
 
