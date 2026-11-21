@@ -116,3 +116,5 @@ Original reference layout (TU-95), kept for the intent; positions superseded by 
 - **Home base on the aircraft cards (owner 2026-11-21):** at the foot of each card, a gold map pin and the base the jet flies from (`BASES[homeBase].name`, e.g. "PAF BASE MUSHAF").
 - **Aircraft page (owner 2026-11-21):** order Super Mushshak, F-7PG, Mirage V, JF-17, F-16A, F-16D, J-10C (the `AIRCRAFT` order). Every jet is listed in every mission; the ones that don't fly it are greyed out and can't be picked (`modes` per aircraft: Mushshak ferry only; Mirage ferry + air to ground; F-7PG and J-10C ferry + air to air; JF-17 and F-16s all three).
 - Owner 2026-11-21: "Main menu" from a mission lands on the mission page (the one after the name), or on the name page if no name is saved. The air-to-air card names the gun by calibre only ("20 MM CANNON").
+- **Tab icon (owner 2026-11-21):** the eagle from the Falcons' Hearth art (`public/favicon.png` 192 px, `favicon-32.png`), replacing the green jet SVG.
+- **Engine sound (owner 2026-11-21):** fades out (about a second) once the jet crashes or the flight is over (`engineOff` passed to `Sound.update`).

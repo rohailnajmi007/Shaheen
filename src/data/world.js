@@ -20,6 +20,11 @@ export const BASES = {
     id: 'masroor', name: 'PAF Base Masroor', city: 'Karachi', short: 'MASROOR',
     runwayM: 1400, hangars: 2, towerM: 28, parked: 'jf17_front_body', apron: [-60, 520], taxiFromM: -30, holdM: 135,
     boards: ['NO. 2 SQN|MINHASIANS', 'NO. 8 SQN|HAIDER'],
+    // Big emblem billboards behind the parked rows, by their squadron's board (owner 2026-11-21).
+    billboards: [
+      { sprite: 'nishan_e_haider_body', board: 'NO. 2 SQN|MINHASIANS', caption: 'NISHAN-E-HAIDER' },
+      { sprite: 'emblem_no8_body', board: 'NO. 8 SQN|HAIDER', caption: 'NO. 8 SQN · HAIDER' },
+    ],
     welcome: ['WELCOME TO MASROOR', 'THE HOME OF WARRIORS'], welcomeX: [1430], theme: 'coast',
     // Background landmarks (src/render/landmarks.js), seen on the approach.
     landmarks: ['port_cranes', 'teen_talwar', 'bahria_icon', 'mazar_e_quaid', 'masjid_e_tooba', 'skyline'],
@@ -28,6 +33,10 @@ export const BASES = {
     id: 'mushaf', name: 'PAF Base Mushaf', city: 'Sargodha', short: 'MUSHAF',
     runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [32, 560], taxiFromM: 25, holdM: 225,
     boards: ['NO. 9 SQN|GRIFFINS', 'NO. 29 SQN|AGGRESSORS'],
+    billboards: [
+      { sprite: 'emblem_no9_body', board: 'NO. 9 SQN|GRIFFINS', caption: 'NO. 9 SQN · GRIFFINS' },
+      { sprite: 'emblem_no29_body', board: 'NO. 29 SQN|AGGRESSORS', caption: 'NO. 29 SQN · AGGRESSORS' },
+    ],
     welcome: ['WELCOME TO MUSHAF', 'THE HOME OF EAGLES'], theme: 'punjab',
     // Stone monument (dark blue, gold key-pattern border, crest) at both runway ends.
     // Owner 2026-11-21: in the middle of the base, between the parked rows and the hangars.
@@ -49,6 +58,10 @@ export const BASES = {
       { sprite: 'j10c_front_body', from: 102, count: 6, board: 'NO. 15 MR SQN|COBRAS' },
     ],
     boards: [], boardColor: '#14181c', boardTrim: '#d9dde2',
+    billboards: [
+      { sprite: 'emblem_no26_body', board: 'NO. 26 MR SQN|BLACK SPIDERS', caption: 'NO. 26 SQN · BLACK SPIDERS' },
+      { sprite: 'emblem_no15_body', board: 'NO. 15 MR SQN|COBRAS', caption: 'NO. 15 SQN · COBRAS' },
+    ],
     welcome: ['WELCOME TO KAMRA', 'PAF BASE KAMRA'],
   },
 };
@@ -57,7 +70,7 @@ export const BASES = {
 // F-16s and Mirage from Mushaf (Sargodha), the JF-17 from Masroor (Karachi). The ferry
 // world is laid out from the home base (x = 0) to the right: the near destination at
 // ROUTE_M[0], the far one at ROUTE_M[1] (refuelling stop at the near base on the way).
-export const ROUTE_M = [6500, 12500];
+export const ROUTE_M = [6500, 12500, 18500];
 
 // Taxi out (owner 2026-11-21): every flight starts where the base's decorations begin
 // (base taxiFromM, else startM; m from the threshold; owner: "not a mile back") and you
@@ -78,11 +91,12 @@ export const REFUEL = {
   driveInM: 70,     // arrives from this far ahead
   cancelKt: 3,      // the jet rolling faster than this sends the truck away
 };
+// Ferry destinations, nearest first (owner 2026-11-21: Kamra too, so three each).
 export const ROUTES_FROM = {
-  risalpur: ['masroor', 'mushaf'],
-  mushaf: ['risalpur', 'masroor'],
-  masroor: ['mushaf', 'risalpur'],
-  kamra: ['risalpur', 'mushaf'],
+  risalpur: ['kamra', 'mushaf', 'masroor'],
+  mushaf: ['kamra', 'risalpur', 'masroor'],
+  masroor: ['mushaf', 'risalpur', 'kamra'],
+  kamra: ['risalpur', 'mushaf', 'masroor'],
 };
 // Landing bases after a mission (strike, air to air): any base but home, at random.
 export const recoveryBases = (home) => Object.keys(BASES).filter((id) => id !== home);
@@ -96,18 +110,18 @@ const ROUTE_NOTE = {
 
 // [base id, threshold x in m] for a ferry flight from this home base.
 export function ferryLayout(home) {
-  const [near, far] = ROUTES_FROM[home] || ROUTES_FROM.risalpur;
-  return [[home, 0], [near, ROUTE_M[0]], [far, ROUTE_M[1]]];
+  const dests = ROUTES_FROM[home] || ROUTES_FROM.risalpur;
+  return [[home, 0], ...dests.map((id, i) => [id, ROUTE_M[i]])];
 }
 
 // Start-screen routes from this home base.
 export function routesFrom(home) {
   const h = BASES[home] || BASES.risalpur;
-  const [near, far] = ROUTES_FROM[h.id];
-  return [
-    { id: near, label: `${cap(h.short)} → ${cap(BASES[near].short)}`, km: ROUTE_M[0] / 1000, note: ROUTE_NOTE[near] },
-    { id: far, label: `${cap(h.short)} → ${cap(BASES[far].short)}`, km: ROUTE_M[1] / 1000, note: `${ROUTE_NOTE[far]}. Refuel stop at ${cap(BASES[near].short)} if needed` },
-  ];
+  const dests = ROUTES_FROM[h.id];
+  return dests.map((id, i) => ({
+    id, label: `${cap(h.short)} → ${cap(BASES[id].short)}`, km: ROUTE_M[i] / 1000,
+    note: i ? `${ROUTE_NOTE[id]}. Refuel stop at ${cap(BASES[dests[i - 1]].short)} if needed` : ROUTE_NOTE[id],
+  }));
 }
 const cap = (s) => s[0] + s.slice(1).toLowerCase();
 

@@ -194,6 +194,8 @@ function frame(now) {
   const a = flight.ac;
   const cb = flight.armed ? flight.cb : null;
   sound.update(a, a.onGround, {
+    // Engine silent once the flight is over or the jet crashed (owner 2026-11-21).
+    engineOff: a.crashed || flight.state === 'done',
     stall: a.stalled && !a.onGround && !a.crashed, gear: a.gearWarning && !a.crashed,
     gun: !!cb && cb.firing, lock: !!cb && cb.radarLock, missile: !!cb && !a.crashed && cb.incoming().length > 0,
   });

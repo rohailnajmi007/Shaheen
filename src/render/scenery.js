@@ -586,6 +586,36 @@ export function hangarsX(base, parkedEnd) {
   return Math.min(base.runwayM - BUILDINGS_END_M - hb, Math.max(mid, parkedEnd + HANGAR_GAP_M));
 }
 
+// Emblem billboard (owner 2026-11-21): a big panel on two legs, tall enough to stand
+// above the parked jets; the emblem fills the panel, a caption strip under it, two lamps.
+export const BILLBOARD = { wM: 14, legM: 7, panelM: 12, captionM: 1.8 };
+function billboard(time, R, img, caption, lit) {
+  const B = BILLBOARD, hM = B.legM + B.panelM;
+  return sprite(B.wM, hM, R, (x, W, H, R) => {
+    const L = lit || time.light;
+    const top = 0.6 * R, ph = B.panelM * R;
+    x.fillStyle = shade('#55595f', time.light);
+    x.fillRect(W * 0.22, top + ph - R, 0.6 * R, H - ph);
+    x.fillRect(W * 0.78 - 0.6 * R, top + ph - R, 0.6 * R, H - ph);
+    x.fillStyle = shade('#2b2e33', time.light); x.fillRect(0, top, W, ph);
+    x.fillStyle = shade('#f1efe8', L); x.fillRect(0.35 * R, top + 0.35 * R, W - 0.7 * R, ph - 0.7 * R - B.captionM * R);
+    x.fillStyle = shade('#0d3b22', L); x.fillRect(0.35 * R, top + ph - 0.35 * R - B.captionM * R, W - 0.7 * R, B.captionM * R);
+    if (img) {
+      const bw = W - 1.6 * R, bh = ph - 1.6 * R - B.captionM * R;
+      const k = Math.min(bw / img.width, bh / img.height);
+      const iw = img.width * k, ih = img.height * k;
+      x.drawImage(tinted(img, L), (W - iw) / 2, top + 0.8 * R + (bh - ih) / 2, iw, ih);
+    }
+    x.fillStyle = shade('#ffffff', L); x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = `700 ${0.95 * R}px "Chakra Petch", sans-serif`;
+    x.fillText(caption, W / 2, top + ph - 0.35 * R - B.captionM * R / 2);
+    // Two lamps on arms over the top edge.
+    x.fillStyle = shade('#3d4046', time.light);
+    for (const lx of [0.25, 0.75]) { x.fillRect(W * lx - 0.15 * R, 0, 0.3 * R, top + 0.2 * R); x.fillRect(W * lx - 0.6 * R, 0, 1.2 * R, 0.4 * R); }
+    if (time.lights) { x.fillStyle = 'rgba(255,240,200,0.95)'; for (const lx of [0.25, 0.75]) x.fillRect(W * lx - 0.5 * R, 0.25 * R, R, 0.2 * R); }
+  });
+}
+
 // Filler buildings: long barracks, a workshop with a saw-tooth roof, a fuel farm.
 function barracks(time, R, col) {
   return sprite(56, 7, R, (x, W, H, R) => {
@@ -660,9 +690,11 @@ export function buildBase(base, time, R) {
   // night, and the renderer adds a pool of light at each (boardSpots, board centres).
   const boardTime = night ? { ...time, light: FLOODLIGHT.light } : time;
   const boardSpots = [];
+  const boardAt = {}; // board text -> its centre (m from the threshold)
   const addBoard = (text, bx) => {
     add(board(boardTime, R, text, base.boardColor || '#16365c', base.boardTrim || '#e8c25a'), bx);
     boardSpots.push(base.x + bx + 7);
+    boardAt[text] = bx + 7;
   };
   // Masts go in behind the jets once the rows' real extent is known (rows: [from, to]).
   const mastAt = objs.length;
@@ -717,6 +749,15 @@ export function buildBase(base, time, R) {
     }
     objs.splice(mastAt, 0, ...masts);
   }
+  // Emblem billboards behind everything at the start, centred on their squadron's board.
+  const bills = [];
+  for (const bb of base.billboards || []) {
+    const cx = boardAt[bb.board];
+    if (cx == null) continue;
+    const spr = billboard(time, R, images[bb.sprite], bb.caption, night ? FLOODLIGHT.light : null);
+    bills.push({ ...spr, x: base.x + cx - spr.wM / 2, layer: 0 });
+  }
+  objs.splice(backCount, 0, ...bills);
   // Everything at the start (parked rows, boards, trophies, decor) ends here.
   let startEnd = 0;
   for (let k = backCount; k < objs.length; k++) startEnd = Math.max(startEnd, objs[k].x - base.x + objs[k].wM);

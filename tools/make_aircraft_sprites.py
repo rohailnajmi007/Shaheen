@@ -194,6 +194,14 @@ CONFIGS = {
         "src": "docs/reference/falcons_hearth_source.png",
         "display_width": 60, "gear_regions": [], "prop": None, "points": {},
     },
+    # Squadron emblems for the big billboards (owner 2026-11-21), cut from one sheet
+    # (crop = box on the source). Nishan-e-Haider medal: its own picture.
+    "emblem_no8": {"src": "docs/reference/squadron_emblems_source.png", "crop": (20, 0, 249, 286), "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
+    "emblem_no9": {"src": "docs/reference/squadron_emblems_source.png", "crop": (528, 10, 783, 271), "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
+    "emblem_no26": {"src": "docs/reference/squadron_emblems_source.png", "crop": (252, 143, 533, 433), "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
+    "emblem_no29": {"src": "docs/reference/squadron_emblems_source.png", "crop": (534, 287, 782, 527), "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
+    "emblem_no15": {"src": "docs/reference/squadron_emblems_source.png", "crop": (32, 289, 233, 527), "display_width": 40, "gear_regions": [], "prop": None, "points": {}},
+    "nishan_e_haider": {"src": "docs/reference/nishan_e_haider_source.png", "display_width": 30, "gear_regions": [], "prop": None, "points": {}},
     # Front views for parked aircraft (base scenery, not flyable). "erase" blanks
     # the phone share/copy/download buttons in the top-right of the screenshots.
     "k8_front": {
@@ -319,6 +327,10 @@ def build(name, cfg):
             e["under_img"] = orient(under, cfg)
             e["under_offset"] = (0, 0)
     im = orient(im, cfg)
+    if cfg.get("crop"):
+        c = Image.new("RGBA", im.size, (255, 255, 255, 255))
+        c.paste(im.crop(cfg["crop"]), cfg["crop"][:2])
+        im = c
     for box in cfg.get("erase", []):
         im.paste((255, 255, 255, 255), box)
     remove_background(im)

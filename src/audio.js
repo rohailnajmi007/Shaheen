@@ -173,20 +173,21 @@ export class Sound {
       last.set(p, v);
       p.setTargetAtTime(v, t, k);
     };
-    const rpm = ac.rpm, thr = ac.throttle;
+    const off = !!alarms.engineOff;
+    const rpm = off ? 0 : ac.rpm, thr = off ? 0 : ac.throttle;
     const spd = ac.speed;
     if (this.data.sound === 'prop') {
       const f = 28 + rpm * (32 + thr * 50);
       set(n.prop.frequency, f); set(n.prop2.frequency, f * 2.01);
       set(n.lfo.frequency, f * 0.5);
       set(n.propF.frequency, 300 + rpm * (300 + thr * 900));
-      set(n.propG.gain, rpm > 0.02 ? 0.12 + rpm * (0.12 + thr * 0.2) : 0);
+      set(n.propG.gain, rpm > 0.02 ? 0.12 + rpm * (0.12 + thr * 0.2) : 0, off ? 0.35 : 0.06);
     } else {
       set(n.roarF.frequency, 200 + rpm * (300 + thr * 700));
-      set(n.roarG.gain, rpm * (0.15 + thr * 0.45));
+      set(n.roarG.gain, rpm * (0.15 + thr * 0.45), off ? 0.35 : 0.06); // off: a short spool-down fade
       set(n.whine.frequency, 300 + rpm * (900 + thr * 700) * (this.data.id === 'mirage5' ? 0.8 : 1));
-      set(n.whineG.gain, rpm * 0.025 * (1 - thr * 0.5));
-      set(n.abG.gain, ac.afterburner * 1.2);
+      set(n.whineG.gain, rpm * 0.025 * (1 - thr * 0.5), off ? 0.35 : 0.06);
+      set(n.abG.gain, off ? 0 : ac.afterburner * 1.2, off ? 0.2 : 0.06);
     }
     const sup = ac.speedKt / MACH_KT >= SONIC.muffleFrom;
     set(this.muffle.frequency, sup ? SONIC.muffleHz : 20000, 0.25);
