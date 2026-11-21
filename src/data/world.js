@@ -1,14 +1,20 @@
 // Bases, scenery themes and times of day.
 
+// Layout (owner 2026-11-21): the parked jets, squadron boards, trophies and decorations
+// sit at the START of each base, around the take-off point (60 m past the threshold),
+// so they are in view while you line up; hangars, admin block and tower are at the far
+// end (src/render/scenery.js BUILDINGS_END_M). x in m from the threshold.
 export const BASES = {
   risalpur: {
     id: 'risalpur', name: 'PAF Academy Asghar Khan', city: 'Risalpur', short: 'RISALPUR',
-    runwayM: 1200, hangars: 3, towerM: 24, parked: 'k8_front_body', apron: [420, 700],
-    boards: [], welcome: ['PAF ACADEMY ASGHAR KHAN', 'FIRST OF THE FEW'], theme: 'kpk',
+    runwayM: 1200, hangars: 3, towerM: 24, parked: 'k8_front_body', apron: [20, 300],
+    boards: [],
+    // "Falcons' Hearth" 1965 memorial (owner's art), seen from the take-off point; hM: height (m).
+    decor: [{ sprite: 'falcons_hearth_body', x: 4, hM: 11 }], welcome: ['PAF ACADEMY ASGHAR KHAN', 'FIRST OF THE FEW'], theme: 'kpk',
   },
   masroor: {
     id: 'masroor', name: 'PAF Base Masroor', city: 'Karachi', short: 'MASROOR',
-    runwayM: 1400, hangars: 2, towerM: 28, parked: 'jf17_front_body', apron: [300, 900],
+    runwayM: 1400, hangars: 2, towerM: 28, parked: 'jf17_front_body', apron: [-60, 520],
     boards: ['NO. 2 SQN|MINHASIANS', 'NO. 8 SQN|HAIDER'],
     welcome: ['WELCOME TO MASROOR', 'THE HOME OF WARRIORS'], welcomeX: [1430], theme: 'coast',
     // Background landmarks (src/render/landmarks.js), seen on the approach.
@@ -16,14 +22,14 @@ export const BASES = {
   },
   mushaf: {
     id: 'mushaf', name: 'PAF Base Mushaf', city: 'Sargodha', short: 'MUSHAF',
-    runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [300, 1000],
+    runwayM: 1500, hangars: 2, towerM: 26, parked: 'f16_front_body', apron: [32, 560],
     boards: ['NO. 9 SQN|GRIFFINS', 'NO. 29 SQN|AGGRESSORS'],
     welcome: ['WELCOME TO MUSHAF', 'THE HOME OF EAGLES'], theme: 'punjab',
     // Stone monument (dark blue, gold key-pattern border, crest) at both runway ends.
     welcomeX: [-170, 1540], welcomeStyle: 'monument',
     boardColor: '#8c0f0f', boardTrim: '#ebbd4d',
     // Captured-aircraft fins side by side on one black base (m from the threshold).
-    trophies: [{ kinds: ['mig21', 'su30'], x: 520 }],
+    trophies: [{ kinds: ['mig21', 'su30'], x: 2 }],
     banyanX: [-250, -30, 240, 1080, 1210, 1380, 1650, 1780],
     landmarks: ['fields', 'orchard', 'banyan', 'village'],
   },
@@ -34,8 +40,8 @@ export const BASES = {
     id: 'kamra', name: 'PAF Base Kamra', city: 'Kamra', short: 'KAMRA',
     runwayM: 1500, hangars: 2, towerM: 26, theme: 'north',
     parkedGroups: [
-      { sprite: 'jf17_front_body', from: 300, count: 6, board: 'NO. 26 MR SQN|BLACK SPIDERS' },
-      { sprite: 'j10c_front_body', from: 470, count: 6, board: 'NO. 15 MR SQN|COBRAS' },
+      { sprite: 'jf17_front_body', from: -20, count: 6, board: 'NO. 26 MR SQN|BLACK SPIDERS' },
+      { sprite: 'j10c_front_body', from: 102, count: 6, board: 'NO. 15 MR SQN|COBRAS' },
     ],
     boards: [], boardColor: '#14181c', boardTrim: '#d9dde2',
     welcome: ['WELCOME TO KAMRA', 'PAF BASE KAMRA'],

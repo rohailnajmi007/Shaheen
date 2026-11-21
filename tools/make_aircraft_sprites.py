@@ -189,6 +189,11 @@ CONFIGS = {
         "src": "docs/reference/mk82_source.png", "erase": [(180, 79, 330, 97)],
         "display_width": 17, "gear_regions": [], "prop": None, "points": {},
     },
+    # Base decoration (owner 2026-11-21): the "Falcons' Hearth" 1965 memorial at Risalpur.
+    "falcons_hearth": {
+        "src": "docs/reference/falcons_hearth_source.png",
+        "display_width": 60, "gear_regions": [], "prop": None, "points": {},
+    },
     # Front views for parked aircraft (base scenery, not flyable). "erase" blanks
     # the phone share/copy/download buttons in the top-right of the screenshots.
     "k8_front": {

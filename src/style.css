@@ -347,6 +347,7 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 .mcard .acimg { height: 84px; width: 100%; }
 .mcard .acimg img { max-height: 84px; }
 .mcard .acrole { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--tone); }
+.mcard.accard:disabled { opacity: 0.32; filter: grayscale(1); cursor: not-allowed; }
 .mcard .acwpn { font-size: 12px; color: #e0b84a; display: grid; gap: 2px; }
 /* Home base at the foot of each aircraft card (owner 2026-11-21): pin + base name. */
 .mcard.accard { display: flex; flex-direction: column; align-items: center; }

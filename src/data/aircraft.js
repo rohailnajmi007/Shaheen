@@ -76,6 +76,9 @@ export const COMMON = {
   // Instructor lines (owner 2026-11-20): 'full' coaching (trainer) or 'minimal'
   // (fighters: urgent lines only: stall, pull up, gear, SAM, hits, results).
   instructorLines: 'minimal',
+  // Missions this jet flies (owner 2026-11-21): 'ferry', 'strike' (air to ground),
+  // 'dogfight' (air to air). Cards for the others are shown greyed out.
+  modes: ['ferry', 'strike', 'dogfight'],
   // Weapons
   strikeCapable: false,
   bombCount: 0,
@@ -124,10 +127,12 @@ export const COMMON = {
   gearFrontWhenDown: false,
 };
 
+// Start-screen order (owner 2026-11-21): trainer, then F-7PG, Mirage V, JF-17, F-16A, F-16D, J-10C.
 export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'mushshak',
+    modes: ['ferry'],
     name: 'Super Mushshak',
     role: 'Trainer',
     rank: 'AVN CDT', rankCall: 'Cadet', rankFull: 'Aviation Cadet', rankBadge: 'white', homeBase: 'risalpur',
@@ -152,7 +157,36 @@ export const AIRCRAFT = [
   },
   {
     ...COMMON,
+    id: 'f7pg',
+    modes: ['ferry', 'dogfight'],
+    // Owner 2026-11-21: air superiority, air to air only (and ferry); light; thrust
+    // below the JF-17, about the Mirage's; brittle in a fight (fewer hit points).
+    airCombat: { maxThrustN: 46000, afterburnerN: 31000, pitchRateDeg: 32, pitchAccelDeg: 300, stallMarginDeg: 12 }, // T/W 1.03
+
+    name: 'F-7PG Skybolt',
+    role: 'Air superiority fighter',
+    // Rank and home base: my picks (owner did not say). Real F-7PGs fly from Rafiqui,
+    // not in the game yet, so Mushaf for now.
+    rank: 'FLT LT', rankCall: 'Flight Lieutenant', rankFull: 'Flight Lieutenant', rankBadge: 'white', homeBase: 'mushaf',
+    stats: { speed: 0.88, agility: 0.85, difficulty: 0.75 },
+    // MiG-21 family: small and light, a delta with a high landing speed.
+    massKg: 7600, maxThrustN: 44000, afterburnerN: 30000,
+    fuelKg: 900, burnFullKgS: 2.4, dragCoef: 0.93,
+    stallKt: 136, rotateKt: 158, maxSpeedKt: 900, cockpitStyle: 'darkAnalog',
+    airframeHp: 65, hitRadiusM: 4.6, hitCenterUpM: 2.2,
+    // Owner's art (tools/make_aircraft_sprites.py "f7pg"): gear layer, all-moving tailplane.
+    sprite: 'f7pg_body', gearSprite: 'f7pg_gear', gearTravel: 31, gearFrontWhenDown: true,
+    elevatorSprite: 'f7pg_elevator', elevatorHinge: [67, 75],
+    pivot: [185, 122], nozzle: [43, 76], flameLength: 220, flameWidth: 24,
+    strikeCapable: false,
+    gun: { name: '2 x TYPE 30-1 30MM', rps: 40, muzzleMs: 780, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 200, port: [310, 89], tracerEvery: 4 },
+    countermeasures: 16,
+    lights: { navNear: [134, 84], navFar: [128, 82], tail: [41, 53], beacon: [172, 45], landing: [331, 95] },
+  },
+  {
+    ...COMMON,
     id: 'mirage5',
+    modes: ['ferry', 'strike'],
     engineSmoke: { kind: 'smoke', perFrame: 1, chance: 0.6, size: 1.6, life: 1.6, alpha: 0.18, grow: 3, minThrottle: 0.5, dryOnly: true },
     // Air to air only (owner 2026-11-21): power (thrust/weight) Mirage < JF-17 < F-16A <
     // F-16D = J-10C; J-10C and F-16s lightest and most agile, JF-17 a bit less, Mirage sluggish.
@@ -257,6 +291,7 @@ export const AIRCRAFT = [
   {
     ...COMMON,
     id: 'j10c',
+    modes: ['ferry', 'dogfight'],
     airCombat: { maxThrustN: 84000, afterburnerN: 62250, pitchRateDeg: 35, pitchAccelDeg: 360, stallMarginDeg: 11 }, // T/W 1.19 (= F-16D)
 
     name: 'J-10C Vigorous Dragon',
@@ -278,33 +313,6 @@ export const AIRCRAFT = [
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 200, port: [330, 122], tracerEvery: 4 },
     countermeasures: 30,
     lights: { navNear: [183, 121], navFar: [197, 118], tail: [21, 81], beacon: [24, 2], landing: [340, 135] },
-  },
-  {
-    ...COMMON,
-    id: 'f7pg',
-    // Owner 2026-11-21: air superiority, air to air only (and ferry); light; thrust
-    // below the JF-17, about the Mirage's; brittle in a fight (fewer hit points).
-    airCombat: { maxThrustN: 46000, afterburnerN: 31000, pitchRateDeg: 32, pitchAccelDeg: 300, stallMarginDeg: 12 }, // T/W 1.03
-
-    name: 'F-7PG Skybolt',
-    role: 'Air superiority fighter',
-    // Rank and home base: my picks (owner did not say). Real F-7PGs fly from Rafiqui,
-    // not in the game yet, so Mushaf for now.
-    rank: 'FLT LT', rankCall: 'Flight Lieutenant', rankFull: 'Flight Lieutenant', rankBadge: 'white', homeBase: 'mushaf',
-    stats: { speed: 0.88, agility: 0.85, difficulty: 0.75 },
-    // MiG-21 family: small and light, a delta with a high landing speed.
-    massKg: 7600, maxThrustN: 44000, afterburnerN: 30000,
-    fuelKg: 900, burnFullKgS: 2.4, dragCoef: 0.93,
-    stallKt: 136, rotateKt: 158, maxSpeedKt: 900, cockpitStyle: 'darkAnalog',
-    airframeHp: 65, hitRadiusM: 4.6, hitCenterUpM: 2.2,
-    // Owner's art (tools/make_aircraft_sprites.py "f7pg"): gear layer, all-moving tailplane.
-    sprite: 'f7pg_body', gearSprite: 'f7pg_gear', gearTravel: 31, gearFrontWhenDown: true,
-    elevatorSprite: 'f7pg_elevator', elevatorHinge: [67, 75],
-    pivot: [185, 122], nozzle: [43, 76], flameLength: 220, flameWidth: 24,
-    strikeCapable: false,
-    gun: { name: '2 x TYPE 30-1 30MM', rps: 40, muzzleMs: 780, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 200, port: [310, 89], tracerEvery: 4 },
-    countermeasures: 16,
-    lights: { navNear: [134, 84], navFar: [128, 82], tail: [41, 53], beacon: [172, 45], landing: [331, 95] },
   },
 ];
 

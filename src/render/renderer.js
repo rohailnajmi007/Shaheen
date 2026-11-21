@@ -590,8 +590,8 @@ export class Renderer {
     }
     // Pools of light on the apron.
     ctx.globalAlpha = 0.25;
-    for (let m = 120; m < 120 + b.hangars * 72; m += 72) {
-      const x = v.sx(b.x + m + 32);
+    for (let m = 0; m < b.hangars * 72; m += 72) {
+      const x = v.sx(bg.hangarX + m + 32);
       ctx.drawImage(SOFT.warm, x - 30 * S, v.groundY - 16 * S, 60 * S, 24 * S);
     }
     ctx.globalAlpha = 1;

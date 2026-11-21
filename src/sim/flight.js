@@ -51,8 +51,7 @@ export class Flight {
   constructor(opts) {
     this.opts = opts;
     this.data = aircraftById(opts.aircraftId);
-    this.mode = opts.mode === 'strike' && this.data.strikeCapable ? 'strike'
-      : opts.mode === 'dogfight' && this.data.gun ? 'dogfight' : 'ferry';
+    this.mode = (this.data.modes || ['ferry']).includes(opts.mode) ? opts.mode : 'ferry';
     this.armed = this.mode !== 'ferry'; // gun, damage, eject (strike and dogfight)
     // Air to air: each jet's dogfight power and agility (airCombat in src/data/aircraft.js).
     if (this.mode === 'dogfight' && this.data.airCombat) this.data = { ...this.data, ...this.data.airCombat };

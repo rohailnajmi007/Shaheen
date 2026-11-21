@@ -72,7 +72,7 @@ function fitsTag(s) {
 function fitName(s) { let t = s; while (t && !fitsTag(t)) t = t.slice(0, -1); return t; }
 const MODE_NAME = { ferry: 'FERRY FLIGHT', strike: 'AIR TO GROUND', dogfight: 'AIR TO AIR' };
 // Which missions an aircraft can fly.
-const modeOk = (m, a) => m === 'ferry' || (m === 'strike' ? a.strikeCapable : !!a.gun);
+const modeOk = (m, a) => (a.modes || ['ferry']).includes(m);
 // What it carries, by kind, one line each (owner 2026-11-21): "4 laser guided bombs", "20 mm cannon".
 function armament(a) {
   const out = [];
@@ -158,7 +158,7 @@ export class Menu {
       if (fit !== name.value) { const p = Math.min(name.selectionStart ?? fit.length, fit.length); name.value = fit; name.setSelectionRange(p, p); this.flashFull(); }
       this.s.name = name.value; saveSettings(this.s); this.refresh();
     });
-    for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => this.pick('aircraft', b.dataset.id));
+    for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => { if (!b.disabled) this.pick('aircraft', b.dataset.id); });
     for (const b of root.querySelectorAll('.opcard')) b.addEventListener('click', () => this.pick('opponent', b.dataset.id));
     for (const [sel, key] of [['[data-step="mode"] .mcard', 'mode'], ['.times .mcard', 'time']]) {
       for (const b of root.querySelectorAll(sel)) b.addEventListener('click', () => { if (!b.disabled) this.pick(key, b.dataset.v); });
@@ -273,7 +273,8 @@ export class Menu {
     $('.tagname', np).textContent = name;
     for (const b of r.querySelectorAll('[data-step="mode"] .mcard')) b.classList.toggle('sel', b.dataset.v === s.mode);
     for (const b of r.querySelectorAll('.accard')) {
-      b.hidden = !modeOk(s.mode, AIRCRAFT.find((x) => x.id === b.dataset.id));
+      // Every jet is listed; the ones that don't fly this mission are greyed out.
+      b.disabled = !modeOk(s.mode, AIRCRAFT.find((x) => x.id === b.dataset.id));
       b.classList.toggle('sel', b.dataset.id === s.aircraft);
     }
     for (const b of r.querySelectorAll('.opcard')) b.classList.toggle('sel', b.dataset.id === s.opponent);

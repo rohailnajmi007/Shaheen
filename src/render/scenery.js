@@ -572,6 +572,11 @@ function floodMast(time, R) {
   });
 }
 
+// Hangars, admin block and tower toward the far end of the runway (owner 2026-11-21):
+// the row ends BUILDINGS_END_M before the runway end. Returns the first hangar's x (m).
+export const BUILDINGS_END_M = 30;
+export function hangarsX(base) { return base.runwayM - BUILDINGS_END_M - (base.hangars * 72 + 116); }
+
 // All static objects for one base, positions in metres from its threshold.
 export function buildBase(base, time, R) {
   const objs = [];
@@ -580,10 +585,11 @@ export function buildBase(base, time, R) {
   const addC = (spr, cx) => add(spr, cx - spr.wM / 2);
   const col = '#e2d9c3';
   (base.banyanX || []).forEach((bx, i) => addC(banyanTree(time, R, i, THEMES[base.theme].trees), bx));
-  for (let i = 0; i < base.hangars; i++) add(hangar(time, R, col, base.short), 120 + i * 72);
-  add(admin(time, R, base.id === 'risalpur' ? 3 : 2, col), 120 + base.hangars * 72 + 20);
+  const hx = hangarsX(base);
+  for (let i = 0; i < base.hangars; i++) add(hangar(time, R, col, base.short), hx + i * 72);
+  add(admin(time, R, base.id === 'risalpur' ? 3 : 2, col), hx + base.hangars * 72 + 20);
   const tw = tower(time, R, base.towerM);
-  add(tw, 120 + base.hangars * 72 + 104);
+  add(tw, hx + base.hangars * 72 + 104);
   // Squadron boards and trophies; parked aircraft keep clear of them.
   const boardX = base.boards.map((_, i) => (base.apron?.[0] ?? 0) + 80 + i * 70);
   const groups = base.parkedGroups || [];
@@ -644,14 +650,21 @@ export function buildBase(base, time, R) {
     if (g.board) addBoard(g.board, end + 2);
   }
   base.boards.forEach((t, i) => addBoard(t, boardX[i]));
-  for (const { t, spr } of trophySprites) addC(spr, t.x);
+  for (const { t, spr } of trophySprites) { addC(spr, t.x); boardSpots.push(base.x + t.x); }
+  for (const dc of base.decor || []) {
+    const img = images[dc.sprite];
+    if (!img) continue;
+    const hM = dc.hM, wM = hM * img.width / img.height;
+    addC({ canvas: tinted(img, night ? FLOODLIGHT.light : time.light, dc.sprite), wM, hM }, dc.x);
+    boardSpots.push(base.x + dc.x);
+  }
   if (base.welcome) {
     for (const wx of base.welcomeX || [base.runwayM + 40]) {
       if (base.welcomeStyle === 'monument') addC(monument(time, R, base.welcome), wx);
       else add(welcome(time, R, base.welcome), wx);
     }
   }
-  return { objs, floods, boardSpots, towerX: base.x + 120 + base.hangars * 72 + 110, towerH: base.towerM };
+  return { objs, floods, boardSpots, hangarX: base.x + hx, towerX: base.x + hx + base.hangars * 72 + 110, towerH: base.towerM };
 }
 
 // --- Ground targets ---
