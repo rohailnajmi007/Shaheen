@@ -10,11 +10,11 @@
   font-display: swap;
 }
 @font-face {
-  /* Menus (owner 2026-11-21): Call of Ops Duty (1001Fonts free for commercial use:
-     embedding allowed, no modifying; public/fonts/CallOfOpsDuty-license.txt).
-     Replaced Operation Napalm (hard to read). */
-  font-family: 'Call of Ops Duty';
-  src: url('/fonts/CallOfOpsDuty.otf') format('opentype');
+  /* Menus (owner 2026-11-21): Warband Stencil (Sronstudio). Only the personal-use demo
+     is in hand, so the file is NOT shipped: it shows where it is installed on the
+     computer, Chakra Petch elsewhere. With a bought web licence, add the file here. */
+  font-family: 'Warband Stencil';
+  src: local('Warband Stencil'), local('WarbandStencil');
   font-display: swap;
 }
 
@@ -40,7 +40,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1220; use
 .layer.show { opacity: 1; }
 #menu.show, .overlay.show { pointer-events: auto; }
 /* Menus and their pop-ups in the menu face (one weight: no fake bold). */
-#menu, .overlay { font-family: 'Call of Ops Duty', 'Chakra Petch', system-ui, sans-serif; font-synthesis: none; }
+#menu, .overlay { font-family: 'Warband Stencil', 'Chakra Petch', system-ui, sans-serif; font-synthesis: none; }
 button, input, select { font: inherit; color: inherit; }
 kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); margin: 0 0.35em; }
 
