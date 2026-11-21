@@ -1,6 +1,6 @@
 // Draws the world, the aircraft and effects on one canvas.
 import { images, tinted, SOFT, makeCanvas, rng } from './assets.js';
-import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget, buildFuelTruck, FLOODLIGHT } from './scenery.js';
+import { LAYERS, TILE_W, buildLayer, buildGround, buildClouds, buildStars, buildBase, buildTarget, buildFuelTruck, FLOODLIGHT, BILLBOARD } from './scenery.js';
 import { Particles } from './particles.js';
 import { buildLandmarks, LANDMARKS } from './landmarks.js';
 import { THEMES, TIMES, REFUEL, TAXI } from '../data/world.js';
@@ -629,6 +629,16 @@ export class Renderer {
       ctx.globalAlpha = 1;
       dot(SOFT.warm, fx, v.sy(FLOODLIGHT.mastM - 0.5), s * 2.2);
       dot(SOFT.white, fx, v.sy(FLOODLIGHT.mastM - 0.5), s * 0.9);
+    }
+    // Billboard lamps: two glows on the top edge and a soft wash down the panel.
+    for (const cx of bg.signLamps || []) {
+      const x = v.sx(cx);
+      if (x < -60 * S || x > v.W + 60 * S) continue;
+      const topY = v.sy(BILLBOARD.legM + BILLBOARD.panelM + 0.2);
+      ctx.globalAlpha = 0.22;
+      ctx.drawImage(SOFT.warm, x - 9 * S, topY - 1 * S, 18 * S, 13 * S);
+      ctx.globalAlpha = 1;
+      for (const k of [-0.25, 0.25]) dot(SOFT.warm, cx + k * BILLBOARD.wM, topY, s * 1.6);
     }
     // Floodlit squadron boards: a warm wash on the board and the ground in front.
     for (const bx of bg.boardSpots || []) {

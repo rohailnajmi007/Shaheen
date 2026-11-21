@@ -357,9 +357,14 @@ function board(time, R, text, bg = '#16365c', trim = '#e8c25a') {
     x.fillStyle = shade('#666', time.light); x.fillRect(2 * R, 3 * R, 0.6 * R, 4 * R); x.fillRect(W - 2.6 * R, 3 * R, 0.6 * R, 4 * R);
     x.fillStyle = shade(trim, time.light); x.fillRect(0, 0, W, 3.8 * R);
     x.fillStyle = shade(bg, time.light); x.fillRect(0.25 * R, 0.25 * R, W - 0.5 * R, 3.3 * R);
-    x.fillStyle = shade('#ffffff', time.light); x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.font = `600 ${1.0 * R}px "Chakra Petch", sans-serif`; x.fillText(l1, W / 2, 1.2 * R);
-    x.font = `700 ${1.25 * R}px "Chakra Petch", sans-serif`; x.fillStyle = shade(trim, time.light); x.fillText(l2 || '', W / 2, 2.55 * R);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    // Owner 2026-11-21: the squadron name only, big (the number is on the billboard).
+    const name = l2 || l1;
+    x.font = `700 ${1.9 * R}px "Chakra Petch", sans-serif`;
+    const fit = Math.min(1, (W - 1.2 * R) / x.measureText(name).width);
+    x.save(); x.translate(W / 2, 1.95 * R); x.scale(fit, 1);
+    x.fillStyle = shade(trim, time.light); x.fillText(name, 0, 0);
+    x.restore();
   });
 }
 function welcome(time, R, lines) {
@@ -559,7 +564,8 @@ function banyanTree(time, R, index, leafHex) {
 // Floodlit apron (owner 2026-11-21): masts along the parked rows every everyM; at night
 // the parked jets are lit by them (warm light instead of the night tint) and the renderer
 // adds the pools of light and the lamps (floods). mastM: mast height (m).
-export const FLOODLIGHT = { light: [1.0, 0.93, 0.8], shelterLight: [0.75, 0.7, 0.62], everyM: 32, mastM: 13 };
+export const FLOODLIGHT = { light: [1.0, 0.93, 0.8], shelterLight: [0.75, 0.7, 0.62], everyM: 32, mastM: 13,
+  signLight: [1.0, 0.98, 0.92] }; // signs and billboards at night: lit up by their lamps
 function floodMast(time, R) {
   const F = FLOODLIGHT;
   return sprite(3, F.mastM, R, (x, W, H, R) => {
@@ -588,7 +594,7 @@ export function hangarsX(base, parkedEnd) {
 
 // Emblem billboard (owner 2026-11-21): a big panel on two legs, tall enough to stand
 // above the parked jets; the emblem fills the panel, a caption strip under it, two lamps.
-export const BILLBOARD = { wM: 14, legM: 7, panelM: 12, captionM: 1.8 };
+export const BILLBOARD = { wM: 14, legM: 7, panelM: 12, captionM: 2.3 };
 function billboard(time, R, img, caption, lit) {
   const B = BILLBOARD, hM = B.legM + B.panelM;
   return sprite(B.wM, hM, R, (x, W, H, R) => {
@@ -607,8 +613,10 @@ function billboard(time, R, img, caption, lit) {
       x.drawImage(tinted(img, L), (W - iw) / 2, top + 0.8 * R + (bh - ih) / 2, iw, ih);
     }
     x.fillStyle = shade('#ffffff', L); x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.font = `700 ${0.95 * R}px "Chakra Petch", sans-serif`;
-    x.fillText(caption, W / 2, top + ph - 0.35 * R - B.captionM * R / 2);
+    x.font = `700 ${1.35 * R}px "Chakra Petch", sans-serif`;
+    const cf = Math.min(1, (W - 1.4 * R) / x.measureText(caption).width);
+    x.save(); x.translate(W / 2, top + ph - 0.35 * R - B.captionM * R / 2); x.scale(cf, 1);
+    x.fillText(caption, 0, 0); x.restore();
     // Two lamps on arms over the top edge.
     x.fillStyle = shade('#3d4046', time.light);
     for (const lx of [0.25, 0.75]) { x.fillRect(W * lx - 0.15 * R, 0, 0.3 * R, top + 0.2 * R); x.fillRect(W * lx - 0.6 * R, 0, 1.2 * R, 0.4 * R); }
@@ -688,7 +696,7 @@ export function buildBase(base, time, R) {
   const floods = [];
   // Squadron boards are floodlit too (owner 2026-11-21): drawn in the flood light at
   // night, and the renderer adds a pool of light at each (boardSpots, board centres).
-  const boardTime = night ? { ...time, light: FLOODLIGHT.light } : time;
+  const boardTime = night ? { ...time, light: FLOODLIGHT.signLight } : time;
   const boardSpots = [];
   const boardAt = {}; // board text -> its centre (m from the threshold)
   const addBoard = (text, bx) => {
@@ -751,11 +759,13 @@ export function buildBase(base, time, R) {
   }
   // Emblem billboards behind everything at the start, centred on their squadron's board.
   const bills = [];
+  const signLamps = [];
   for (const bb of base.billboards || []) {
     const cx = boardAt[bb.board];
     if (cx == null) continue;
-    const spr = billboard(time, R, images[bb.sprite], bb.caption, night ? FLOODLIGHT.light : null);
+    const spr = billboard(time, R, images[bb.sprite], bb.caption, night ? FLOODLIGHT.signLight : null);
     bills.push({ ...spr, x: base.x + cx - spr.wM / 2, layer: 0 });
+    signLamps.push(base.x + cx); // the renderer adds the lamp glow on top at night
   }
   objs.splice(backCount, 0, ...bills);
   // Everything at the start (parked rows, boards, trophies, decor) ends here.
@@ -797,7 +807,7 @@ export function buildBase(base, time, R) {
   }
   objs.splice(backCount, 0, ...back);
   for (const [spr, x0] of welcomes) add(spr, x0);
-  return { objs, floods, boardSpots, hangarX: base.x + hx, towerX: base.x + hx + base.hangars * 72 + 110, towerH: base.towerM };
+  return { objs, floods, boardSpots, signLamps, hangarX: base.x + hx, towerX: base.x + hx + base.hangars * 72 + 110, towerH: base.towerM };
 }
 
 // --- Ground targets ---
