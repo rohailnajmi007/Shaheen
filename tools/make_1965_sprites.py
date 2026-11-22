@@ -60,7 +60,7 @@ CONFIGS = {
     },
     "f104": {
         "src": "docs/reference/f104_1965_source.png",
-        "display_width": 128,  # 16.7 m with the probe
+        "display_width": 140,  # 16.7 m with the probe; owner 2026-11-22: longer (was 128), still under the B-57
         "erase": [(300, 284, 560, 305)],
         "unflip": [(286, 168, 362, 194), (726, 76, 780, 99)],
         "parts": [

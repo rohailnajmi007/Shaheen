@@ -452,22 +452,23 @@ export const AIRCRAFT = [
     stats: { speed: 0.95, agility: 0.45, difficulty: 0.8 },
     massKg: 9500, maxThrustN: 46000, afterburnerN: 38000, ramGain: 0.75,
     fuelKg: 1000, burnFullKgS: 2.6, dragCoef: 0.84,
-    stallKt: 165, rotateKt: 185, maxSpeedKt: 1150, pitchRateDeg: 22, pitchAccelDeg: 200,
-    airframeHp: 80, hitRadiusM: 5, hitCenterUpM: 3.9,
-    elevatorSprite: 'f104_elevator', elevatorHinge: [37.0, 9.4], elevatorMaxDeg: 12, // moving tailplane (owner 2026-11-22)
-    sprite: 'f104_body', gearTravel: 36,
+    stallKt: 165, rotateKt: 185, tailStrikeDeg: 10, // long jet: tail strikes come easily (owner 2026-11-22; others 15). Approach is ~8 deg nose up, so flare gently
+    maxSpeedKt: 1150, pitchRateDeg: 22, pitchAccelDeg: 200,
+    airframeHp: 80, hitRadiusM: 5.5, hitCenterUpM: 4.3,
+    elevatorSprite: 'f104_elevator', elevatorHinge: [40.5, 10.3], elevatorMaxDeg: 12, // moving tailplane (owner 2026-11-22)
+    sprite: 'f104_body', gearTravel: 39, // sprite made longer (owner 2026-11-22): display width 128 -> 140
     gearParts: [
-      { sprite: 'f104_gear_nose', kind: 'leg', hinge: [325.6, 106.7], deg: -95 },
-      { sprite: 'f104_gear_main', kind: 'leg', hinge: [193.9, 100.4], deg: -90 },
+      { sprite: 'f104_gear_nose', kind: 'leg', hinge: [356.2, 116.7], deg: -95 },
+      { sprite: 'f104_gear_main', kind: 'leg', hinge: [212.1, 109.8], deg: -90 },
     ],
-    pivot: [191, 147], nozzle: [29, 85], flameLength: 330, flameWidth: 30,
-    strikeCapable: true, bombCount: 2, hardpoints: [[175, 112], [240, 114]],
+    pivot: [209, 161], nozzle: [32, 93], flameLength: 360, flameWidth: 30,
+    strikeCapable: true, bombCount: 2, hardpoints: [[191, 123], [263, 125]],
     weaponSprite: 'mk82_body', weaponName: '500 LB BOMB', weaponLabel: 'Unguided bomb', storeMassKg: 230,
     bombScatterMs: 2.5, blastRadiusM: 24,
-    aam: { type: 'aim9b', count: 2, points: [[150, 100], [165, 100]] },
-    gun: { name: 'M61 VULCAN 20MM', rps: 100, muzzleMs: 1030, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 420, port: [320, 100], tracerEvery: 5 },
+    aam: { type: 'aim9b', count: 2, points: [[164, 109], [180, 109]] },
+    gun: { name: 'M61 VULCAN 20MM', rps: 100, muzzleMs: 1030, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 420, port: [350, 109], tracerEvery: 5 },
     countermeasures: 12,
-    lights: { navNear: [150, 100], navFar: [160, 97], tail: [20, 78], beacon: [32, 3], landing: [330, 122] },
+    lights: { navNear: [164, 109], navFar: [175, 106], tail: [22, 85], beacon: [35, 3], landing: [361, 133] },
   },
   {
     ...COMMON,
