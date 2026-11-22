@@ -184,11 +184,14 @@ function frame(now) {
   if (fps.t > 0.5) { fps.v = Math.round(fps.n / fps.t); fps.n = 0; fps.t = 0; fpsEl.textContent = `${fps.v} FPS · ${canvas.width}×${canvas.height}`; }
   handleActions();
   if (mode === 'menu') {
+    music.setScene('menu');
     demoT += dt;
     renderer.renderDemo(demoT, dt, demoPlanes);
     return;
   }
   if (pause.open) return;
+  // Music: quieter while flying, louder in the briefing and the debrief (owner 2026-11-22).
+  music.setScene(briefing.open || result.open ? 'menu' : 'flight');
   if (briefing.open) { renderer.renderFlight(flight, 0, dt); return; } // waits for the pilot
   acc += dt;
   const st = input.state();

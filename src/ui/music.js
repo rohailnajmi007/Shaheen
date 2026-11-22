@@ -19,12 +19,20 @@ export class MusicPlayer {
     this.el = new Audio();
     this.el.preload = 'auto';
     this.el.addEventListener('ended', () => this.next(true));
+    // Tracks with a start time begin there (owner: Sher Dil and Jazba from 0:23).
+    this.el.addEventListener('loadedmetadata', () => {
+      const st = this.tracks[this.i].start || 0;
+      if (st > 0 && this.el.currentTime < st && st < this.el.duration) this.el.currentTime = st;
+    });
     this.el.addEventListener('error', () => { this.failed = true; this.render(); });
     this.wanted = false;  // the player wants music (play pressed, or the automatic start)
     this.started = false; // the first click / key press has happened
     this.muted = false;
     this.ducked = false;  // the crash song is playing
     this.level = 0;       // current fade level 0..1
+    this.scene = 'menu';  // 'menu' (louder) or 'flight' (quieter, in the background)
+    this.sceneVol = MUSIC.vol;
+    this.sceneTimer = null;
     this.fadeTo = 0;
     this.timer = null;
     if (!this.tracks.length) { root.style.display = 'none'; return; }
@@ -37,8 +45,26 @@ export class MusicPlayer {
     for (const b of root.querySelectorAll('button')) b.addEventListener('mousedown', (e) => e.preventDefault());
     root.querySelector('.mplay').addEventListener('click', () => this.toggle());
     root.querySelector('.mnext').addEventListener('click', () => this.next());
-    this.load(0);
+    this.load(Math.floor(Math.random() * this.tracks.length)); // a random first song
     this.render();
+  }
+
+  // Louder in the menus, briefing and debrief; quieter while flying. Entering the flight:
+  // the next song (MUSIC.nextOnMission).
+  setScene(scene) {
+    if (scene === this.scene) return;
+    const into = scene === 'flight' && this.scene !== 'flight';
+    this.scene = scene;
+    const to = scene === 'flight' ? MUSIC.flightVol : MUSIC.vol;
+    clearInterval(this.sceneTimer);
+    const from = this.sceneVol, t0 = performance.now(), ms = MUSIC.fadeS * 1000;
+    this.sceneTimer = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      this.sceneVol = from + (to - from) * k;
+      this.apply();
+      if (k >= 1) clearInterval(this.sceneTimer);
+    }, 40);
+    if (into && MUSIC.nextOnMission && this.started && this.wanted && this.tracks.length > 1) this.next();
   }
 
   // The first click or key press: start playing (browsers allow sound only after one).
@@ -81,7 +107,7 @@ export class MusicPlayer {
   duck(on) { this.ducked = on; if (this.wanted && !this.el.paused) this.fade(this.target()); }
 
   target() { return this.ducked ? MUSIC.duck : 1; }
-  apply() { this.el.volume = this.muted ? 0 : Math.max(0, Math.min(1, this.level * MUSIC.vol)); }
+  apply() { this.el.volume = this.muted ? 0 : Math.max(0, Math.min(1, this.level * this.sceneVol)); }
 
   fade(to, done) {
     clearInterval(this.timer);
