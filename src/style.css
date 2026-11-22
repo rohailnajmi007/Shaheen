@@ -47,19 +47,29 @@ kbd { font: inherit; font-size: 0.72em; padding: 0.1em 0.45em; border-radius: 4p
 #loading { position: fixed; inset: 0; display: grid; place-content: center; gap: 14px; justify-items: center; letter-spacing: 0.3em; color: var(--dim); background: #0b1220; }
 .spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* Music player (owner 2026-11-22): bottom right, over everything, in menus and in flight. */
-#music { position: fixed; right: 14px; bottom: 14px; z-index: 20; display: flex; align-items: center; gap: 8px;
-  max-width: min(300px, 70vw); padding: 6px 8px 6px 11px; border-radius: 22px; background: var(--glass-hi);
-  border: 1px solid var(--line); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  font: 600 12px/1 'Chakra Petch', sans-serif; letter-spacing: 0.08em; color: var(--txt); pointer-events: auto; }
+/* Music player (owner 2026-11-22): bottom right, over everything, in menus and in flight.
+   Styled like the order sheet / debrief (olive paper, khaki ink, square corners). */
+#music { --ink: #d8cfa6; --ink-dim: #8f8a6c; --tone: #c9bb7f; --rule: #4b4a37;
+  position: fixed; right: 14px; bottom: 14px; z-index: 20; width: 236px; height: 42px; display: flex; align-items: center; gap: 8px;
+  padding: 0 6px 0 11px; border-radius: 2px; color: var(--ink);
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px), linear-gradient(180deg, rgba(26,30,21,0.97), rgba(15,18,12,0.97));
+  border: 1px solid var(--rule); box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 0 0 2px #14170f, inset 0 0 0 3px #3a3a2a;
+  font: 13px/1 'Operation Napalm', 'Chakra Petch', sans-serif; font-synthesis: none; letter-spacing: 0.14em; pointer-events: auto; }
 #music svg { width: 100%; height: 100%; display: block; }
-#music .mnote { width: 15px; height: 15px; flex: none; color: var(--dim); }
-#music.on .mnote { color: var(--accent); animation: mbeat 1.2s ease-in-out infinite; }
+#music .mnote { width: 14px; height: 14px; flex: none; color: var(--ink-dim); }
+#music.on .mnote { color: var(--tone); animation: mbeat 1.2s ease-in-out infinite; }
 @keyframes mbeat { 50% { transform: translateY(-2px); } }
 #music .mtitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
-#music .mbtn { flex: none; width: 28px; height: 28px; padding: 7px; border-radius: 50%; border: 1px solid var(--line);
-  background: rgba(255,255,255,0.06); cursor: pointer; color: var(--txt); }
-#music .mbtn:hover { background: rgba(255,255,255,0.16); }
+#music .mbtn { flex: none; width: 28px; height: 28px; padding: 7px; border-radius: 2px; border: 1px solid #5a5940;
+  background: transparent; cursor: pointer; color: var(--ink); }
+#music .mbtn:hover { background: rgba(201,187,127,0.1); border-color: var(--tone); color: var(--tone); }
+/* Start screen: the order sheet's footer bar keeps room for the player, so it sits in the
+   bar beside the FLY button instead of on top of it. */
+body:has(#menu.show) .sheet.full .mfoot { padding-right: 278px; }
+@media (max-width: 760px) {
+  body:has(#menu.show) .sheet.full .mfoot { padding-right: 28px; }
+  body:has(#menu.show) #music { bottom: 84px; } /* narrow: just above the footer bar */
+}
 /* Touch flight: the control buttons own that corner. */
 body:has(#hud .touch.on) #music { display: none; }
 #fps { position: fixed; right: 8px; bottom: 6px; font-size: 11px; color: #9fe; opacity: 0; pointer-events: none; }
