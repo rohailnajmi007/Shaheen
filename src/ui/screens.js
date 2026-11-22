@@ -61,8 +61,8 @@ const TIME_ICON = {
 // Era (owner 2026-11-22): the 1965 war (F-86, F-6, F-104, B-57) or modern day warfare
 // (the rest). Missions are the same in both; the aircraft list shows the chosen era's.
 const ERAS = [
-  { id: '1965', label: '1965 War', note: 'Classic jets. Guns and bombs.' },
-  { id: 'modern', label: 'Modern day warfare', note: "Today's jets and missiles." },
+  { id: '1965', label: '1965/71 War', note: 'Classic jets. Primitive weapons.' }, // owner 2026-11-22
+  { id: 'modern', label: 'Modern day Pakistan Air Force', note: 'The latest and greatest of the PAF.' },
 ];
 const eraOf = (a) => a.era || 'modern';
 const MODES = [
@@ -343,7 +343,7 @@ export class Menu {
       const row = (k, v) => `<div class="drow"><span>${k}</span><i></i><b>${esc(v)}</b></div>`;
       $('.olog', r).innerHTML = [
         row('PILOT', `${a.rankFull} ${name}`.toUpperCase()),
-        row('ERA', this.era() === '1965' ? '1965 WAR' : 'MODERN DAY'),
+        row('ERA', this.era() === '1965' ? '1965/71 WAR' : 'MODERN DAY PAF'),
         row('AIRCRAFT', a.name.toUpperCase()),
         row('MISSION', MODE_NAME[s.mode]),
         s.mode === 'ferry' && route && row('DESTINATION', baseOf(route.id, this.era()).name.toUpperCase()),

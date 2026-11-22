@@ -99,6 +99,10 @@ body.era1965 #game { filter: sepia(0.24) saturate(0.84) contrast(1.04) brightnes
   background: radial-gradient(ellipse at 50% 48%, transparent 58%, rgba(26,16,6,0.22) 84%, rgba(14,8,2,0.4) 100%);
   animation: flicker 0.18s steps(2) infinite; }
 @keyframes flicker { 50% { opacity: 0.94; } }
+/* Dusk / night 1965 flights (owner 2026-11-22): grain much fainter (it showed up most on dark skies), lighter vignette, no flicker. */
+body.filmDim #film::before { opacity: 0.1; }
+body.filmDim #film::after { animation: none; opacity: 0.7; }
+body.filmDim #film .scratch { display: none; }
 #film .scratch { position: absolute; top: 0; bottom: 0; width: 1px; left: 30%; background: rgba(255,248,228,0.28); opacity: 0;
   animation: scratch 7s steps(1) infinite; }
 @keyframes scratch { 0% { opacity: 0; } 11% { opacity: 1; left: 23%; } 13% { opacity: 0; } 46% { opacity: 1; left: 71%; } 47% { opacity: 0.6; left: 71.3%; }

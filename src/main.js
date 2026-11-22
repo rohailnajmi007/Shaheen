@@ -33,7 +33,8 @@ const FILM = { tilePx: 220, grain: 0.08, dust: 10 }; // owner 2026-11-22: grain 
   }
   document.documentElement.style.setProperty('--grain', `url(${c.toDataURL()})`);
 })();
-const setFilm = (on) => document.body.classList.toggle('era1965', !!on);
+// dim: dusk / night flights get even less grain (owner 2026-11-22; body.filmDim in style.css).
+const setFilm = (on, dim = false) => { document.body.classList.toggle('era1965', !!on); document.body.classList.toggle('filmDim', !!on && dim); };
 
 const canvas = document.getElementById('game');
 const settings = loadSettings();
@@ -103,7 +104,7 @@ function startFlight(o) {
   renderer.cam.zoom = 1; renderer.cam.look = 0; renderer.cam.lead = 0;
   renderer.burnX = null;
   sound.startFlight(flight.data);
-  setFilm(flight.data.era === '1965');
+  setFilm(flight.data.era === '1965', o.time === 'dusk' || o.time === 'night');
   hud.start(flight, o);
   menu.hide(); result.hide(); pause.hide();
   briefing.show(flight, o);
