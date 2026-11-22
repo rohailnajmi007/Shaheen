@@ -211,7 +211,12 @@ export const AIRCRAFT = [
     stallKt: 136, rotateKt: 158, maxSpeedKt: 900, cockpitStyle: 'darkAnalog',
     airframeHp: 65, hitRadiusM: 4.6, hitCenterUpM: 2.2,
     // Owner's art (tools/make_aircraft_sprites.py "f7pg"): gear layer, all-moving tailplane.
-    sprite: 'f7pg_body', gearSprite: 'f7pg_gear', gearTravel: 31, gearFrontWhenDown: true,
+    sprite: 'f7pg_body', gearTravel: 31, gearFrontWhenDown: true,
+    // Gear legs rotate up (owner 2026-11-22; tools/split_modern_gear.py).
+    gearParts: [
+      { sprite: 'f7pg_gear_main', kind: 'leg', hinge: [184.0, 91.0], deg: -90 },
+      { sprite: 'f7pg_gear_nose', kind: 'leg', hinge: [335.0, 87.0], deg: 90 },
+    ],
     elevatorSprite: 'f7pg_elevator', elevatorHinge: [67, 75],
     pivot: [185, 122], nozzle: [43, 76], flameLength: 220, flameWidth: 24,
     strikeCapable: false,
@@ -236,7 +241,13 @@ export const AIRCRAFT = [
     massKg: 10000, maxThrustN: 58000, afterburnerN: 34000,
     fuelKg: 1000, burnFullKgS: 2.6, dragCoef: 1.15,
     stallKt: 140, rotateKt: 160, maxSpeedKt: 900, cockpitStyle: 'darkAnalog',
-    sprite: 'mirage5_body', gearSprite: 'mirage5_gear', gearTravel: 48,
+    sprite: 'mirage5_body', gearTravel: 48,
+    // Gear legs rotate up, the nose door folds shut (owner 2026-11-22; tools/split_modern_gear.py).
+    gearParts: [
+      { sprite: 'mirage5_gear_main', kind: 'leg', hinge: [169.3, 126.0], deg: -90 },
+      { sprite: 'mirage5_gear_nose', kind: 'leg', hinge: [325.1, 101.0], deg: -90 },
+      { sprite: 'mirage5_door_0', kind: 'door', hingeY: 111 },
+    ],
     pivot: [170, 159], nozzle: [16, 89], flameLength: 190, flameWidth: 26,
     strikeCapable: true, bombCount: 4, hardpoints: [[150, 140], [205, 140]],
     weaponSprite: 'mk82_body', weaponName: 'MK 82', weaponLabel: 'Unguided bomb', storeMassKg: 240,
@@ -264,7 +275,12 @@ export const AIRCRAFT = [
     fuelKg: 1100, burnFullKgS: 2.8, dragCoef: 1.3,
     stallKt: 132, rotateKt: 152, maxSpeedKt: 900, cockpitStyle: 'glass',
     // Owner's art (tools/make_aircraft_sprites.py "jf17"): gear layer, all-moving tailplane.
-    sprite: 'jf17_body', gearSprite: 'jf17_gear', gearTravel: 29,
+    sprite: 'jf17_body', gearTravel: 29,
+    // Gear legs rotate up (owner 2026-11-22; tools/split_modern_gear.py).
+    gearParts: [
+      { sprite: 'jf17_gear_main', kind: 'leg', hinge: [158.7, 133.0], deg: -90 },
+      { sprite: 'jf17_gear_nose', kind: 'leg', hinge: [326.3, 128.0], deg: 90 },
+    ],
     elevatorSprite: 'jf17_elevator', elevatorHinge: [55, 124],
     pivot: [160, 170], nozzle: [7, 107], flameLength: 250, flameWidth: 28,
     // Ra'ad (Hatf-VIII) air-launched cruise missile (owner, 2026-11-19): drops clear,
@@ -295,7 +311,7 @@ export const AIRCRAFT = [
     stallKt: 125, rotateKt: 145, maxSpeedKt: 900, cockpitStyle: 'glass',
     sprite: 'f16a_body', elevatorSprite: 'f16a_elevator', elevatorHinge: [55, 114],
     // Owner 2026-11-21: main wheels a little further back, gear a little shorter (like the F-16D).
-    gearX: [196, 292], gearTopY: [148, 147], gearWheel: [20, 16],
+    gearX: [196, 292], gearTopY: [148, 147], gearWheel: [20, 16], gearDeg: [-90, 90], gearHingeLift: 3, // legs rotate up (owner 2026-11-22)
     pivot: [196, 179], nozzle: [7, 102], flameLength: 320, flameWidth: 30,
     strikeCapable: true, bombCount: 4, hardpoints: [[182, 152], [226, 154]],
     weaponSprite: 'gbu12_body', weaponName: 'GBU-12 PAVEWAY II', weaponLabel: 'Laser guided bomb', storeMassKg: 230,
@@ -318,7 +334,12 @@ export const AIRCRAFT = [
     fuelKg: 1200, burnFullKgS: 3, dragCoef: 1.42,
     stallKt: 125, rotateKt: 145, maxSpeedKt: 900, cockpitStyle: 'colorGlass',
     sprite: 'f16_body', elevatorSprite: 'f16_elevator', elevatorHinge: [58, 113],
-    gearSprite: 'f16_gear', gearTravel: 33,
+    gearTravel: 33,
+    // Gear legs rotate up (owner 2026-11-22; tools/split_modern_gear.py).
+    gearParts: [
+      { sprite: 'f16_gear_main', kind: 'leg', hinge: [176.0, 133.0], deg: 90 },
+      { sprite: 'f16_gear_nose', kind: 'leg', hinge: [290.0, 148.0], deg: 90 },
+    ],
     pivot: [169, 175], nozzle: [6, 101], flameLength: 320, flameWidth: 30,
     strikeCapable: true, bombCount: 4, hardpoints: [[192, 128], [206, 134]],
     weaponSprite: 'agm88_body', weaponName: 'AGM-88 HARM', weaponLabel: 'Air to ground missile', storeMassKg: 360,
@@ -348,7 +369,7 @@ export const AIRCRAFT = [
     // Owner's art (tools/make_aircraft_sprites.py "j10c"): gear up in the art, drawn in
     // code; the canards are their own layer and move with the stick (canardMaxDeg).
     sprite: 'j10c_body', canardSprite: 'j10c_canard', canardHinge: [290, 106], canardMaxDeg: 18,
-    gearX: [206, 340], gearTopY: [136, 130], gearWheel: [20, 16],
+    gearX: [206, 340], gearTopY: [136, 130], gearWheel: [20, 16], gearDeg: [-90, 90], // legs rotate up (owner 2026-11-22)
     pivot: [206, 178], nozzle: [8, 114], flameLength: 320, flameWidth: 30,
     // Air to ground: not yet (owner to pick its weapon). The PL-15 under the wing is part of the art.
     strikeCapable: false,

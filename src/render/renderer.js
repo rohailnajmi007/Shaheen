@@ -1086,7 +1086,8 @@ export class Renderer {
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     }
     ctx.drawImage(tinted(body, light), 0, 0);
-    if (gearFront && images[d.gearSprite]) ctx.drawImage(tinted(images[d.gearSprite], light), 0, 0);
+    if (gearFront && d.gearParts) this.drawGearParts(ctx, d, s.gearPos, light, 'leg');
+    else if (gearFront && images[d.gearSprite]) ctx.drawImage(tinted(images[d.gearSprite], light), 0, 0);
     if (d.gearParts && s.gearPos > 0.02) this.drawGearParts(ctx, d, s.gearPos, light, 'door');
     if (d.weaponSprite && s.bombsLeft > 0) {
       const w = images[d.weaponSprite];
@@ -1188,16 +1189,27 @@ export class Renderer {
     }
   }
 
+  // Code-drawn gear (F-16A, J-10C). With gearDeg (owner 2026-11-22: rotate up like the
+  // 1965 jets) each leg swings about a hinge a wheel radius (+ gearHingeLift) above its
+  // strut top, by gearDeg[i]; without it the wheel slides straight up (old look).
   drawCodeGear(ctx, d, gearPos, light) {
     for (let i = 0; i < d.gearX.length; i++) {
       const gx = d.gearX[i], top = d.gearTopY[i], r = d.gearWheel[i] / 2;
-      const wy = lerp(top - r, d.pivot[1] - r, gearPos);
+      let wy = lerp(top - r, d.pivot[1] - r, gearPos);
+      ctx.save();
+      if (d.gearDeg) {
+        const k = Math.min(1, (1 - gearPos) / GEAR_PARTS.legsUpBy), e = k * k * (3 - 2 * k);
+        const hy = top - r - (d.gearHingeLift || 0);
+        wy = d.pivot[1] - r;
+        ctx.translate(gx, hy); ctx.rotate(d.gearDeg[i] * e * Math.PI / 180); ctx.translate(-gx, -hy);
+      }
       ctx.fillStyle = `rgb(${110 * light[0] | 0},${114 * light[1] | 0},${118 * light[2] | 0})`;
-      ctx.fillRect(gx - 2.5, top, 5, wy - top);
+      ctx.fillRect(gx - 2.5, top - (d.gearDeg ? r + (d.gearHingeLift || 0) : 0), 5, wy - top + (d.gearDeg ? r + (d.gearHingeLift || 0) : 0));
       ctx.fillStyle = '#121214';
       ctx.beginPath(); ctx.arc(gx, wy, r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = `rgb(${150 * light[0] | 0},${155 * light[1] | 0},${165 * light[2] | 0})`;
       ctx.beginPath(); ctx.arc(gx, wy, r * 0.45, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     }
   }
 
