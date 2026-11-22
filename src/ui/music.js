@@ -26,7 +26,7 @@ export class MusicPlayer {
     });
     this.el.addEventListener('error', () => { this.failed = true; this.render(); });
     this.wanted = false;  // the player wants music (play pressed, or the automatic start)
-    this.started = false; // the first click / key press has happened
+    this.started = false; // it has really played once (the browser let it)
     this.muted = false;
     this.ducked = false;  // the crash song is playing
     this.level = 0;       // current fade level 0..1
@@ -63,7 +63,7 @@ export class MusicPlayer {
     this.era = era;
     const first = this.list()[0];
     if (this.list().includes(this.i)) return;
-    if (!this.wanted || !this.started || this.el.paused) { this.level = 0; this.apply(); this.load(first); if (this.wanted && this.started) this.play(); return; }
+    if (!this.wanted || !this.started || this.el.paused) { this.level = 0; this.apply(); this.load(first); if (this.wanted) this.play(); return; }
     this.fade(0, () => { this.load(first); this.play(); });
   }
 
@@ -82,12 +82,14 @@ export class MusicPlayer {
     }, 40);
   }
 
-  // The first click or key press: start playing (browsers allow sound only after one).
+  // Start playing (owner 2026-11-22: music must start by itself, no key press needed).
+  // Browsers may block sound until the page has had a click / tap / key press, so this is
+  // called on page load (works where autoplay is allowed) and again on every click, tap and
+  // key until the music is really playing; a blocked try just waits for the next one.
   start() {
-    if (this.started || !this.tracks.length) return;
-    this.started = true;
+    if (!this.tracks.length || this.userPaused) return;
     this.wanted = true;
-    this.play();
+    if (this.el.paused && !this.pending) this.play();
   }
 
   load(i) {
@@ -98,14 +100,18 @@ export class MusicPlayer {
   }
 
   play() {
-    this.started = true;
-    this.el.play().then(() => this.fade(this.target())).catch(() => { /* blocked or missing: stays quiet */ });
+    this.pending = true;
+    const p = this.el.play();
+    const ok = () => { this.pending = false; this.started = true; this.fade(this.target()); this.render(); };
+    if (p && p.then) p.then(ok).catch(() => { this.pending = false; this.render(); /* blocked (no click yet) or missing: retried on the next click / key */ });
+    else ok();
     this.render();
   }
 
   toggle() {
-    if (!this.started) { this.start(); return; }
+    if (!this.started) { this.userPaused = false; this.start(); return; }
     this.wanted = !this.wanted;
+    this.userPaused = !this.wanted; // paused by the player: clicks elsewhere don't restart it
     if (this.wanted) this.play();
     else this.fade(0, () => this.el.pause());
     this.render();

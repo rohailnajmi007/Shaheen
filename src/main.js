@@ -196,7 +196,12 @@ addEventListener('keydown', (e) => {
   if (result.open && e.code === 'Enter') { e.preventDefault(); startFlight(flightOpts); }
   if (e.code === 'F3') { e.preventDefault(); fpsEl.classList.toggle('show'); }
 });
-addEventListener('pointerdown', (e) => { sound.unlock(); if (!musicEl.contains(e.target)) music.start(); });
+// Any click / tap (not on the music player itself) also starts the music if it isn't playing
+// yet; several event kinds because browsers differ in which ones count as a user gesture.
+for (const ev of ['pointerdown', 'pointerup', 'click', 'touchend']) {
+  addEventListener(ev, (e) => { sound.unlock(); if (!musicEl.contains(e.target)) music.start(); }, { capture: true, passive: true });
+}
+music.start(); // straight away where the browser allows autoplay
 addEventListener('resize', () => renderer.resize());
 document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'flight' && !result.open) togglePause(true); });
 
