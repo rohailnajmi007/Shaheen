@@ -1,6 +1,6 @@
 // Start menu, pause menu and result screen (HTML).
 import { AIRCRAFT } from '../data/aircraft.js';
-import { BASES, routesFrom, TIMES } from '../data/world.js';
+import { BASES, baseOf, routesFrom, TIMES } from '../data/world.js';
 import { KEY_HELP } from '../input.js';
 import { AAMS } from '../data/combat.js';
 import { OPPONENTS, opponentById } from '../data/opponents.js';
@@ -10,7 +10,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 export function loadSettings() {
   try {
-    return { name: '', aircraft: 'mushshak', mode: 'ferry', dest: 'masroor', opponent: 'mig21', time: 'day', quality: 'high', vol: { master: 0.8, engine: 0.7, effects: 0.8 }, ...JSON.parse(localStorage.getItem('shaheen.settings') || '{}') };
+    return { name: '', era: 'modern', aircraft: 'mushshak', mode: 'ferry', dest: 'masroor', opponent: 'mig21', time: 'day', quality: 'high', vol: { master: 0.8, engine: 0.7, effects: 0.8 }, ...JSON.parse(localStorage.getItem('shaheen.settings') || '{}') };
   } catch { return { name: '', aircraft: 'mushshak', mode: 'ferry', dest: 'masroor', opponent: 'mig21', time: 'day', quality: 'high', vol: { master: 0.8, engine: 0.7, effects: 0.8 } }; }
 }
 export function saveSettings(s) { localStorage.setItem('shaheen.settings', JSON.stringify(s)); }
@@ -30,6 +30,7 @@ export function setBest(s, v) {
 // Enter = next, Esc = back, left / right = change the choice.
 const STEPS = [
   { id: 'pilot', title: 'Enter your name' },
+  { id: 'era', title: 'Choose your era' },
   { id: 'mode', title: 'Choose your mission' },
   { id: 'aircraft', title: 'Choose your aircraft' },
   { id: 'dest', title: 'Choose your destination' },
@@ -48,12 +49,21 @@ const ICON = {
   // A gunsight on an enemy jet.
   dogfight: '<svg viewBox="0 0 96 64"><circle cx="48" cy="32" r="22"/><path d="M48 4 v12 M48 48 v12 M20 32 h12 M64 32 h12"/><path d="M36 33 l14 0 l6 -5 l3 0 l-3 6 l6 1 l0 2 l-6 1 l3 6 l-3 0 l-6 -5 l-14 0 z" fill="currentColor" stroke="none"/></svg>',
 };
+ICON['1965'] = '<svg viewBox="0 0 96 64"><circle cx="48" cy="30" r="22"/><circle cx="48" cy="30" r="8"/><path d="M48 8 v-4 M48 52 v4 M26 30 h-4 M70 30 h4"/><text x="48" y="62" text-anchor="middle" font-size="11" fill="currentColor" stroke="none" font-family="Consolas, monospace" letter-spacing="2">1965</text></svg>';
+ICON.modern = '<svg viewBox="0 0 96 64"><path d="M48 50 a26 26 0 0 1 0 -52" fill="none" opacity="0"/><path d="M22 50 a26 26 0 0 1 52 0"/><path d="M32 50 a16 16 0 0 1 32 0"/><path d="M48 50 l18 -20"/><circle cx="62" cy="30" r="3" fill="currentColor"/><path d="M14 56 h68"/></svg>';
 const TIME_ICON = {
   dawn: '<svg viewBox="0 0 96 64"><path d="M8 48 h80"/><path d="M28 48 a20 20 0 0 1 40 0" fill="none"/><path d="M48 14 v8 M24 24 l5 5 M72 24 l-5 5"/></svg>',
   day: '<svg viewBox="0 0 96 64"><circle cx="48" cy="32" r="12"/><path d="M48 6 v8 M48 50 v8 M22 32 h8 M66 32 h8 M30 14 l5 5 M66 14 l-5 5 M30 50 l5 -5 M66 50 l-5 -5"/></svg>',
   dusk: '<svg viewBox="0 0 96 64"><path d="M8 48 h80 M20 56 h56"/><path d="M30 48 a18 18 0 0 1 36 0" fill="currentColor" stroke="none" opacity="0.5"/><path d="M30 48 a18 18 0 0 1 36 0"/></svg>',
   night: '<svg viewBox="0 0 96 64"><path d="M54 10 a22 22 0 1 0 18 34 a18 18 0 0 1 -18 -34 z"/><path d="M22 14 l1 3 3 1 -3 1 -1 3 -1 -3 -3 -1 3 -1 z M78 16 l1 2 2 1 -2 1 -1 2 -1 -2 -2 -1 2 -1 z" fill="currentColor"/></svg>',
 };
+// Era (owner 2026-11-22): the 1965 war (F-86, F-6, F-104, B-57) or modern day warfare
+// (the rest). Missions are the same in both; the aircraft list shows the chosen era's.
+const ERAS = [
+  { id: '1965', label: '1965 War', note: 'Sabres, Farmers, Starfighters and Canberras. Guns, early Sidewinders and iron bombs.' },
+  { id: 'modern', label: 'Modern day warfare', note: 'JF-17s, F-16s, J-10Cs and the rest of today\'s PAF.' },
+];
+const eraOf = (a) => a.era || 'modern';
 const MODES = [
   { id: 'ferry', label: 'Ferry', note: 'Take off from your home base and deliver the jet to another PAF base.' },
   { id: 'strike', label: 'Air to ground', note: 'Destroy the enemy ground targets past their SAMs, then land.' },
@@ -106,6 +116,11 @@ export class Menu {
             <input class="pname" maxlength="16" placeholder="YOUR NAME" spellcheck="false" autocomplete="off" />
             <div class="nameplate mplate"><div class="rank"></div><img class="wings" src="${wings('white')}" alt="" /><div class="tagname"></div></div>
           </section>
+          <section class="page" data-step="era">
+            <div class="mcards eras">${ERAS.map((e) => `
+              <button class="mcard" data-v="${e.id}"><div class="micon">${ICON[e.id]}</div><b>${e.label}</b><small>${e.note}</small></button>`).join('')}
+            </div>
+          </section>
           <section class="page" data-step="mode">
             <div class="mcards">${MODES.map((m) => `
               <button class="mcard" data-v="${m.id}"><div class="micon">${ICON[m.id]}</div><b>${m.label}</b><small>${m.note}</small></button>`).join('')}
@@ -118,7 +133,7 @@ export class Menu {
                 <b>${a.name}</b>
                 <span class="acrole">${a.role}</span>
                 <small class="acwpn">${armament(a)}</small>
-                <small class="achome">${PIN}${BASES[a.homeBase]?.name || ''}</small>
+                <small class="achome">${PIN}${BASES[a.homeBase] ? baseOf(a.homeBase, eraOf(a)).name : ''}</small>
               </button>`).join('')}
             </div>
           </section>
@@ -164,7 +179,7 @@ export class Menu {
     });
     for (const b of root.querySelectorAll('.accard')) b.addEventListener('click', () => { if (!b.disabled) this.pick('aircraft', b.dataset.id); });
     for (const b of root.querySelectorAll('.opcard')) b.addEventListener('click', () => this.pick('opponent', b.dataset.id));
-    for (const [sel, key] of [['[data-step="mode"] .mcard', 'mode'], ['.times .mcard', 'time']]) {
+    for (const [sel, key] of [['.eras .mcard', 'era'], ['[data-step="mode"] .mcard', 'mode'], ['.times .mcard', 'time']]) {
       for (const b of root.querySelectorAll(sel)) b.addEventListener('click', () => { if (!b.disabled) this.pick(key, b.dataset.v); });
     }
     // Route boxes depend on the aircraft's home base: rebuilt in refresh().
@@ -209,8 +224,10 @@ export class Menu {
   }
   back() { if (this.step > 0) this.go(this.step - 1); }
 
-  // Aircraft that can fly the chosen mission.
-  fleet() { return AIRCRAFT.filter((a) => modeOk(this.s.mode, a)); }
+  // Aircraft of the chosen era that can fly the chosen mission.
+  era() { return this.s.era === '1965' ? '1965' : 'modern'; }
+  fleet() { return AIRCRAFT.filter((a) => eraOf(a) === this.era() && modeOk(this.s.mode, a)); }
+  usable(a) { return !!a && this.fleet().includes(a); }
 
   // Left / right on a choice page.
   cycle(dir) {
@@ -218,6 +235,7 @@ export class Menu {
     let opts;
     if (id === 'aircraft') opts = this.fleet().map((a) => a.id);
     else if (id === 'mode') opts = MODES.map((m) => m.id);
+    else if (id === 'era') opts = ERAS.map((e) => e.id);
     else if (id === 'dest') opts = this.routes().map((r) => r.id);
     else if (id === 'opponent') opts = OPPONENTS.map((o) => o.id);
     else if (id === 'time') opts = Object.keys(TIMES);
@@ -229,13 +247,13 @@ export class Menu {
   ac() { return AIRCRAFT.find((x) => x.id === this.s.aircraft); }
 
   // Ferry routes from the selected aircraft's home base.
-  routes() { return routesFrom(this.ac().homeBase); }
+  routes() { return routesFrom(this.ac().homeBase, this.era()); }
 
   pick(key, v) {
     this.s[key] = v;
     let visual = key === 'aircraft' || key === 'time';
-    // The mission comes first now: keep the aircraft one that can fly it.
-    if (!modeOk(this.s.mode, this.ac())) { this.s.aircraft = this.fleet()[0].id; visual = true; }
+    // Era and mission come first: keep the aircraft one of that era that can fly it.
+    if (!this.usable(this.ac())) { this.s.aircraft = this.fleet()[0].id; visual = true; }
     this.changed(visual);
   }
 
@@ -246,7 +264,7 @@ export class Menu {
 
   changed(visual) {
     this.sound.click();
-    if (!modeOk(this.s.mode, this.ac())) this.s.aircraft = this.fleet()[0].id;
+    if (!this.usable(this.ac())) this.s.aircraft = this.fleet()[0].id;
     this.fixDest();
     saveSettings(this.s);
     this.refresh();
@@ -260,7 +278,7 @@ export class Menu {
   }
 
   refresh() {
-    if (!modeOk(this.s.mode, this.ac())) this.s.aircraft = this.fleet()[0].id;
+    if (!this.usable(this.ac())) this.s.aircraft = this.fleet()[0].id;
     this.fixDest();
     const s = this.s;
     const r = this.root;
@@ -275,10 +293,12 @@ export class Menu {
     const np = $('[data-step="pilot"] .mplate', r);
     np.classList.toggle('on', !!name);
     $('.tagname', np).textContent = name;
+    for (const b of r.querySelectorAll('.eras .mcard')) b.classList.toggle('sel', b.dataset.v === this.era());
     for (const b of r.querySelectorAll('[data-step="mode"] .mcard')) b.classList.toggle('sel', b.dataset.v === s.mode);
     for (const b of r.querySelectorAll('.accard')) {
       // Every jet is listed; the ones that don't fly this mission are greyed out.
       const acd = AIRCRAFT.find((x) => x.id === b.dataset.id);
+      b.hidden = eraOf(acd) !== this.era(); // only the chosen era's aircraft
       b.disabled = !modeOk(s.mode, acd);
       const wl = armament(acd, s.mode);
       if (b._wpn !== wl) { b._wpn = wl; b.querySelector('.acwpn').innerHTML = wl; }
@@ -287,10 +307,10 @@ export class Menu {
     for (const b of r.querySelectorAll('.opcard')) b.classList.toggle('sel', b.dataset.id === s.opponent);
     for (const b of r.querySelectorAll('.times .mcard')) b.classList.toggle('sel', b.dataset.v === s.time);
     const routes = this.routes();
-    const rk = routes.map((x) => x.id).join();
+    const rk = routes.map((x) => x.id).join() + this.era();
     if (this.routeKey !== rk) {
       this.routeKey = rk;
-      $('.mcards.dest', r).innerHTML = routes.map((x) => `<button class="mcard" data-v="${x.id}"><div class="micon">${ICON.ferry}</div><b>${BASES[x.id].name}</b><small>${x.km} km</small></button>`).join('');
+      $('.mcards.dest', r).innerHTML = routes.map((x) => `<button class="mcard" data-v="${x.id}"><div class="micon">${ICON.ferry}</div><b>${baseOf(x.id, this.era()).name}</b><small>${x.km} km</small></button>`).join('');
     }
     for (const b of r.querySelectorAll('.mcards.dest .mcard')) b.classList.toggle('sel', b.dataset.v === s.dest);
     // The sortie order.
@@ -310,9 +330,10 @@ export class Menu {
       const row = (k, v) => `<div class="drow"><span>${k}</span><i></i><b>${esc(v)}</b></div>`;
       $('.olog', r).innerHTML = [
         row('PILOT', `${a.rankFull} ${name}`.toUpperCase()),
+        row('ERA', this.era() === '1965' ? '1965 WAR' : 'MODERN DAY'),
         row('AIRCRAFT', a.name.toUpperCase()),
         row('MISSION', MODE_NAME[s.mode]),
-        s.mode === 'ferry' && route && row('DESTINATION', BASES[route.id].name.toUpperCase()),
+        s.mode === 'ferry' && route && row('DESTINATION', baseOf(route.id, this.era()).name.toUpperCase()),
         s.mode === 'dogfight' && row('OPPONENT', `${o.name} · ${o.difficulty}`.toUpperCase()),
         row('TIME OF DAY', TIMES[s.time].label.toUpperCase()),
         best && row('BEST SCORE', String(best)),

@@ -63,10 +63,12 @@ out of scope until the owner says otherwise.
 - Instructor (2026-11-20: full coaching for the trainer, urgent lines only for fighters). Lines: aggressive, short shouted English, occasional censored curse
   (d*mn, h*ll, sh*tting, f*ck), nothing corny, under ~110 characters.
 - Ranks (owner, 2026-11-21): trainers (Mushshak, K-8) AVN CDT, Mirage V and F-7PG FLT LT, JF-17 and
-  F-16A SQN LDR, F-16D and J-10C WG CDR. Badge shows the abbreviation only. Wings: white (cadet, FLT LT), blue SQN LDR, red WG CDR.
+  F-16A SQN LDR, F-16D and J-10C WG CDR. 1965 (my picks, 2026-11-22): F-86 and F-6 FLT LT, F-104 and B-57 SQN LDR. Badge shows the abbreviation only. Wings: white (cadet, FLT LT), blue SQN LDR, red WG CDR.
 - Home bases (start of every flight, owner 2026-11-21): Mushshak and K-8 Risalpur; F-16A and F-7PG
   Mushaf (Sargodha); F-16D Shahbaz (Jacobabad, desert); Mirage V and JF-17 Masroor
   (Karachi); J-10C Kamra (snowy north).
+  1965 era (2026-11-22): F-86 and F-104 Sargodha (Mushaf), F-6 Mauripur (Masroor), B-57 Peshawar (the Kamra
+  airfield); bases show 1965 names (`baseOf` in `src/data/world.js`).
   `homeBase` in `src/data/aircraft.js`. After a mission you land at any other base, at random.
 
 ## Visual style

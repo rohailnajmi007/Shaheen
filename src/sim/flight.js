@@ -1,7 +1,7 @@
 // One flight: world layout, mission rules, landing judge, weapons, instructor.
 import { Aircraft, KT, FT, G, MACH_KT } from './aircraft.js';
 import { aircraftById, SONIC } from '../data/aircraft.js';
-import { BASES, ferryLayout, recoveryBases, REFUEL, TAXI } from '../data/world.js';
+import { BASES, baseOf, ferryLayout, recoveryBases, REFUEL, TAXI } from '../data/world.js';
 import { GROUND_UNITS, STRIKE, AIR_DEFENCE, EJECT, DOGFIGHT } from '../data/combat.js';
 import { Combat } from './combat.js';
 import { Dogfight } from './dogfight.js';
@@ -98,6 +98,7 @@ export class Flight {
   buildWorld() {
     // Every flight starts at the aircraft's home base (x = 0).
     const home = BASES[this.data.homeBase] ? this.data.homeBase : 'risalpur';
+    const era = this.data.era; // 1965: the bases' 1965 names (baseOf)
     this.home = home;
     if (this.mode === 'dogfight') {
       // Take off from home; the landing base (any other base, at random) is placed
@@ -105,7 +106,7 @@ export class Flight {
       const others = recoveryBases(home);
       const recId = others[Math.floor(Math.random() * others.length)];
       const far = 1e6; // placeholder until the fight is over
-      this.bases = [{ ...BASES[home], x: 0, visible: true }, { ...BASES[recId], x: far, visible: false }];
+      this.bases = [{ ...baseOf(home, era), x: 0, visible: true }, { ...baseOf(recId, era), x: far, visible: false }];
       this.dest = this.bases[1];
       this.revealed = false;
       this.themeStops = [
@@ -114,7 +115,7 @@ export class Flight {
         { x: far - 900, theme: this.dest.theme }, { x: far + this.dest.runwayM + 900, theme: this.dest.theme },
       ];
     } else if (this.mode === 'ferry') {
-      this.bases = ferryLayout(home).map(([id, x]) => ({ ...BASES[id], x, visible: true }));
+      this.bases = ferryLayout(home).map(([id, x]) => ({ ...baseOf(id, era), x, visible: true }));
       this.dest = this.bases.slice(1).find((b) => b.id === this.opts.dest) || this.bases[1];
       this.themeStops = [];
       for (const b of this.bases) this.themeStops.push({ x: b.x - 900, theme: b.theme }, { x: b.x + b.runwayM + 900, theme: b.theme });
@@ -147,8 +148,8 @@ export class Flight {
       const others = recoveryBases(home);
       const recId = others[Math.floor(Math.random() * others.length)];
       this.bases = [
-        { ...BASES[home], x: 0, visible: true },
-        { ...BASES[recId], x: lastT + STRIKE.recoveryGapM, visible: false },
+        { ...baseOf(home, era), x: 0, visible: true },
+        { ...baseOf(recId, era), x: lastT + STRIKE.recoveryGapM, visible: false },
       ];
       this.dest = this.bases[1];
       this.revealed = false;

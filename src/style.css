@@ -84,6 +84,35 @@ body:has(#hud .touch.on) #music { display: none; }
   box-shadow: 0 8px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
+/* ---------- 1965 film look (owner 2026-11-22) ----------
+   Only during 1965 flights (body.era1965, src/main.js): the picture warmer and a little
+   faded, moving film grain with dust (tile made in main.js), dark vignette, a faint
+   flicker, an occasional scratch. All CSS over the canvas: no per-frame drawing. */
+#film { position: fixed; inset: 0; pointer-events: none; display: none; overflow: hidden; }
+body.era1965 #film { display: block; }
+body.era1965 #game { filter: sepia(0.38) saturate(0.72) contrast(1.07) brightness(0.96); }
+#film::before { content: ''; position: absolute; inset: -220px; background-image: var(--grain); opacity: 0.55;
+  mix-blend-mode: overlay; animation: grain 0.6s steps(6) infinite; }
+@keyframes grain { 0% { transform: translate(0, 0); } 17% { transform: translate(-90px, 40px); } 33% { transform: translate(60px, -110px); }
+  50% { transform: translate(-140px, -30px); } 67% { transform: translate(110px, 90px); } 83% { transform: translate(-20px, 150px); } }
+#film::after { content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 48%, transparent 52%, rgba(26,16,6,0.38) 82%, rgba(14,8,2,0.62) 100%);
+  animation: flicker 0.18s steps(2) infinite; }
+@keyframes flicker { 50% { opacity: 0.9; } }
+#film .scratch { position: absolute; top: 0; bottom: 0; width: 1px; left: 30%; background: rgba(255,248,228,0.28); opacity: 0;
+  animation: scratch 7s steps(1) infinite; }
+@keyframes scratch { 0% { opacity: 0; } 11% { opacity: 1; left: 23%; } 13% { opacity: 0; } 46% { opacity: 1; left: 71%; } 47% { opacity: 0.6; left: 71.3%; }
+  49% { opacity: 0; } 78% { opacity: 1; left: 46%; } 79% { opacity: 0; } }
+/* 1965 HUD: worn cards, cream lettering, square corners, no blue glass. */
+body.era1965 .card { background: rgba(22,19,13,0.82); border-color: rgba(150,132,92,0.45); border-radius: 3px;
+  backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 6px 20px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(0,0,0,0.5); color: #e6dcbf; }
+body.era1965 .iname, body.era1965 .phase { color: #d9b45a; }
+body.era1965 .togo, body.era1965 .wname { color: #a39577; }
+body.era1965 .instructor .avatar { border-radius: 2px; filter: sepia(0.5) contrast(1.05); }
+body.era1965 .radar-cv { background: radial-gradient(ellipse at 50% 120%, rgba(217,180,90,0.12), transparent 70%); border-radius: 2px; }
+body.era1965 .panel { border-radius: 2px; }
+body.era1965 .w { border-radius: 2px; }
+
 /* ---------- HUD ---------- */
 .hud-top { position: absolute; top: 14px; left: 14px; right: 14px; display: grid; grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr) minmax(300px, 1fr); gap: 14px; align-items: start; }
 .instructor { display: flex; gap: 12px; padding: 12px; min-height: 86px; transition: border-color 0.2s; }
@@ -396,6 +425,7 @@ body:has(#hud .touch.on) #music { display: none; }
 .mcard .acwpn { font-size: 12px; color: #e0b84a; display: grid; gap: 2px; }
 /* Home base at the foot of each aircraft card (owner 2026-11-21): pin + base name. */
 .mcard.accard { display: flex; flex-direction: column; align-items: center; }
+.mcard.accard[hidden] { display: none; } /* the other era's aircraft (owner 2026-11-22) */
 .mcard .achome { margin-top: auto; padding-top: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); opacity: 0.75; }
 .mcard .achome svg { width: 13px; height: 13px; color: #e0b84a; flex: none; }
 .sheet.full .mfoot { justify-content: space-between; padding: 14px 28px; border-top: 1px solid var(--rule); background: #12150e; }

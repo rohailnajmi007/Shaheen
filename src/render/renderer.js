@@ -86,6 +86,9 @@ export const DEBRIS = { onKill: 12, fallingChipsPerS: 1, chipPx: [16, 40], fling
 // Near clouds are scattered over this much of the route, then repeat.
 const CLOUD_SPAN_M = 60000;
 // Tail strobe: flash starts (s) within each period.
+// Gear in parts (1965 jets, owner 2026-11-22): as the gear comes up (0 = down, 1 = up) the
+// legs finish swinging in by legsUpBy; the doors start folding shut at doorsFrom.
+export const GEAR_PARTS = { legsUpBy: 0.75, doorsFrom: 0.55 };
 export const STROBE = { periodS: 1.6, flashes: [0, 0.2], flashS: 0.06 };
 // Wingtip nav lights (owner 2026-11-21): red on the near (left) wingtip, green on the far
 // (right) one, blinking together: on for onS, then off, every periodS (owner: plain on /
@@ -1064,7 +1067,7 @@ export class Renderer {
     ctx.translate(v.sx(s.x), v.sy(s.y));
     ctx.rotate(-s.pitch);
     ctx.scale(k, k);
-    const gearTravel = d.gearSprite ? d.gearTravel : d.gearTopY ? d.pivot[1] - Math.max(...d.gearTopY) : 0;
+    const gearTravel = d.gearSprite || d.gearParts ? d.gearTravel : d.gearTopY ? d.pivot[1] - Math.max(...d.gearTopY) : 0;
     const sink = s.onGround ? (1 - s.gearPos) * gearTravel : 0;
     ctx.translate(-d.pivot[0], -d.pivot[1] + sink);
     const light = tint ? this.lightBody.map((l, i) => l * tint[i]) : this.lightBody;
@@ -1072,6 +1075,7 @@ export class Renderer {
     if (s.gearPos > 0.05 && !gearFront) {
       if (d.gearSprite && images[d.gearSprite]) ctx.drawImage(tinted(images[d.gearSprite], light), 0, -(1 - s.gearPos) * d.gearTravel);
       else if (d.gearX) this.drawCodeGear(ctx, d, s.gearPos, light);
+      else if (d.gearParts) this.drawGearParts(ctx, d, s.gearPos, light, 'leg');
     }
     if (s.afterburner > 0) this.drawAfterburner(ctx, d, s.afterburner);
     else if (d.nozzle && s.rpm > 0.3) {
@@ -1083,6 +1087,7 @@ export class Renderer {
     }
     ctx.drawImage(tinted(body, light), 0, 0);
     if (gearFront && images[d.gearSprite]) ctx.drawImage(tinted(images[d.gearSprite], light), 0, 0);
+    if (d.gearParts && s.gearPos > 0.02) this.drawGearParts(ctx, d, s.gearPos, light, 'door');
     if (d.weaponSprite && s.bombsLeft > 0) {
       const w = images[d.weaponSprite];
       for (let i = 0; i < Math.min(s.bombsLeft, d.hardpoints.length); i++) {
@@ -1158,6 +1163,29 @@ export class Renderer {
     ctx.strokeStyle = `rgba(255,255,255,${a})`;
     ctx.beginPath(); ctx.moveTo(x0 - W * 0.03, cy - hf); ctx.quadraticCurveTo(x0 + W * 0.07, cy, x0 - W * 0.03, cy + hf); ctx.stroke();
     ctx.restore();
+  }
+
+  // Gear in parts (1965 jets): legs swing up about their hinges (drawn behind the body, so
+  // they vanish into it), then the doors fold flat to their hinge lines (drawn in front).
+  drawGearParts(ctx, d, gearPos, light, kind) {
+    const G = GEAR_PARTS, up = 1 - gearPos;
+    for (const p of d.gearParts) {
+      if (p.kind !== kind) continue;
+      const img = images[p.sprite];
+      if (!img) continue;
+      ctx.save();
+      if (kind === 'leg') {
+        const k = Math.min(1, up / G.legsUpBy);
+        const e = k * k * (3 - 2 * k); // ease in and out
+        ctx.translate(p.hinge[0], p.hinge[1]); ctx.rotate(p.deg * e * Math.PI / 180); ctx.translate(-p.hinge[0], -p.hinge[1]);
+      } else {
+        const k = Math.max(0, Math.min(1, (up - G.doorsFrom) / (1 - G.doorsFrom)));
+        if (k >= 1) { ctx.restore(); continue; }
+        ctx.translate(0, p.hingeY); ctx.scale(1, 1 - k); ctx.translate(0, -p.hingeY);
+      }
+      ctx.drawImage(tinted(img, light), 0, 0);
+      ctx.restore();
+    }
   }
 
   drawCodeGear(ctx, d, gearPos, light) {
@@ -1516,7 +1544,9 @@ export class Renderer {
     const c = makeCanvas(W, H);
     const x = c.getContext('2d', { willReadFrequently: true });
     if (gear) x.drawImage(tinted(gear, L), 0, 0);
+    if (d.gearParts && ac.gearPos > 0.5) this.drawGearParts(x, d, 1, L, 'leg');
     x.drawImage(tinted(body, L), 0, 0);
+    if (d.gearParts && ac.gearPos > 0.5) this.drawGearParts(x, d, 1, L, 'door');
     if (d.elevatorSprite && images[d.elevatorSprite]) x.drawImage(tinted(images[d.elevatorSprite], L), 0, 0);
     if (d.canardSprite && images[d.canardSprite]) x.drawImage(tinted(images[d.canardSprite], L), 0, 0);
     return c;

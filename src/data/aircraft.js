@@ -64,7 +64,7 @@ export const COMMON = {
   elevatorMaxDeg: 20,
   elevatorSpeed: 6,
   // Cockpit panel: 'analog' (grey, round dials), 'darkAnalog' (Mirage), 'glass' (F-16 green MFDs),
-  // 'colorGlass' (JF-17: colour PFD with horizon, engine page).
+  // 'colorGlass' (JF-17: colour PFD with horizon, engine page), 'vintage' (1965 jets).
   cockpitStyle: 'analog',
   gaugeVsiMaxFpm: 6000,
   gEffects: true,
@@ -131,6 +131,13 @@ export const COMMON = {
   // Gear layer drawn in front of the body while fully down (F-7PG: the main wheel
   // stands in front of the stores); behind it while moving, so it hides as it retracts.
   gearFrontWhenDown: false,
+  // Era (owner 2026-11-22): 'modern' or '1965'; the start screen lists one era's aircraft.
+  // 1965 jets get the film-grain look and the old analog panel (src/render, src/ui/cockpit.js).
+  era: 'modern',
+  // Gear in parts (1965 art, tools/make_1965_sprites.py): 'leg' layers rotate deg about their
+  // hinge into the fuselage (drawn behind the body, so they disappear inside it); 'door'
+  // layers fold flat to hingeY as the gear comes up (GEAR_PARTS in src/render/renderer.js).
+  gearParts: null,
 };
 
 // Start-screen order (owner 2026-11-21): trainers (Mushshak, K-8), then F-7PG, Mirage V, JF-17, F-16A, F-16D, J-10C.
@@ -349,6 +356,123 @@ export const AIRCRAFT = [
     gun: { name: 'GSH-23 23MM', rps: 55, muzzleMs: 715, dragK: 0.0004, spreadMrad: 5, dmg: 4, rounds: 200, port: [330, 122], tracerEvery: 4 },
     countermeasures: 30,
     lights: { navNear: [85, 125], navFar: [95, 122], tail: [21, 81], beacon: [24, 2], landing: [340, 135] },
+  },
+
+  // ---------------- 1965 war (owner 2026-11-22) ----------------
+  // Old jets: slower and weaker than the modern ones but not sluggish. Top speed comes from
+  // thrust against drag (drag = dragCoef x v^2): F-86 ~420 kt dry, no afterburner, the
+  // slowest to accelerate of the fighters but nimble; F-6 quicker, with afterburner;
+  // F-104 the fastest with the most afterburner (supersonic), long, not very agile, high
+  // landing speed; B-57 bomber, slowest and most sluggish, 6 bombs. Owner's art,
+  // tools/make_1965_sprites.py (gear legs rotate up, doors close). Ranks and home bases:
+  // my picks (the owner chose 1965 base names; the Kamra airfield is Peshawar in 1965).
+  {
+    ...COMMON,
+    id: 'f86', era: '1965', cockpitStyle: 'vintage', gaugeVsiMaxFpm: 6000,
+    name: 'F-86F Sabre',
+    role: 'Day fighter',
+    rank: 'FLT LT', rankCall: 'Flight Lieutenant', rankFull: 'Flight Lieutenant', rankBadge: 'white', homeBase: 'mushaf',
+    stats: { speed: 0.45, agility: 0.8, difficulty: 0.45 },
+    massKg: 7000, maxThrustN: 37000, afterburnerN: 0,
+    fuelKg: 900, burnFullKgS: 1.8, dragCoef: 0.78,
+    stallKt: 112, rotateKt: 128, maxSpeedKt: 600, pitchRateDeg: 31, pitchAccelDeg: 290,
+    engineSpoolS: 5,
+    engineSmoke: { kind: 'smoke', perFrame: 1, chance: 0.5, size: 1.5, life: 1.6, alpha: 0.14, grow: 3, minThrottle: 0.5, dryOnly: true },
+    airframeHp: 85, hitRadiusM: 4.5, hitCenterUpM: 3.4,
+    sprite: 'f86_body', gearTravel: 30,
+    gearParts: [
+      { sprite: 'f86_gear_nose', kind: 'leg', hinge: [327.4, 83.8], deg: 95 },
+      { sprite: 'f86_door_nose', kind: 'door', hingeY: 95.3 },
+      { sprite: 'f86_gear_main', kind: 'leg', hinge: [185.4, 83.8], deg: -90 },
+    ],
+    pivot: [180, 125], nozzle: [38, 77], flameLength: 120, flameWidth: 20,
+    strikeCapable: true, bombCount: 2, hardpoints: [[160, 100], [200, 100]],
+    weaponSprite: 'mk82_body', weaponName: '500 LB BOMB', weaponLabel: 'Unguided bomb', storeMassKg: 230,
+    bombScatterMs: 2.5, blastRadiusM: 24,
+    aam: { type: 'aim9b', count: 2, points: [[165, 96], [200, 96]] },
+    gun: { name: '6 x M3 .50 CAL', rps: 66, muzzleMs: 880, dragK: 0.0004, spreadMrad: 6, dmg: 2.2, rounds: 540, port: [318, 72], tracerEvery: 5 },
+    countermeasures: 12,
+    lights: { navNear: [152, 92], navFar: [162, 89], tail: [10, 62], beacon: [26, 4], landing: [330, 100] },
+  },
+  {
+    ...COMMON,
+    id: 'f6', era: '1965', cockpitStyle: 'vintage', gaugeVsiMaxFpm: 6000,
+    name: 'F-6 Farmer',
+    role: 'Fighter',
+    rank: 'FLT LT', rankCall: 'Flight Lieutenant', rankFull: 'Flight Lieutenant', rankBadge: 'white', homeBase: 'masroor',
+    stats: { speed: 0.65, agility: 0.7, difficulty: 0.6 },
+    massKg: 7500, maxThrustN: 42000, afterburnerN: 18000, ramGain: 1.1,
+    fuelKg: 900, burnFullKgS: 2.4, dragCoef: 0.85,
+    stallKt: 135, rotateKt: 155, maxSpeedKt: 780, pitchRateDeg: 29, pitchAccelDeg: 270,
+    engineSpoolS: 4.5,
+    airframeHp: 75, hitRadiusM: 4.8, hitCenterUpM: 3.2,
+    sprite: 'f6_body', gearTravel: 28,
+    gearParts: [
+      { sprite: 'f6_gear_nose', kind: 'leg', hinge: [317.5, 85.3], deg: 95 },
+      { sprite: 'f6_door_nose', kind: 'door', hingeY: 94.1 },
+      { sprite: 'f6_gear_main', kind: 'leg', hinge: [175.2, 94.1], deg: -85 },
+    ],
+    pivot: [174, 122], nozzle: [28, 70], flameLength: 200, flameWidth: 24,
+    strikeCapable: true, bombCount: 2, hardpoints: [[135, 100], [275, 100]],
+    weaponSprite: 'mk82_body', weaponName: '500 LB BOMB', weaponLabel: 'Unguided bomb', storeMassKg: 230,
+    bombScatterMs: 2.5, blastRadiusM: 24,
+    gun: { name: '3 x NR-30 30MM', rps: 36, muzzleMs: 780, dragK: 0.0003, spreadMrad: 5, dmg: 7, rounds: 210, port: [300, 78], tracerEvery: 4 },
+    countermeasures: 12,
+    lights: { navNear: [140, 86], navFar: [150, 83], tail: [8, 64], beacon: [12, 4], landing: [330, 100] },
+  },
+  {
+    ...COMMON,
+    id: 'f104', era: '1965', cockpitStyle: 'vintage', gaugeVsiMaxFpm: 6000,
+    name: 'F-104A Starfighter',
+    role: 'Interceptor',
+    rank: 'SQN LDR', rankCall: 'Squadron Leader', rankFull: 'Squadron Leader', rankBadge: 'blue', homeBase: 'mushaf',
+    stats: { speed: 0.95, agility: 0.45, difficulty: 0.8 },
+    massKg: 9500, maxThrustN: 46000, afterburnerN: 38000, ramGain: 0.75,
+    fuelKg: 1000, burnFullKgS: 2.6, dragCoef: 0.84,
+    stallKt: 165, rotateKt: 185, maxSpeedKt: 1150, pitchRateDeg: 22, pitchAccelDeg: 200,
+    airframeHp: 80, hitRadiusM: 5, hitCenterUpM: 3.9,
+    sprite: 'f104_body', gearTravel: 36,
+    gearParts: [
+      { sprite: 'f104_gear_nose', kind: 'leg', hinge: [325.6, 106.7], deg: -95 },
+      { sprite: 'f104_gear_main', kind: 'leg', hinge: [193.9, 100.4], deg: -90 },
+    ],
+    pivot: [191, 147], nozzle: [29, 85], flameLength: 330, flameWidth: 30,
+    strikeCapable: true, bombCount: 2, hardpoints: [[175, 112], [240, 114]],
+    weaponSprite: 'mk82_body', weaponName: '500 LB BOMB', weaponLabel: 'Unguided bomb', storeMassKg: 230,
+    bombScatterMs: 2.5, blastRadiusM: 24,
+    aam: { type: 'aim9b', count: 2, points: [[150, 100], [165, 100]] },
+    gun: { name: 'M61 VULCAN 20MM', rps: 100, muzzleMs: 1030, dragK: 0.00036, spreadMrad: 4, dmg: 3, rounds: 420, port: [320, 100], tracerEvery: 5 },
+    countermeasures: 12,
+    lights: { navNear: [150, 100], navFar: [160, 97], tail: [20, 78], beacon: [32, 3], landing: [330, 122] },
+  },
+  {
+    ...COMMON,
+    id: 'b57', era: '1965', cockpitStyle: 'vintage', gaugeVsiMaxFpm: 6000,
+    modes: ['ferry', 'strike'], // bomber: bombs only (owner)
+    name: 'B-57B Canberra',
+    role: 'Bomber',
+    rank: 'SQN LDR', rankCall: 'Squadron Leader', rankFull: 'Squadron Leader', rankBadge: 'blue', homeBase: 'kamra',
+    stats: { speed: 0.3, agility: 0.25, difficulty: 0.5 },
+    massKg: 20000, maxThrustN: 60000, afterburnerN: 0,
+    fuelKg: 2000, burnFullKgS: 3.5, dragCoef: 1.5,
+    stallKt: 108, rotateKt: 125, maxSpeedKt: 500, pitchRateDeg: 16, pitchAccelDeg: 120,
+    engineSpoolS: 6,
+    engineSmoke: { kind: 'smoke', perFrame: 1, chance: 0.5, size: 1.8, life: 1.8, alpha: 0.14, grow: 3, minThrottle: 0.5, dryOnly: true },
+    airframeHp: 150, hitRadiusM: 7, hitCenterUpM: 4.8,
+    sprite: 'b57_body', gearTravel: 38,
+    gearParts: [
+      { sprite: 'b57_door_nose', kind: 'door', hingeY: 135.4 },
+      { sprite: 'b57_gear_nose', kind: 'leg', hinge: [446.9, 127.3], deg: 95 },
+      { sprite: 'b57_gear_main', kind: 'leg', hinge: [304.8, 116.2], deg: -90 },
+    ],
+    pivot: [304, 172], nozzle: [200, 106], flameLength: 120, flameWidth: 24,
+    strikeCapable: true, bombCount: 6, hardpoints: [[255, 128], [345, 128]],
+    weaponSprite: 'mk82_body', weaponName: '500 LB BOMB', weaponLabel: 'Unguided bomb', storeMassKg: 230,
+    stores: { pitchLoss: 0.25, dragAdd: 0.15 },
+    bombScatterMs: 2.5, blastRadiusM: 26,
+    gun: null,
+    countermeasures: 12,
+    lights: { navNear: [150, 112], navFar: [165, 108], tail: [6, 66], beacon: [30, 4], landing: [530, 130] },
   },
 ];
 

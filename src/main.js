@@ -7,11 +7,33 @@ import { Sound } from './audio.js';
 import { Hud } from './ui/hud.js';
 import { Menu, Pause, Result, Briefing, loadSettings, saveSettings, getBest, setBest } from './ui/screens.js';
 import { AIRCRAFT, aircraftById } from './data/aircraft.js';
-import { BASES } from './data/world.js';
+import { BASES, baseOf } from './data/world.js';
 import { EJECT } from './data/combat.js';
 import { MusicPlayer } from './ui/music.js';
 
 const STEP = 1 / 120;
+
+// 1965 film look (owner 2026-11-22): grain tile made once (light and dark specks, a few
+// bigger dust spots), shown by CSS over the game during 1965 flights (body.era1965).
+export const FILM = { tilePx: 220, grain: 0.11, dust: 14 };
+(function makeGrain() {
+  const c = document.createElement('canvas');
+  c.width = c.height = FILM.tilePx;
+  const x = c.getContext('2d');
+  const img = x.createImageData(c.width, c.height);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random() < 0.5 ? 0 : 255;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = Math.random() * 255 * FILM.grain * 2;
+  }
+  x.putImageData(img, 0, 0);
+  for (let i = 0; i < FILM.dust; i++) {
+    x.fillStyle = Math.random() < 0.6 ? 'rgba(20,14,8,0.55)' : 'rgba(255,248,230,0.5)';
+    x.beginPath(); x.arc(Math.random() * c.width, Math.random() * c.height, 0.6 + Math.random() * 1.4, 0, Math.PI * 2); x.fill();
+  }
+  document.documentElement.style.setProperty('--grain', `url(${c.toDataURL()})`);
+})();
+const setFilm = (on) => document.body.classList.toggle('era1965', !!on);
 
 const canvas = document.getElementById('game');
 const settings = loadSettings();
@@ -60,14 +82,14 @@ const briefing = new Briefing(document.getElementById('briefing'), {
 function setupDemo(o) {
   // Backdrop: the selected aircraft's home base.
   const d = aircraftById(o.aircraft);
-  const home = BASES[d.homeBase] || BASES.risalpur;
+  const home = BASES[d.homeBase] ? baseOf(d.homeBase, d.era) : BASES.risalpur;
   renderer.setupWorld({
     bases: [{ ...home, x: 0, visible: true }],
     themeStops: [{ x: -1000, theme: home.theme }, { x: 99999, theme: home.theme }],
     timeId: o.time,
   });
   renderer.cam.zoom = 0.9;
-  const others = AIRCRAFT.filter((a) => a.id !== d.id && a.id !== 'mushshak');
+  const others = AIRCRAFT.filter((a) => a.id !== d.id && a.id !== 'mushshak' && a.era === d.era);
   demoPlanes = [d, others[0], others[1]];
 }
 let demoPlanes = [];
@@ -81,6 +103,7 @@ function startFlight(o) {
   renderer.cam.zoom = 1; renderer.cam.look = 0; renderer.cam.lead = 0;
   renderer.burnX = null;
   sound.startFlight(flight.data);
+  setFilm(flight.data.era === '1965');
   hud.start(flight, o);
   menu.hide(); result.hide(); pause.hide();
   briefing.show(flight, o);
@@ -93,11 +116,12 @@ function startFlight(o) {
 // 2026-11-21: from a mission, not the sortie order); the briefing's Esc goes back to the order instead.
 function toMenu(front = false) {
   sound.stopFlight();
+  setFilm(false);
   pause.hide(); result.hide(); hud.hide(); briefing.hide();
   flight = null;
   mode = 'menu';
   setupDemo(settings);
-  if (front) menu.step = menu.named() ? 1 : 0; // the mission page (owner 2026-11-21), or the name if none yet
+  if (front) menu.step = menu.named() ? Math.max(0, menu.steps().findIndex((x) => x.id === 'mode')) : 0; // the mission page (owner 2026-11-21), or the name if none yet
   menu.refresh();
   menu.show();
 }

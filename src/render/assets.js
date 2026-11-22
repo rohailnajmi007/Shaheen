@@ -7,7 +7,7 @@ import { AAMS } from '../data/combat.js';
 
 // Every sprite named in the aircraft and base data, plus the HUD name-tag wings.
 const SPRITES = [...new Set([
-  ...AIRCRAFT.flatMap((a) => [a.sprite, a.gearSprite, a.elevatorSprite, a.canardSprite, a.propSprite, a.weaponSprite,
+  ...AIRCRAFT.flatMap((a) => [a.sprite, a.gearSprite, a.elevatorSprite, a.canardSprite, a.propSprite, a.weaponSprite, ...(a.gearParts || []).map((g) => g.sprite),
     a.rankBadge && `paf_pilot_wings_${a.rankBadge}`]),
   ...Object.values(BASES).flatMap((b) => [b.parked, ...(b.parkedGroups || []).map((g) => g.sprite), ...(b.decor || []).map((d) => d.sprite), ...(b.billboards || []).map((d) => d.sprite), b.hangarPlane]),
   ...OPPONENTS.map((o) => o.sprite),

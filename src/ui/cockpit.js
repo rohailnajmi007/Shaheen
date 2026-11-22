@@ -7,6 +7,9 @@
 //                 G, altitude tape + vertical speed bar), gear lights, flap box.
 //  - 'colorGlass' (top of the line: F-16D, J-10C): colour PFD with artificial horizon,
 //                 engine page.
+//  - 'vintage'    (1965 jets, owner 2026-11-22: "very analog and old"): round dials on a
+//                 black crinkle-finish plate, aged cream (radium) markings and needles,
+//                 no digital readouts at all.
 // Drawn in the Godot panel's own 266 x 114 units, scaled to the canvas size.
 // Performance: everything that never moves (plate, dial faces, scales, labels,
 // screen bezels) is drawn ONCE to an offscreen layer (rebuilt only when the
@@ -30,6 +33,11 @@ export const COCKPIT_COLORS = {
   darkPlate: rgb(0.14, 0.16, 0.14), darkPlateLight: rgb(0.27, 0.3, 0.27), darkPlateDark: rgb(0.05, 0.06, 0.05),
   amberText: rgb(1, 0.7, 0.25),
 };
+// Vintage (1965) panel colours.
+Object.assign(COCKPIT_COLORS, {
+  vPlate: rgb(0.1, 0.1, 0.09), vPlateLight: rgb(0.24, 0.23, 0.2), vPlateDark: rgb(0.03, 0.03, 0.03),
+  vFace: rgb(0.045, 0.045, 0.04), vMark: rgb(0.86, 0.8, 0.6), vNeedle: rgb(0.95, 0.92, 0.8),
+});
 const C = COCKPIT_COLORS;
 // Weapon cue lamp (in the old flap box's place): text, colour, blinks.
 const CUE_LOOK = {
@@ -129,7 +137,9 @@ export class Cockpit {
   textC(x, y, s, col) { this.text(x, y, s, col, 'center'); }
   textR(x, y, s, col) { this.text(x, y, s, col, 'right'); }
   // Label colour for this panel (dark on grey, light on glass, amber on dark).
-  lc() { return this.style === 'glass' ? C.glassLabel : this.style === 'darkAnalog' ? C.amberText : C.label; }
+  lc() { return this.style === 'glass' ? C.glassLabel : this.style === 'darkAnalog' ? C.amberText : this.style === 'vintage' ? C.vMark : C.label; }
+  get vintage() { return this.style === 'vintage'; }
+  mark() { return this.vintage ? C.vMark : C.marking; }
 
   // --- static layer ---
   drawStatic() {
@@ -147,7 +157,13 @@ export class Cockpit {
     }
     const dark = this.style === 'darkAnalog';
     if (dark) this.plate(C.darkPlate, C.darkPlateLight, C.darkPlateDark);
-    else this.plate(C.plate, C.plateLight, C.plateDark);
+    else if (this.vintage) {
+      this.plate(C.vPlate, C.vPlateLight, C.vPlateDark);
+      // Crinkle finish: fine light and dark specks over the black paint (drawn once).
+      let seed = 7;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 900; i++) this.rect(3 + rnd() * (W - 6), 3 + rnd() * (H - 6), 0.6, 0.6, rnd() < 0.5 ? 'rgba(255,245,220,0.07)' : 'rgba(0,0,0,0.35)');
+    } else this.plate(C.plate, C.plateLight, C.plateDark);
     this.airspeedScale(...GAUGE_CENTRES[0]);
     this.altimeterScale(...GAUGE_CENTRES[1]);
     this.vsiScale(...GAUGE_CENTRES[2]);
@@ -198,7 +214,7 @@ export class Cockpit {
   gaugeFace(cx, cy, label) {
     this.circle(cx, cy, GAUGE_R + 2, C.plateDark);
     this.circle(cx, cy, GAUGE_R + 1, rgb(0.16, 0.16, 0.17));
-    this.circle(cx, cy, GAUGE_R - 1, C.face);
+    this.circle(cx, cy, GAUGE_R - 1, this.vintage ? C.vFace : C.face);
     this.textC(cx, cy + GAUGE_R + 10, label, this.lc());
   }
   tick(cx, cy, ang, rIn, rOut, col, w = 1) {
@@ -206,10 +222,11 @@ export class Cockpit {
     this.line(cx + dx * rIn, cy + dy * rIn, cx + dx * rOut, cy + dy * rOut, col, w);
   }
   needle(cx, cy, ang, len, w = 1) {
-    this.line(cx, cy, cx + Math.cos(ang) * len, cy + Math.sin(ang) * len, C.needle, w);
+    this.line(cx, cy, cx + Math.cos(ang) * len, cy + Math.sin(ang) * len, this.vintage ? C.vNeedle : C.needle, w);
     this.circle(cx, cy, 2, rgb(0.3, 0.3, 0.3));
   }
   readout(cx, cy, s, w = 26) {
+    if (this.vintage) return; // 1965: needles only
     const x = cx - w * 0.5, y = cy + 6;
     this.rect(x, y, w, 9, '#000');
     this.frame(x, y, w, 9, rgb(0.3, 0.3, 0.3));
@@ -226,7 +243,7 @@ export class Cockpit {
     this.arcLine(cx, cy, r, this.asAngle(d.maxSpeedKt * 0.85), this.asAngle(d.maxSpeedKt), C.amber, 2);
     this.tick(cx, cy, this.asAngle(d.maxSpeedKt), r - 5, r + 1, C.red, 2);
     for (let kt = 0; kt <= d.maxSpeedKt; kt += 20) {
-      this.tick(cx, cy, this.asAngle(kt), r - (kt % 40 === 0 ? 5 : 3), r - 1, C.marking);
+      this.tick(cx, cy, this.asAngle(kt), r - (kt % 40 === 0 ? 5 : 3), r - 1, this.mark());
     }
   }
   airspeed(cx, cy) {
@@ -238,7 +255,7 @@ export class Cockpit {
   altimeterScale(cx, cy) {
     this.gaugeFace(cx, cy, 'ALT FT');
     const r = GAUGE_R - 3;
-    for (let i = 0; i < 10; i++) this.tick(cx, cy, rad(-90 + 36 * i), r - (i === 0 ? 5 : 3), r, C.marking);
+    for (let i = 0; i < 10; i++) this.tick(cx, cy, rad(-90 + 36 * i), r - (i === 0 ? 5 : 3), r, this.mark());
   }
   altimeter(cx, cy) {
     const r = GAUGE_R - 3;
@@ -254,8 +271,8 @@ export class Cockpit {
     const max = this.data.gaugeVsiMaxFpm;
     this.gaugeFace(cx, cy, 'V/S');
     const r = GAUGE_R - 3;
-    for (let i = -4; i <= 4; i++) this.tick(cx, cy, this.vsAngle(max * i / 4), r - (i === 0 ? 5 : 3), r, C.marking);
-    this.textC(cx - 9, cy - 6, 'UP', C.marking);
+    for (let i = -4; i <= 4; i++) this.tick(cx, cy, this.vsAngle(max * i / 4), r - (i === 0 ? 5 : 3), r, this.mark());
+    this.textC(cx - 9, cy - 6, 'UP', this.mark());
   }
   vsi(cx, cy) {
     const vs = this.a.vsFpm;

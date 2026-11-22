@@ -121,6 +121,20 @@ export const ROUTES_FROM = {
   kamra: ['risalpur', 'mushaf', 'shahbaz', 'masroor'],
   shahbaz: ['masroor', 'mushaf', 'kamra', 'risalpur'],
 };
+// 1965 era (owner 2026-11-22): the same airfields under their 1965 names (on screen,
+// in the briefing and the instructor's calls). Kamra did not exist yet: its airfield
+// stands in for Peshawar, the nearby 1965 base. baseOf(id, era) = the base with these laid on.
+export const ERA_BASES = {
+  '1965': {
+    risalpur: { name: 'PAF College Risalpur', short: 'RISALPUR' },
+    masroor: { name: 'PAF Base Mauripur', city: 'Karachi', short: 'MAURIPUR' },
+    mushaf: { name: 'PAF Base Sargodha', short: 'SARGODHA', welcome: ['WELCOME TO SARGODHA', 'THE HOME OF EAGLES'] },
+    kamra: { name: 'PAF Base Peshawar', city: 'Peshawar', short: 'PESHAWAR' },
+    shahbaz: { name: 'PAF Base Jacobabad', short: 'JACOBABAD' },
+  },
+};
+export const baseOf = (id, era) => ({ ...BASES[id], ...((ERA_BASES[era] || {})[id] || {}) });
+
 // Landing bases after a mission (strike, air to air): any base but home, at random.
 export const recoveryBases = (home) => Object.keys(BASES).filter((id) => id !== home);
 // What you see on the way to each base (route notes on the start screen).
@@ -139,12 +153,12 @@ export function ferryLayout(home) {
 }
 
 // Start-screen routes from this home base.
-export function routesFrom(home) {
-  const h = BASES[home] || BASES.risalpur;
+export function routesFrom(home, era) {
+  const h = baseOf(BASES[home] ? home : 'risalpur', era);
   const dests = ROUTES_FROM[h.id];
   return dests.map((id, i) => ({
-    id, label: `${cap(h.short)} → ${cap(BASES[id].short)}`, km: ROUTE_M[i] / 1000,
-    note: i ? `${ROUTE_NOTE[id]}. Refuel stop at ${cap(BASES[dests[i - 1]].short)} if needed` : ROUTE_NOTE[id],
+    id, label: `${cap(h.short)} → ${cap(baseOf(id, era).short)}`, km: ROUTE_M[i] / 1000,
+    note: i ? `${ROUTE_NOTE[id]}. Refuel stop at ${cap(baseOf(dests[i - 1], era).short)} if needed` : ROUTE_NOTE[id],
   }));
 }
 const cap = (s) => s[0] + s.slice(1).toLowerCase();
