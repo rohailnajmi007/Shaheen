@@ -49,11 +49,9 @@ export class MusicPlayer {
     this.render();
   }
 
-  // Louder in the menus, briefing and debrief; quieter while flying. Entering the flight:
-  // the next song (MUSIC.nextOnMission).
+  // Louder in the menus, briefing and debrief; quieter while flying (same song).
   setScene(scene) {
     if (scene === this.scene) return;
-    const into = scene === 'flight' && this.scene !== 'flight';
     this.scene = scene;
     const to = scene === 'flight' ? MUSIC.flightVol : MUSIC.vol;
     clearInterval(this.sceneTimer);
@@ -64,7 +62,6 @@ export class MusicPlayer {
       this.apply();
       if (k >= 1) clearInterval(this.sceneTimer);
     }, 40);
-    if (into && MUSIC.nextOnMission && this.started && this.wanted && this.tracks.length > 1) this.next();
   }
 
   // The first click or key press: start playing (browsers allow sound only after one).
