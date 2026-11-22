@@ -3,7 +3,7 @@ import { AIRCRAFT } from '../data/aircraft.js';
 import { BASES, baseOf, routesFrom, TIMES } from '../data/world.js';
 import { KEY_HELP } from '../input.js';
 import { AAMS } from '../data/combat.js';
-import { OPPONENTS, opponentById } from '../data/opponents.js';
+import { OPPONENTS, opponentById, opponentsOf } from '../data/opponents.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -49,8 +49,9 @@ const ICON = {
   // A gunsight on an enemy jet.
   dogfight: '<svg viewBox="0 0 96 64"><circle cx="48" cy="32" r="22"/><path d="M48 4 v12 M48 48 v12 M20 32 h12 M64 32 h12"/><path d="M36 33 l14 0 l6 -5 l3 0 l-3 6 l6 1 l0 2 l-6 1 l3 6 l-3 0 l-6 -5 l-14 0 z" fill="currentColor" stroke="none"/></svg>',
 };
-ICON['1965'] = '<svg viewBox="0 0 96 64"><circle cx="48" cy="30" r="22"/><circle cx="48" cy="30" r="8"/><path d="M48 8 v-4 M48 52 v4 M26 30 h-4 M70 30 h4"/><text x="48" y="62" text-anchor="middle" font-size="11" fill="currentColor" stroke="none" font-family="Consolas, monospace" letter-spacing="2">1965</text></svg>';
-ICON.modern = '<svg viewBox="0 0 96 64"><path d="M48 50 a26 26 0 0 1 0 -52" fill="none" opacity="0"/><path d="M22 50 a26 26 0 0 1 52 0"/><path d="M32 50 a16 16 0 0 1 32 0"/><path d="M48 50 l18 -20"/><circle cx="62" cy="30" r="3" fill="currentColor"/><path d="M14 56 h68"/></svg>';
+// Eras (owner 2026-11-22: redone): a Sabre (round nose intake) and a modern jet in afterburner.
+ICON['1965'] = '<svg viewBox="0 0 96 64"><path d="M3 26 h11 M1 34 h10 M5 42 h11" opacity="0.5"/><path d="M86 30 L86 38 L72 40.5 L34 40 L20 38.5 L18 33 L22 31.5 L13 13 L20 13 L38 29 L58 28.5 Q65 20 74 27.5 Z" fill="currentColor" stroke="none"/><path d="M60 28.6 Q65 22.5 72 27.4 Z" fill="#000" stroke="none" opacity="0.4"/><path d="M58 37 L42 51 L49 51 L66 38 Z M28 34 L13 34.5 L14 37 L28 36.5 Z" fill="currentColor" stroke="none"/><ellipse cx="86" cy="34" rx="1.6" ry="3.2" fill="#000" stroke="none" opacity="0.7"/></svg>';
+ICON.modern = '<svg viewBox="0 0 96 64"><path d="M18 31.5 L2 34.5 L18 37.5 Z" fill="currentColor" stroke="none" opacity="0.5"/><path d="M93 34 L78 31 Q71 23.5 62 28 L40 29 L32 28.5 L20 10 L15 10 L18 30 L18 38 L40 39 L50 42.5 L66 42.5 L70 38.5 L80 37 Z" fill="currentColor" stroke="none"/><path d="M63 28 Q71 24 77.5 30.8 Z" fill="#000" stroke="none" opacity="0.4"/><path d="M58 38 L38 48 L31 48 L42 38 Z M30 35 L14 34 L14 37 L30 37.5 Z" fill="currentColor" stroke="none"/></svg>';
 const TIME_ICON = {
   dawn: '<svg viewBox="0 0 96 64"><path d="M8 48 h80"/><path d="M28 48 a20 20 0 0 1 40 0" fill="none"/><path d="M48 14 v8 M24 24 l5 5 M72 24 l-5 5"/></svg>',
   day: '<svg viewBox="0 0 96 64"><circle cx="48" cy="32" r="12"/><path d="M48 6 v8 M48 50 v8 M22 32 h8 M66 32 h8 M30 14 l5 5 M66 14 l-5 5 M30 50 l5 -5 M66 50 l-5 -5"/></svg>',
@@ -60,8 +61,8 @@ const TIME_ICON = {
 // Era (owner 2026-11-22): the 1965 war (F-86, F-6, F-104, B-57) or modern day warfare
 // (the rest). Missions are the same in both; the aircraft list shows the chosen era's.
 const ERAS = [
-  { id: '1965', label: '1965 War', note: 'Sabres, Farmers, Starfighters and Canberras. Guns, early Sidewinders and iron bombs.' },
-  { id: 'modern', label: 'Modern day warfare', note: 'JF-17s, F-16s, J-10Cs and the rest of today\'s PAF.' },
+  { id: '1965', label: '1965 War', note: 'Classic jets. Guns and bombs.' },
+  { id: 'modern', label: 'Modern day warfare', note: "Today's jets and missiles." },
 ];
 const eraOf = (a) => a.era || 'modern';
 const MODES = [
@@ -143,7 +144,7 @@ export class Menu {
               <button class="mcard opcard" data-id="${o.id}">
                 <div class="acimg"><img src="${base}sprites/${o.sprite}.png" alt="" /></div>
                 <b>${o.name}</b>
-                <span class="acrole diff ${o.difficulty.toLowerCase()}">${o.difficulty}</span>
+                <span class="acrole diff"></span>
               </button>`).join('')}
             </div>
           </section>
@@ -237,7 +238,7 @@ export class Menu {
     else if (id === 'mode') opts = MODES.map((m) => m.id);
     else if (id === 'era') opts = ERAS.map((e) => e.id);
     else if (id === 'dest') opts = this.routes().map((r) => r.id);
-    else if (id === 'opponent') opts = OPPONENTS.map((o) => o.id);
+    else if (id === 'opponent') opts = opponentsOf(this.era()).map((o) => o.id);
     else if (id === 'time') opts = Object.keys(TIMES);
     else return;
     const i = opts.indexOf(this.s[id]);
@@ -304,7 +305,19 @@ export class Menu {
       if (b._wpn !== wl) { b._wpn = wl; b.querySelector('.acwpn').innerHTML = wl; }
       b.classList.toggle('sel', b.dataset.id === s.aircraft);
     }
-    for (const b of r.querySelectorAll('.opcard')) b.classList.toggle('sel', b.dataset.id === s.opponent);
+    // Opponents of the chosen era only, with that era's difficulty (the MiG-21 is HARD in 1965).
+    const ops = opponentsOf(this.era());
+    if (!ops.some((o) => o.id === s.opponent)) s.opponent = ops[0].id;
+    for (const b of r.querySelectorAll('.opcard')) {
+      const o = ops.find((x) => x.id === b.dataset.id);
+      b.hidden = !o;
+      if (o) {
+        const d = b.querySelector('.diff');
+        d.textContent = o.difficulty; d.className = `acrole diff ${o.difficulty.toLowerCase()}`;
+        b.style.order = ops.indexOf(o);
+      }
+      b.classList.toggle('sel', b.dataset.id === s.opponent);
+    }
     for (const b of r.querySelectorAll('.times .mcard')) b.classList.toggle('sel', b.dataset.v === s.time);
     const routes = this.routes();
     const rk = routes.map((x) => x.id).join() + this.era();
@@ -325,7 +338,7 @@ export class Menu {
       $('.wings', op).src = this.wingsSrc(a.rankBadge);
       $('.tagname', op).textContent = name;
       const route = routes.find((x) => x.id === s.dest);
-      const o = opponentById(s.opponent);
+      const o = opponentById(s.opponent, this.era());
       const best = getBest(s);
       const row = (k, v) => `<div class="drow"><span>${k}</span><i></i><b>${esc(v)}</b></div>`;
       $('.olog', r).innerHTML = [

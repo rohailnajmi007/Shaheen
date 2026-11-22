@@ -190,6 +190,20 @@ CONFIGS = {
         "unflip": [(691, 83, 736, 99)],  # serial RB001
         "gear_regions": [], "prop": None, "points": {},  # nozzle etc.: read off the output (flipped)
     },
+    # 1965 opponents (owner 2026-11-22): Gnat (easy) and Hunter (medium); the owner's picture
+    # of both, cut in two (caption erased). Art points left: flipped; serials and fin flags flipped back.
+    "hunter": {
+        "src": "docs/reference/hunter_opponent_source.png", "flip": True,
+        "display_width": 104,  # 14 m
+        "unflip": [(662, 142, 707, 158), (678, 54, 716, 86)],  # serial BA341, fin flag
+        "gear_regions": [], "prop": None, "points": {},
+    },
+    "gnat": {
+        "src": "docs/reference/gnat_opponent_source.png", "flip": True,
+        "display_width": 70,  # 9 m: tiny
+        "unflip": [(635, 132, 700, 158), (670, 68, 712, 101)],  # serial IE133, fin flag
+        "gear_regions": [], "prop": None, "points": {},
+    },
     # Weapons (owner's art, 2026-11-18), drawn under the jets on a strike
     # mission and when falling/flying. display_width is in world px like the
     # aircraft (aircraft art is ~2x true scale; so are these): texture width =

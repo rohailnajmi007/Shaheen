@@ -84,7 +84,7 @@ export class Flight {
     this.taxi.fromX = this.bases[0].x + (this.bases[0].taxiFromM ?? TAXI.startM);
     this.ac.pos.x = this.taxi.fromX;
     if (this.mode === 'dogfight') {
-      this.df = new Dogfight(this, opponentById(opts.opponent));
+      this.df = new Dogfight(this, opponentById(opts.opponent, this.data.era));
       this.ac.burnScale = DOGFIGHT.burnScale;
     }
     this.say(`${this.callsign()}! Engine start: E. Then throttle up. Move it!`);

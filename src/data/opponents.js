@@ -7,6 +7,8 @@
 // aam: the bandit's missiles (BANDIT_AAMS in src/data/combat.js) and how many it carries
 // (none on the MiG-21: EASY). breakup: sprite size (px), for placing the debris of a
 // missile kill (DOGFIGHT.breakup in src/data/combat.js).
+// eras: which era's opponent screen lists it (1965 / modern). byEra: fields that change in
+// that era (owner 2026-11-22: 1965 = Gnat EASY, Hunter MEDIUM, the same MiG-21 HARD).
 import { COMMON } from './aircraft.js';
 
 export const OPPONENTS = [
@@ -14,7 +16,9 @@ export const OPPONENTS = [
     ...COMMON,
     id: 'mig21',
     name: 'MiG-21',
+    eras: ['modern', '1965'],
     difficulty: 'EASY',
+    byEra: { 1965: { difficulty: 'HARD', note: 'Fast, with afterburner. The best they have.' } },
     note: 'Old and slow to react. Turns badly, shoots wild.',
     massKg: 8000, maxThrustN: 42000, afterburnerN: 26000, dragCoef: 1.15,
     stallKt: 150, rotateKt: 165, maxSpeedKt: 560, pitchRateDeg: 22, pitchAccelDeg: 200,
@@ -30,7 +34,7 @@ export const OPPONENTS = [
   },
   {
     ...COMMON,
-    id: 'su30',
+    id: 'su30', eras: ['modern'],
     name: 'Su-30',
     difficulty: 'MEDIUM',
     note: 'Big, powerful and tough. Takes a lot of hits.',
@@ -50,7 +54,7 @@ export const OPPONENTS = [
   },
   {
     ...COMMON,
-    id: 'rafale',
+    id: 'rafale', eras: ['modern'],
     name: 'Rafale',
     difficulty: 'HARD',
     note: 'Agile, quick and accurate. Hard to shake off.',
@@ -69,6 +73,53 @@ export const OPPONENTS = [
     aam: { type: 'mica', count: 2 },
     breakup: { sizePx: [464, 144] },
   },
+  // 1965 (owner 2026-11-22; owner's art, tools/make_aircraft_sprites.py gnat / hunter).
+  // No afterburner on either. Slower than the MiG-21 and fly worse.
+  {
+    ...COMMON,
+    id: 'gnat', eras: ['1965'],
+    name: 'Gnat',
+    difficulty: 'EASY',
+    note: 'Tiny and light, but slow and poorly flown.',
+    massKg: 3500, maxThrustN: 20000, afterburnerN: 0, dragCoef: 0.52,
+    stallKt: 115, rotateKt: 130, maxSpeedKt: 450, pitchRateDeg: 24, pitchAccelDeg: 220,
+    fuelKg: 600, burnFullKgS: 1.8,
+    sprite: 'gnat_body', pivot: [140, 58], nozzle: [14, 49], flameLength: 70, flameWidth: 12,
+    hitRadiusM: 3.4, hitCenterUpM: 1.3, airframeHp: 45,
+    breakup: { sizePx: [280, 65] },
+    gun: { name: 'ADEN 30MM', rps: 22, muzzleMs: 790, dragK: 0.0004, spreadMrad: 9, dmg: 5, rounds: 115, port: [210, 52], tracerEvery: 3 },
+    ai: {
+      reactionS: 0.85, aimErrDeg: 3, fireConeDeg: 1.5, fireRangeM: 550, burstGapS: [1.6, 3],
+      banditDmgMult: 0.06, overshootPerS: 0.1, jinkAltM: 90, jinkEveryS: [3, 5], speedReadS: 3.6, pitchGain: 2.3,
+    },
+  },
+  {
+    ...COMMON,
+    id: 'hunter', eras: ['1965'],
+    name: 'Hunter',
+    difficulty: 'MEDIUM',
+    note: 'Sturdy, with four 30 mm cannon. Hits hard.',
+    massKg: 8000, maxThrustN: 40000, afterburnerN: 0, dragCoef: 0.78,
+    stallKt: 120, rotateKt: 135, maxSpeedKt: 470, pitchRateDeg: 24, pitchAccelDeg: 220,
+    fuelKg: 1200, burnFullKgS: 2.6,
+    sprite: 'hunter_body', pivot: [208, 92], nozzle: [6, 74], flameLength: 100, flameWidth: 18,
+    hitRadiusM: 4.6, hitCenterUpM: 2.3, airframeHp: 85,
+    breakup: { sizePx: [416, 103] },
+    gun: { name: 'ADEN 30MM X4', rps: 40, muzzleMs: 790, dragK: 0.0004, spreadMrad: 7, dmg: 5, rounds: 150, port: [350, 88], tracerEvery: 3 },
+    ai: {
+      reactionS: 0.7, aimErrDeg: 2.4, fireConeDeg: 1.7, fireRangeM: 600, burstGapS: [1.3, 2.6],
+      banditDmgMult: 0.07, overshootPerS: 0.15, jinkAltM: 100, jinkEveryS: [2.8, 4.6], speedReadS: 3.4, pitchGain: 2.4,
+    },
+  },
 ];
 
-export const opponentById = (id) => OPPONENTS.find((o) => o.id === id) || OPPONENTS[0];
+const RANK = { EASY: 0, MEDIUM: 1, HARD: 2 };
+// The opponent as flown in that era (byEra merged in).
+export const opponentFor = (o, era = 'modern') => ({ ...o, ...(o.byEra?.[era === '1965' ? 1965 : 'modern'] || {}) });
+// The era's opponents, easy first.
+export const opponentsOf = (era = 'modern') => OPPONENTS.filter((o) => (o.eras || ['modern']).includes(era === '1965' ? '1965' : 'modern'))
+  .map((o) => opponentFor(o, era)).sort((a, b) => RANK[a.difficulty] - RANK[b.difficulty]);
+export const opponentById = (id, era = 'modern') => {
+  const l = opponentsOf(era);
+  return l.find((o) => o.id === id) || l[0];
+};
