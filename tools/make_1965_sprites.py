@@ -15,13 +15,17 @@ gear doors open. Each config lists, in SOURCE px (before the flip):
            hinge = the pivot (legs) / hinge line (doors: only y counts)
   erase  - boxes cleared to background first (caption, stray pieces)
   unflip - text boxes (serials) flipped back after the flip so they read
+  elevator - the tailplane (owner 2026-11-22: moving tailplanes on the fighters): poly
+           (source px) cut to <name>_elevator.png, hinge = its pivot. Where it covered the
+           fuselage / fin, the body is filled in by blending the body colours above and
+           below in each column, so nothing shows through when it tilts.
 The picture is flipped to face right, cropped, scaled to display_width world px x
 TEXTURE_SCALE and written as public/sprites/<name>_body.png and <name>_<part>.png (all
 layers the same size, aligned). It prints texture-px positions for src/data/aircraft.js.
 """
 import sys
 from collections import deque
-from PIL import Image
+from PIL import Image, ImageDraw
 
 TEXTURE_SCALE = 4
 
@@ -36,6 +40,8 @@ CONFIGS = {
             {"name": "door_nose", "kind": "door", "rect": (118, 182, 186, 226), "hinge": (150, 182)},
             {"name": "gear_main", "kind": "leg", "rect": (334, 181, 404, 241), "hinge": (368, 160), "dir": "fwd", "deg": 90},
         ],
+        "elevator": {"poly": [(606, 113), (673, 110), (690, 104), (725, 104), (725, 112), (700, 118), (682, 124), (606, 125)],
+                     "hinge": (648, 117)},
         "points": {"nozzle": (650, 147), "main_wheel_bottom": (379, 238), "tail_top": (680, 10),
                    "wing_tip": (420, 170), "gun": (120, 140)},
     },
@@ -49,6 +55,7 @@ CONFIGS = {
             {"name": "door_nose", "kind": "door", "rect": (266, 222, 284, 238), "hinge": (275, 222)},
             {"name": "gear_main", "kind": "leg", "rect": (476, 248, 530, 280), "hinge": (500, 222), "dir": "fwd", "deg": 85},
         ],
+        "elevator": {"poly": [(655, 162), (660, 157), (829, 157), (830, 170), (655, 170)], "hinge": (720, 163)},
         "points": {"nozzle": (755, 180), "main_wheel_bottom": (503, 276), "wing_tip": (560, 205), "gun": (250, 190)},
     },
     "f104": {
@@ -60,6 +67,7 @@ CONFIGS = {
             {"name": "gear_nose", "kind": "leg", "rect": (300, 226, 336, 279), "hinge": (318, 210), "dir": "fwd", "deg": 95},
             {"name": "gear_main", "kind": "leg", "rect": (506, 222, 560, 279), "hinge": (528, 200), "dir": "fwd", "deg": 90},
         ],
+        "elevator": {"poly": [(747, 49), (828, 48), (839, 52), (839, 58), (800, 62), (747, 62)], "hinge": (778, 55)},
         "points": {"nozzle": (790, 175), "main_wheel_bottom": (533, 274), "wing_tip": (560, 195), "gun": (330, 190)},
     },
     "b57": {
@@ -135,6 +143,30 @@ def build(name, cfg):
                     lp[x, y] = bp[x, y]
                     bp[x, y] = (0, 0, 0, 0)
         layers[p["name"]] = lay
+    e = cfg.get("elevator")
+    if e:
+        m = Image.new("L", im.size, 0)
+        ImageDraw.Draw(m).polygon(e["poly"], fill=255)
+        mp = m.load()
+        lay = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        lp = lay.load()
+        cut = []
+        for y in range(h):
+            for x in range(w):
+                if mp[x, y] and bp[x, y][3] > 0:
+                    lp[x, y] = bp[x, y]
+                    bp[x, y] = (0, 0, 0, 0)
+                    cut.append((x, y))
+        # Fill the hole where body continues above and below (fuselage / fin behind it).
+        for x, y in cut:
+            up = next((yy for yy in range(y - 1, max(-1, y - 45), -1) if bp[x, yy][3] > 0 and not mp[x, yy]), None)
+            dn = next((yy for yy in range(y + 1, min(h, y + 45)) if bp[x, yy][3] > 0 and not mp[x, yy]), None)
+            if up is None or dn is None:
+                continue
+            t = (y - up) / (dn - up)
+            a, b = bp[x, up], bp[x, dn]
+            bp[x, y] = tuple(round(a[i] * (1 - t) + b[i] * t) for i in range(3)) + (255,)
+        layers["elevator"] = lay
     # Face right; serials flipped back so they read.
     for k in layers:
         layers[k] = layers[k].transpose(Image.FLIP_LEFT_RIGHT)
@@ -162,6 +194,8 @@ def build(name, cfg):
             print("  { sprite: '%s_%s', kind: 'leg', hinge: [%s, %s], deg: %s }," % (name, p["name"], hx, hy, deg))
         else:
             print("  { sprite: '%s_%s', kind: 'door', hingeY: %s }," % (name, p["name"], hy))
+    if e:
+        print("  elevatorSprite: '%s_elevator', elevatorHinge: [%s, %s]," % ((name,) + t(*e["hinge"])))
     for key, pt in cfg["points"].items():
         print("  %s -> %s" % (key, t(*pt)))
 

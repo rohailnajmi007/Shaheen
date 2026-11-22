@@ -379,6 +379,7 @@ export const AIRCRAFT = [
     engineSpoolS: 5,
     engineSmoke: { kind: 'smoke', perFrame: 1, chance: 0.5, size: 1.5, life: 1.6, alpha: 0.14, grow: 3, minThrottle: 0.5, dryOnly: true },
     airframeHp: 85, hitRadiusM: 4.5, hitCenterUpM: 3.4,
+    elevatorSprite: 'f86_elevator', elevatorHinge: [38.8, 61.3], elevatorMaxDeg: 12, // moving tailplane (owner 2026-11-22)
     sprite: 'f86_body', gearTravel: 30,
     gearParts: [
       { sprite: 'f86_gear_nose', kind: 'leg', hinge: [327.4, 83.8], deg: 95 },
@@ -406,6 +407,7 @@ export const AIRCRAFT = [
     stallKt: 135, rotateKt: 155, maxSpeedKt: 780, pitchRateDeg: 29, pitchAccelDeg: 270,
     engineSpoolS: 4.5,
     airframeHp: 75, hitRadiusM: 4.8, hitCenterUpM: 3.2,
+    elevatorSprite: 'f6_elevator', elevatorHinge: [60.1, 63.3], elevatorMaxDeg: 12, // moving tailplane (owner 2026-11-22)
     sprite: 'f6_body', gearTravel: 28,
     gearParts: [
       { sprite: 'f6_gear_nose', kind: 'leg', hinge: [317.5, 85.3], deg: 95 },
@@ -431,6 +433,7 @@ export const AIRCRAFT = [
     fuelKg: 1000, burnFullKgS: 2.6, dragCoef: 0.84,
     stallKt: 165, rotateKt: 185, maxSpeedKt: 1150, pitchRateDeg: 22, pitchAccelDeg: 200,
     airframeHp: 80, hitRadiusM: 5, hitCenterUpM: 3.9,
+    elevatorSprite: 'f104_elevator', elevatorHinge: [37.0, 9.4], elevatorMaxDeg: 12, // moving tailplane (owner 2026-11-22)
     sprite: 'f104_body', gearTravel: 36,
     gearParts: [
       { sprite: 'f104_gear_nose', kind: 'leg', hinge: [325.6, 106.7], deg: -95 },
