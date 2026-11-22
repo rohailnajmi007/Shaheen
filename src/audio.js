@@ -1,6 +1,7 @@
 import { SONIC } from './data/aircraft.js';
 import { MACH_KT } from './sim/aircraft.js';
-// All sound is made in code with Web Audio (no sound files), except the crash song.
+// All sound is made in code with Web Audio (no sound files), except the crash song and
+// the background music (src/ui/music.js, its own <audio> element).
 
 // Crash song (owner 2026-11-21): plays in the background after a crash. The owner
 // supplies the file (it is a commercial recording: not bundled); no file = no song.
@@ -140,6 +141,7 @@ export class Sound {
     const g = this.gain(0, this.master);
     this.ctx.createMediaElementSource(el).connect(g);
     g.gain.setTargetAtTime(CRASH_SONG.vol, this.ctx.currentTime, CRASH_SONG.fadeInS / 3);
+    el.addEventListener('playing', () => { if (this.song && this.song.el === el && this.onSong) this.onSong(true); }, { once: true });
     el.play().catch(() => { /* file missing or blocked: stay silent */ });
     this.song = { el, g };
   }
@@ -147,6 +149,7 @@ export class Sound {
     const s = this.song;
     if (!s) return;
     this.song = null;
+    if (this.onSong) this.onSong(false); // background music comes back
     s.g.gain.setTargetAtTime(0, this.ctx.currentTime, CRASH_SONG.fadeOutS / 3);
     setTimeout(() => { s.el.pause(); s.g.disconnect(); }, CRASH_SONG.fadeOutS * 1000 + 200);
   }

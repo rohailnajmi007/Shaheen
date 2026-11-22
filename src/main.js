@@ -9,6 +9,7 @@ import { Menu, Pause, Result, Briefing, loadSettings, saveSettings, getBest, set
 import { AIRCRAFT, aircraftById } from './data/aircraft.js';
 import { BASES } from './data/world.js';
 import { EJECT } from './data/combat.js';
+import { MusicPlayer } from './ui/music.js';
 
 const STEP = 1 / 120;
 
@@ -18,6 +19,10 @@ const input = new Input();
 const sound = new Sound();
 sound.setVolumes(settings.vol);
 const renderer = new Renderer(canvas);
+// Background music: starts with the first click / key press (owner 2026-11-22).
+const musicEl = document.getElementById('music');
+const music = new MusicPlayer(musicEl);
+sound.onSong = (on) => music.duck(on); // the crash song takes over while it plays
 renderer.quality = settings.quality;
 
 let mode = 'menu';
@@ -154,18 +159,19 @@ function handleActions() {
     if (a === 'restart') { startFlight(flightOpts); continue; }
     if (a === 'zoom') { const z = [1, 0.7, 1.35]; renderer.cam.userZoom = z[(z.indexOf(renderer.cam.userZoom) + 1) % z.length]; continue; }
     if (a === 'hud') { hud.toggleKeys(); continue; }
-    if (a === 'mute') { sound.toggleMute(); continue; }
+    if (a === 'mute') { music.setMuted(sound.toggleMute()); continue; }
     flight.action(a);
   }
 }
 
 addEventListener('keydown', (e) => {
   sound.unlock();
+  music.start();
   if (briefing.open && e.code === 'Enter' && !briefing.fresh) { e.preventDefault(); briefing.next(); return; }
   if (result.open && e.code === 'Enter') { e.preventDefault(); startFlight(flightOpts); }
   if (e.code === 'F3') { e.preventDefault(); fpsEl.classList.toggle('show'); }
 });
-addEventListener('pointerdown', () => sound.unlock());
+addEventListener('pointerdown', (e) => { sound.unlock(); if (!musicEl.contains(e.target)) music.start(); });
 addEventListener('resize', () => renderer.resize());
 document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'flight' && !result.open) togglePause(true); });
 
