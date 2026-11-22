@@ -1,6 +1,6 @@
 # Deployment: Vercel
 
-**Live:** https://shaheen-green.vercel.app (Vercel project `shaheen`, first deployed 2026-11-17).
+**Live:** https://shaheen-paf.vercel.app (Vercel project `shaheen`, first deployed 2026-11-17; renamed from shaheen-green.vercel.app on 2026-11-22 by the owner: added as a project domain with `vercel domains add shaheen-paf.vercel.app shaheen`, so every production deploy updates it. The old address still works).
 Deploying publishes publicly: **only when the owner asks.** Update it by double-clicking `deploy.bat`.
 
 For now the game is deployed **only to Vercel**, as a static website. Don't set up other hosts.
@@ -51,7 +51,7 @@ then publish, and we only deploy when the owner asks.
 
 ## 4. Sharing with friends
 
-- Use the **production URL** (https://shaheen-green.vercel.app). Anyone with the link can play. No install, no account.
+- Use the **production URL** (https://shaheen-paf.vercel.app). Anyone with the link can play. No install, no account.
 - **Preview** deployments (without `--prod`) are protected by Vercel login by default, so friends can't open them. Always send the production URL.
 - The production URL is public to anyone who has it. Password protection is a paid Vercel feature, so for a private prototype just don't post the link publicly.
 

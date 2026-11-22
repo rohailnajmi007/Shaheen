@@ -35,7 +35,7 @@ out of scope until the owner says otherwise.
 
 ## Tech
 - JavaScript (ES modules), Vite 7, Canvas 2D for the world, HTML/CSS for HUD and
-  menus, Web Audio for sound. Web first (Vercel, https://shaheen-green.vercel.app).
+  menus, Web Audio for sound. Web first (Vercel, https://shaheen-paf.vercel.app).
   No back end; saves in `localStorage`.
 - `npm install`, `npm run dev` (http://localhost:5173), `npm run build` (-> `dist/`).
 - Checks: `npm run build` must be clean. Headless sim tests: Node scripts in the
