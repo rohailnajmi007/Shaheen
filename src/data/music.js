@@ -16,7 +16,7 @@ export const MUSIC = {
   duck: 0,
   tracks: [
     { title: 'Aasmaan', file: '/audio/aasmaan.mp4', start: 0 },
-    { title: 'Sher Dil', file: '/audio/sherdil.mp4', start: 23 },
+    { title: 'Sher Dil', file: '/audio/sherdil.mp4', start: 24 },
     { title: 'Jazba', file: '/audio/jazba.mp4', start: 23 },
   ],
 };
