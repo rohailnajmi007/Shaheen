@@ -90,15 +90,15 @@ body:has(#hud .touch.on) #music { display: none; }
    flicker, an occasional scratch. All CSS over the canvas: no per-frame drawing. */
 #film { position: fixed; inset: 0; pointer-events: none; display: none; overflow: hidden; }
 body.era1965 #film { display: block; }
-body.era1965 #game { filter: sepia(0.38) saturate(0.72) contrast(1.07) brightness(0.96); }
-#film::before { content: ''; position: absolute; inset: -220px; background-image: var(--grain); opacity: 0.55;
+body.era1965 #game { filter: sepia(0.24) saturate(0.84) contrast(1.04) brightness(0.98); } /* owner 2026-11-22: toned down */
+#film::before { content: ''; position: absolute; inset: -220px; background-image: var(--grain); opacity: 0.3;
   mix-blend-mode: overlay; animation: grain 0.6s steps(6) infinite; }
 @keyframes grain { 0% { transform: translate(0, 0); } 17% { transform: translate(-90px, 40px); } 33% { transform: translate(60px, -110px); }
   50% { transform: translate(-140px, -30px); } 67% { transform: translate(110px, 90px); } 83% { transform: translate(-20px, 150px); } }
 #film::after { content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 50% 48%, transparent 52%, rgba(26,16,6,0.38) 82%, rgba(14,8,2,0.62) 100%);
+  background: radial-gradient(ellipse at 50% 48%, transparent 58%, rgba(26,16,6,0.22) 84%, rgba(14,8,2,0.4) 100%);
   animation: flicker 0.18s steps(2) infinite; }
-@keyframes flicker { 50% { opacity: 0.9; } }
+@keyframes flicker { 50% { opacity: 0.94; } }
 #film .scratch { position: absolute; top: 0; bottom: 0; width: 1px; left: 30%; background: rgba(255,248,228,0.28); opacity: 0;
   animation: scratch 7s steps(1) infinite; }
 @keyframes scratch { 0% { opacity: 0; } 11% { opacity: 1; left: 23%; } 13% { opacity: 0; } 46% { opacity: 1; left: 71%; } 47% { opacity: 0.6; left: 71.3%; }

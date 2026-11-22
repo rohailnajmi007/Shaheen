@@ -15,7 +15,7 @@ const STEP = 1 / 120;
 
 // 1965 film look (owner 2026-11-22): grain tile made once (light and dark specks, a few
 // bigger dust spots), shown by CSS over the game during 1965 flights (body.era1965).
-export const FILM = { tilePx: 220, grain: 0.11, dust: 14 };
+const FILM = { tilePx: 220, grain: 0.08, dust: 10 }; // owner 2026-11-22: grain toned down
 (function makeGrain() {
   const c = document.createElement('canvas');
   c.width = c.height = FILM.tilePx;
@@ -207,6 +207,8 @@ function frame(now) {
   fps.n++; fps.t += dt;
   if (fps.t > 0.5) { fps.v = Math.round(fps.n / fps.t); fps.n = 0; fps.t = 0; fpsEl.textContent = `${fps.v} FPS · ${canvas.width}×${canvas.height}`; }
   handleActions();
+  // Music playlist by era: the start screen's choice, or the jet being flown.
+  music.setEra(mode === 'flight' && flight ? flight.data.era : settings.era);
   if (mode === 'menu') {
     music.setScene('menu');
     demoT += dt;

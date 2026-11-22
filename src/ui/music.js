@@ -45,8 +45,26 @@ export class MusicPlayer {
     for (const b of root.querySelectorAll('button')) b.addEventListener('mousedown', (e) => e.preventDefault());
     root.querySelector('.mplay').addEventListener('click', () => this.toggle());
     root.querySelector('.mnext').addEventListener('click', () => this.next());
-    this.load(0); // always starts with the first track, Aasmaan (owner 2026-11-22)
+    this.era = 'modern';
+    this.load(this.list()[0]); // the era's first track: Aasmaan (owner 2026-11-22)
     this.render();
+  }
+
+  // The playlist of the current era (indexes into tracks).
+  list() {
+    const l = this.tracks.map((t, i) => ((t.era || 'modern') === this.era ? i : -1)).filter((i) => i >= 0);
+    return l.length ? l : this.tracks.map((t, i) => i);
+  }
+
+  // 1965 or modern (start-screen choice, or the jet being flown): its own playlist.
+  setEra(era) {
+    era = era === '1965' ? '1965' : 'modern';
+    if (era === this.era) return;
+    this.era = era;
+    const first = this.list()[0];
+    if (this.list().includes(this.i)) return;
+    if (!this.wanted || !this.started || this.el.paused) { this.level = 0; this.apply(); this.load(first); if (this.wanted && this.started) this.play(); return; }
+    this.fade(0, () => { this.load(first); this.play(); });
   }
 
   // Louder in the menus, briefing and debrief; quieter while flying (same song).
@@ -73,7 +91,7 @@ export class MusicPlayer {
   }
 
   load(i) {
-    this.i = (i + this.tracks.length) % this.tracks.length;
+    this.i = ((i % this.tracks.length) + this.tracks.length) % this.tracks.length;
     this.failed = false;
     this.el.src = this.tracks[this.i].file;
     this.render();
@@ -95,7 +113,8 @@ export class MusicPlayer {
 
   // Next track (auto: the last one ended, so no fade-out needed).
   next(auto = false) {
-    const go = () => { this.load(this.i + 1); if (this.wanted) this.play(); };
+    const l = this.list();
+    const go = () => { this.load(l[(l.indexOf(this.i) + 1) % l.length]); if (this.wanted) this.play(); };
     if (auto || !this.wanted || this.el.paused) { this.level = 0; this.apply(); go(); } else this.fade(0, go);
   }
 

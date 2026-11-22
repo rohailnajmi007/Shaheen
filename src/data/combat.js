@@ -121,10 +121,12 @@ export const EJECT = {
 export const AAM_SEEKER = { holdConeMult: 1.8, holdRangeMult: 1.15, decayPerS: 1, straightS: 0.35, alignPerS: 4, alignMaxDegS: 40 };
 export const AAMS = {
   // 1965 (owner 2026-11-22): the first Sidewinder, AIM-9B: short range, narrow seeker,
-  // slow lock, gentle turns, easily decoyed. Drawn with the AIM-9 sprite.
+  // slow lock, gentle turns, easily decoyed. Owner: "a lot less accurate, a much lesser hit
+  // rate": its path hunts about (wanderDegS) and it may lose the target for good
+  // (loseLockPerS, per second). Drawn with the AIM-9 sprite.
   aim9b: { name: 'AIM-9B SIDEWINDER', short: 'AIM-9B', fox: 'FOX TWO', sprite: 'aim9_body', launch: 'rail',
-    rangeM: [250, 2200], coneDeg: 14, lockS: 1.4, dropS: 0, speedMs: 500, accel: 380, burnS: 2.2, dragMs2: 80,
-    turnDegS: 28, fuseM: 8, dmg: 85, flareChance: 0.4, lifeS: 8, smoke: 0.9 },
+    rangeM: [250, 2200], coneDeg: 14, lockS: 1.4, dropS: 0, speedMs: 480, accel: 360, burnS: 2.2, dragMs2: 85,
+    turnDegS: 20, fuseM: 7, dmg: 85, flareChance: 0.5, lifeS: 8, smoke: 0.9, wanderDegS: 14, loseLockPerS: 0.14 },
   aim9: { name: 'AIM-9M SIDEWINDER', short: 'AIM-9M', fox: 'FOX TWO', sprite: 'aim9_body', launch: 'rail',
     rangeM: [150, 2800], coneDeg: 22, lockS: 0.9, dropS: 0, speedMs: 620, accel: 420, burnS: 2.2, dragMs2: 70,
     turnDegS: 42, fuseM: 9, dmg: 90, flareChance: 0.3, lifeS: 9, smoke: 0.9 },

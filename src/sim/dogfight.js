@@ -135,6 +135,10 @@ export class Dogfight {
           f.emit('countermeasure', { x: m.decoy.x, y: m.decoy.y, bandit: true });
           f.emit('aamDecoyed');
         }
+        // 1965 seekers (owner 2026-11-22: much less accurate): it may lose the target for good
+        // (loseLockPerS) and its path hunts about (wanderDegS, a slowly changing turn error).
+        if (M.loseLockPerS && m.target && !m.decoy && Math.random() < M.loseLockPerS * dt) m.target = null;
+        if (M.wanderDegS) { m.wob = (m.wob || 0) + (gauss() * M.wanderDegS - (m.wob || 0)) * Math.min(1, dt * 2.5); hd += m.wob * D2R * dt; }
         let aim = null;
         if (m.decoy) { m.decoy.x += m.decoy.vx * dt; m.decoy.y += m.decoy.vy * dt; aim = m.decoy; }
         else if (m.target && m.target === this.b && !m.target.shotDown) {
