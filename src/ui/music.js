@@ -45,7 +45,7 @@ export class MusicPlayer {
     for (const b of root.querySelectorAll('button')) b.addEventListener('mousedown', (e) => e.preventDefault());
     root.querySelector('.mplay').addEventListener('click', () => this.toggle());
     root.querySelector('.mnext').addEventListener('click', () => this.next());
-    this.load(Math.floor(Math.random() * this.tracks.length)); // a random first song
+    this.load(0); // always starts with the first track, Aasmaan (owner 2026-11-22)
     this.render();
   }
 
