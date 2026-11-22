@@ -62,7 +62,7 @@ const TIME_ICON = {
 // (the rest). Missions are the same in both; the aircraft list shows the chosen era's.
 const ERAS = [
   { id: '1965', label: '1965/71 War', note: 'Classic jets. Primitive weapons.' }, // owner 2026-11-22
-  { id: 'modern', label: 'Modern day Pakistan Air Force', note: 'The latest and greatest of the PAF.' },
+  { id: 'modern', label: 'Modern day', note: 'The latest and greatest of the Pakistan Air Force.' },
 ];
 const eraOf = (a) => a.era || 'modern';
 const MODES = [
