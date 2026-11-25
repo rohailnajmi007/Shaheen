@@ -96,13 +96,14 @@ export const ROUTE_M = [6500, 12500, 18500, 24500];
 
 // Taxi out (owner 2026-11-21): every flight starts where the base's decorations begin
 // (base taxiFromM, else startM; m from the threshold; owner: "not a mile back") and you
-// roll slowly past the parked jets, squadron boards and trophies, then stop at the base's
-// holding point (holdM) before the take-off run. No afterburner while taxiing.
-// maxKt: taxi speed limit; stop within [stopBeforeM before, stopAfterM past] the line
-// below stopKt to be cleared; the prompt changes to "stop" promptStopM before the line.
+// roll slowly past the parked jets, squadron boards and trophies to the base's holding
+// point (holdM). No afterburner while taxiing. maxKt: taxi speed limit.
+// Owner 2026-11-25: no stop at the holding point. Rolling over the line clears you and
+// sets the throttle to launchThrottle (1 = full A/B, or full power without A/B), so the
+// take-off run starts with no key press.
 // The holding point has a hold line, flashing amber guard lights and a HOLD sign;
 // green centre-line lights lead to it (lightEveryM).
-export const TAXI = { startM: 0, maxKt: 22, stopKt: 2, stopBeforeM: 30, stopAfterM: 60, promptStopM: 70, lightEveryM: 14, clearedShowS: 3 };
+export const TAXI = { startM: 0, maxKt: 22, launchThrottle: 1, lightEveryM: 14, clearedShowS: 3 };
 
 // Fuel truck at a refuelling stop (owner 2026-11-20: comes on its own once the jet
 // stops at a base that is not the destination). Drives in, pumps, drives off.

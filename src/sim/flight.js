@@ -427,29 +427,27 @@ export class Flight {
     if (a.pos.x > this.lastX + 9000) this.crash('Lost. You flew right past the base.', -1);
   }
 
-  // Taxi: speed held to TAXI.maxKt until you stop at the holding point; then cleared.
+  // Taxi: speed held to TAXI.maxKt until you roll over the holding point (owner
+  // 2026-11-25: no stop there any more). Crossing it clears you and sets take-off
+  // power (TAXI.launchThrottle: 1 = full A/B) so the take-off run starts by itself.
   stepTaxi() {
     const a = this.ac, T = TAXI, tx = this.taxi;
     if (a.onGround && a.speedKt > T.maxKt) a.vel.x *= T.maxKt / a.speedKt;
-    const toHold = tx.holdX - a.pos.x;
-    if (a.engineOn && a.speedKt < T.stopKt && toHold < T.stopBeforeM && toHold > -T.stopAfterM) {
+    if (a.engineOn && a.pos.x >= tx.holdX) {
       tx.done = true; tx.doneAt = this.time;
+      a.throttle = Math.max(a.throttle, T.launchThrottle);
       this.emit('cleared');
-      this.say(`${this.callsign()}, cleared for take-off! Full power!`, true);
-    } else if (toHold <= -T.stopAfterM) {
-      // Rolled well past the line: cleared anyway once stopped (no dead end).
-      if (a.speedKt < T.stopKt) { tx.done = true; tx.doneAt = this.time; this.emit('cleared'); this.say('Past the line! Fine. Cleared for take-off!', true); }
+      this.say(`${this.callsign()}, cleared for take-off! Full power, go go go!`, true);
     }
   }
 
   // On-screen taxi prompt for the HUD: { t: title, s: subline } or null.
   get taxiCue() {
     const tx = this.taxi, a = this.ac;
-    if (tx.done) return this.time - tx.doneAt < TAXI.clearedShowS ? { t: 'CLEARED FOR TAKE-OFF', s: 'FULL POWER', go: true } : null;
+    if (tx.done) return this.time - tx.doneAt < TAXI.clearedShowS ? { t: 'CLEARED FOR TAKE-OFF', s: 'FULL POWER · PULL UP AT ROTATE SPEED', go: true } : null;
     if (!a.engineOn) return { t: 'START THE ENGINE', s: 'PRESS E' };
-    const d = tx.holdX - a.pos.x;
-    if (d > TAXI.promptStopM) return { t: 'TAXI TO THE HOLDING POINT', s: `${Math.round(d)} M · A LITTLE THROTTLE` };
-    return { t: 'STOP AT THE LINE', s: d > 2 ? `${Math.round(d)} M · BRAKE: HOLD B` : 'BRAKE: HOLD B' };
+    const d = Math.max(0, Math.round(tx.holdX - a.pos.x));
+    return { t: 'TAXI TO THE HOLDING POINT', s: `${d} M · A LITTLE THROTTLE · NO NEED TO STOP` };
   }
 
   onAircraftEvent(e) {
